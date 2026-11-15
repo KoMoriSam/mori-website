@@ -20,7 +20,7 @@ export async function deployWebsiteVersion(versionId, { env, assertCurrent, chan
     versions.some((v) => v.version_id === versionId && v.percentage === 0);
 
   async function verify(candidate = false) {
-    const headers = candidate ? { "Cloudflare-Workers-Version-Overrides": `website="${versionId}"` } : {};
+    const headers = candidate ? { "Cloudflare-Workers-Version-Overrides": `mori-website="${versionId}"` } : {};
     const get = (path, method = "GET") => request(new URL(path, origin), {
       method, headers, cache: "no-store", redirect: "error", signal: AbortSignal.timeout(6000),
     });

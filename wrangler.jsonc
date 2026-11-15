@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
 
-  "name": "website",
+  "name": "mori-website",
   "account_id": "a7542d1886208ba43b733c56517b605a",
 
   "compatibility_date": "2026-07-20",
@@ -12,8 +12,8 @@
   "version_metadata": { "binding": "WEBSITE_VERSION" },
   "services": [
     { "binding": "MORI_AUTH", "service": "mori-auth", "entrypoint": "SiteAuth" },
-    { "binding": "COMMENTS", "service": "api", "entrypoint": "CommentsInternal" },
-    { "binding": "PUBLIC_API", "service": "api" }
+    { "binding": "COMMENTS", "service": "mori-api", "entrypoint": "CommentsInternal" },
+    { "binding": "PUBLIC_API", "service": "mori-api" }
   ],
   "r2_buckets": [{ "binding": "NOVEL_VAULT", "bucket_name": "novel-vault" }],
   "assets": {

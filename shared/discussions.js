@@ -1,5 +1,5 @@
-const article = { name: "KoMoriSam/theWake", id: "R_kgDOTElB5w" };
-const novel = { name: "KoMoriSam/theHorizon", id: "R_kgDOOWZUkw" };
+const article = { name: "KoMoriSam/mori-blog-discussions", id: "R_kgDOTElB5w" };
+const novel = { name: "KoMoriSam/mori-novel-discussions", id: "R_kgDOOWZUkw" };
 const general = { name: "General", id: "DIC_kwDOOWZUk84C_2_B" };
 export const bookTerm = "《向远方》 | 远方之森";
 export const discussionRegistry = "site-data/discussion-targets.json";

@@ -212,7 +212,7 @@ export async function prepareContent(previous) {
       );
       if (before !== (await novelMetadataFingerprint(novelPublic))) {
         throw new Error(
-          "小说目录尚未同步完成。请等待 MyWritingVault 自动更新目录后重新构建。",
+          "小说目录尚未同步完成。请等待 mori-novels 自动更新目录后重新构建。",
         );
       }
       await validateNovelExport(novelPublic);

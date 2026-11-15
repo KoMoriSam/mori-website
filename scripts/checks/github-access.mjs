@@ -335,7 +335,7 @@ test("legacy discussion mapping, user permissions, reply counts and idempotent m
     if (String(url).endsWith("/access_tokens")) {
       installations++;
       const { repositories, permissions } = JSON.parse(options.body);
-      assert.deepEqual(repositories, ["theWake"]);
+      assert.deepEqual(repositories, ["mori-blog-discussions"]);
       assert.ok(["read", "write"].includes(permissions.discussions));
       return Response.json({ token: "test-installation-" + permissions.discussions, expires_at: new Date(Date.now() + 3600_000).toISOString() });
     }
@@ -356,7 +356,7 @@ test("legacy discussion mapping, user permissions, reply counts and idempotent m
     }
     if (query.includes("search(type: DISCUSSION")) {
       if (variables.query.endsWith('in:title "124"')) return Response.json({ data: { search: { nodes: [] } } });
-      assert.equal(variables.query, 'repo:komorisam/thewake category:"Announcements" in:title "123"');
+      assert.equal(variables.query, 'repo:komorisam/mori-blog-discussions category:"Announcements" in:title "123"');
       return Response.json({ data: { search: { nodes: [categoryMismatch ? { ...node, category: { id: "other" } } : node] } } });
     }
     if (query.includes("comments(first: 100")) return Response.json({ data: { node: {
@@ -579,12 +579,12 @@ test("native website version previews only serve public assets", async () => {
   assert.deepEqual(await production.json(), { version: "version-id" });
   assert.match(production.headers.get("Cache-Control"), /no-store/);
   const mismatch = await website.fetch(new Request(start + "/api/version", {
-    headers: { "Cloudflare-Workers-Version-Overrides": 'website="another-version"' },
+    headers: { "Cloudflare-Workers-Version-Overrides": 'mori-website="another-version"' },
   }), env);
   assert.equal(mismatch.status, 404);
   for (const [origin, headers] of [
-    ["https://version-website.example.workers.dev", {}],
-    [start, { "Cloudflare-Workers-Version-Overrides": 'website="version-id"' }],
+    ["https://version-mori-website.example.workers.dev", {}],
+    [start, { "Cloudflare-Workers-Version-Overrides": 'mori-website="version-id"' }],
   ]) {
     const response = await website.fetch(new Request(origin + "/content/post/index.json", { headers }), env);
     assert.equal(await response.text(), "version content");

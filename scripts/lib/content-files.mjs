@@ -102,7 +102,7 @@ export async function validateNovelSourceIdentities(directory) {
       const metadata = JSON.parse(await readFile(path.join(directory, entry.name, ".volume_uuid"), "utf8"));
       if (!uuidPattern.test(metadata.uuid)) throw new Error("Invalid volume UUID");
     } catch {
-      throw new Error(`小说稳定元数据尚未回写：${entry.name}/.volume_uuid，请先完成 MyWritingVault 元数据自动化。`);
+      throw new Error(`小说稳定元数据尚未回写：${entry.name}/.volume_uuid，请先完成 mori-novels 元数据自动化。`);
     }
   }
 }

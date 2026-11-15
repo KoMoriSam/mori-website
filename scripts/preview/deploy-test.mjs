@@ -19,7 +19,7 @@ const vars = {
 testDiscussionRepository(vars);
 
 const config = await readWorkerConfig();
-if (config.name !== "website" || config.assets?.directory !== "./dist")
+if (config.name !== "mori-website" || config.assets?.directory !== "./dist")
   throw new Error("Unexpected website Worker configuration");
 const env = deployEnvironment();
 if (env.CLOUDFLARE_ACCOUNT_ID && env.CLOUDFLARE_ACCOUNT_ID !== config.account_id)
@@ -63,8 +63,8 @@ try {
       services: [
         { binding: "MORI_AUTH", service: "mori-auth-test", entrypoint: "SiteAuth" },
         { binding: "TEST_AUTH", service: "mori-auth-test" },
-        { binding: "COMMENTS", service: "api-test", entrypoint: "CommentsInternal" },
-        { binding: "PUBLIC_API", service: "api-test" },
+        { binding: "COMMENTS", service: "mori-api-test", entrypoint: "CommentsInternal" },
+        { binding: "PUBLIC_API", service: "mori-api-test" },
       ],
       r2_buckets: [{ binding: "NOVEL_VAULT", bucket_name: testNovelBucket }],
       version_metadata: { binding: "WEBSITE_VERSION" },

@@ -19,7 +19,7 @@ const files = { auth: "wrangler.auth.jsonc", api: "wrangler.api.jsonc" };
 
 async function configuration(root, target) {
   const config = await readWorkerConfig(resolve(root, files[target]));
-  const expected = { auth: "mori-auth", api: "api" };
+  const expected = { auth: "mori-auth", api: "mori-api" };
   if (config.name !== expected[target] || config.build || config.env || config.previews)
     throw new Error(`Unexpected release Worker configuration: ${target}`);
   return config;

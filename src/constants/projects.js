@@ -14,7 +14,7 @@ export const PROJECTS = [
     description:
       "当前主站的源码，基于 Vue、Vite、Tailwind CSS 与 daisyUI 构建。",
     icon: "ri-layout-4-line",
-    href: "https://github.com/KoMoriSam/MoriWebsite",
+    href: "https://github.com/KoMoriSam/mori-website",
     meta: "Vue + daisyUI",
   },
 ];

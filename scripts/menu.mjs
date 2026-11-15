@@ -107,7 +107,7 @@ function choose(title, options) {
 }
 
 async function openReleasePage() {
-  const url = "https://github.com/KoMoriSam/MoriWebsite/actions/workflows/release.yml";
+  const url = "https://github.com/KoMoriSam/mori-website/actions/workflows/release.yml";
   console.log("普通开发提交留在 main。将有效的更新日志草稿推送到 main 后，工作流会自动发版并更新 production。");
   const [program, ...args] = process.platform === "win32"
     ? ["rundll32.exe", "url.dll,FileProtocolHandler", url]

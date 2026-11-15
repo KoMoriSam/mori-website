@@ -58,7 +58,7 @@
       </router-link>
       <a
         class="link link-hover"
-        href="https://github.com/KoMoriSam/MoriWebsite"
+        href="https://github.com/KoMoriSam/mori-website"
         target="_blank"
         rel="noopener noreferrer"
       >
@@ -67,7 +67,7 @@
       </a>
       <a
         class="link link-hover"
-        href="https://github.com/KoMoriSam/MoriWebsite/blob/main/LICENSE"
+        href="https://github.com/KoMoriSam/mori-website/blob/main/LICENSE"
       >
         {{ translate("licenses.projectLicense") }}
         <i class="ri-external-link-line" aria-hidden="true"></i>
@@ -102,7 +102,7 @@
       </a>
       <a
         class="link link-hover"
-        href="https://github.com/KoMoriSam/MoriWebsite/issues"
+        href="https://github.com/KoMoriSam/mori-website/issues"
         target="_blank"
         rel="noopener noreferrer"
       >
@@ -112,7 +112,7 @@
       </a>
       <a
         class="link link-hover"
-        href="https://github.com/KoMoriSam/MoriWebsite/discussions"
+        href="https://github.com/KoMoriSam/mori-website/discussions"
         target="_blank"
         rel="noopener noreferrer"
       >

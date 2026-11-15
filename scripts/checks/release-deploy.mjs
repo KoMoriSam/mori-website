@@ -29,6 +29,8 @@ function deployment({ initial = oldId, failCandidate = false, failActive = false
   };
   const request = async (url, { headers }) => {
     const overridden = "Cloudflare-Workers-Version-Overrides" in headers;
+    if (overridden)
+      assert.equal(headers["Cloudflare-Workers-Version-Overrides"], `mori-website="${candidateId}"`);
     const id = overridden
       ? active.versions.find(({ percentage }) => percentage === 0)?.version_id
       : active.versions.find(({ percentage }) => percentage === 100)?.version_id;

@@ -54,7 +54,7 @@ Le blog et le roman partagent une même interface de lecture, avec une table des
 
 Les articles prennent en charge la coloration syntaxique, les formules mathématiques, les diagrammes Mermaid, les notes de bas de page, les annotations de prononciation (ruby), les liens wiki et d’autres extensions Markdown. Il est possible d’accéder directement à un titre ou à un paragraphe, de consulter des contenus associés ou de transformer une sélection en image à partager. Les articles affichent aussi des recommandations, la date de leur dernière modification et des indications sur l’actualité des informations.
 
-**Les commentaires du site sont directement reliés à GitHub Discussions.** Après connexion avec GitHub, on peut publier, répondre, modifier ou supprimer ses commentaires et ajouter des réactions depuis le site. Des espaces de discussion sont accessibles pour les articles, les chapitres du roman et les paragraphes. Les commentaires peuvent être triés par popularité, du plus récent au plus ancien ou dans l’ordre inverse. L’affichage des longs commentaires et des fils de réponses imbriqués est adapté aux différentes tailles d’écran. Les discussions du blog et du roman sont conservées respectivement dans [theWake](https://github.com/KoMoriSam/theWake) et [theHorizon](https://github.com/KoMoriSam/theHorizon), sans interface de commentaires externe intégrée à la page.
+**Les commentaires du site sont directement reliés à GitHub Discussions.** Après connexion avec GitHub, on peut publier, répondre, modifier ou supprimer ses commentaires et ajouter des réactions depuis le site. Des espaces de discussion sont accessibles pour les articles, les chapitres du roman et les paragraphes. Les commentaires peuvent être triés par popularité, du plus récent au plus ancien ou dans l’ordre inverse. L’affichage des longs commentaires et des fils de réponses imbriqués est adapté aux différentes tailles d’écran. Les discussions du blog et du roman sont conservées respectivement dans [mori-blog-discussions](https://github.com/KoMoriSam/mori-blog-discussions) et [mori-novel-discussions](https://github.com/KoMoriSam/mori-novel-discussions), sans interface de commentaires externe intégrée à la page.
 
 L’interface du site est disponible en **chinois simplifié, anglais, français et cinghalais**. Les traductions du blog ont chacune leur propre URL, ce qui facilite leur partage et leur indexation. On peut changer la langue d’un article indépendamment de celle de l’interface.
 
@@ -79,8 +79,8 @@ Le processus de construction examine les changements pour décider s’il faut i
 Prérequis : **Node.js 24.15 ou supérieur dans la série 24.x, ou Node.js 26 ou supérieur**, et **pnpm 12.3.4**.
 
 ```bash
-git clone https://github.com/KoMoriSam/MoriWebsite.git
-cd MoriWebsite
+git clone https://github.com/KoMoriSam/mori-website.git
+cd mori-website
 pnpm install
 pnpm dev
 ```
@@ -120,4 +120,4 @@ Les informations relatives aux licences des ressources tierces sont disponibles 
 
 ## Retours et suggestions
 
-Signalez un problème ou proposez une amélioration via les [issues GitHub](https://github.com/KoMoriSam/MoriWebsite/issues). Pour discuter d’un article ou du roman, vous pouvez aussi laisser un commentaire sur la page concernée.
+Signalez un problème ou proposez une amélioration via les [issues GitHub](https://github.com/KoMoriSam/mori-website/issues). Pour discuter d’un article ou du roman, vous pouvez aussi laisser un commentaire sur la page concernée.
