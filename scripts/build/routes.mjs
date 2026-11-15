@@ -1,3 +1,4 @@
+import { writeStaticChangelog } from "../release/changelog-content.mjs";
 import dotenv from "dotenv";
 import { publicCatalog } from "./novel-release.mjs";
 import fs from "fs";
@@ -60,9 +61,7 @@ if (!novelIndexRes.ok) {
 }
 
 const novelChapters = publicCatalog(await novelIndexRes.json());
-const changelog = JSON.parse(
-  fs.readFileSync(path.resolve("public/changelog.json"), "utf-8"),
-);
+const changelog = await writeStaticChangelog();
 
 const ssgDataFile = `
 // AUTO GENERATED

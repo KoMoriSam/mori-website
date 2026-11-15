@@ -11,7 +11,8 @@ export const PROJECT_ROOT = resolve(SCRIPT_DIR, "../..");
 export const CHANGELOG_DIR = join(PROJECT_ROOT, "changelog", "releases");
 export const STATIC_CHANGELOG_PATH = join(
   PROJECT_ROOT,
-  "public",
+  ".tmp",
+  "changelog",
   "changelog.json",
 );
 export const CHANGELOG_SCHEMA_VERSION = 1;
@@ -508,13 +509,13 @@ export const validateChangelogPayload = (
   };
 };
 
-export const writeStaticChangelog = async (releases = null) => {
-  const entries = releases || (await readReleaseFiles());
+export const writeStaticChangelog = async (releases = null, output = STATIC_CHANGELOG_PATH) => {
+  const entries = releases || (await readReleaseFiles({ allowDraftPlaceholders: true }));
   const basePayload = createChangelogPayload(entries);
   const payload = { ...basePayload, serverTime: basePayload.updatedAt };
-  await mkdir(dirname(STATIC_CHANGELOG_PATH), { recursive: true });
+  await mkdir(dirname(output), { recursive: true });
   await writeFile(
-    STATIC_CHANGELOG_PATH,
+    output,
     `${JSON.stringify(payload, null, 2)}\n`,
     "utf8",
   );

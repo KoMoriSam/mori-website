@@ -31,13 +31,13 @@ const upload = flags.has("--upload") || flags.has("--deploy");
 const dryRun = flags.has("--dry-run") || flags.has("--explain");
 const profile = flags.has("--profile");
 if ([...flags].some((flag) => !["--upload", "--deploy", "--dry-run", "--explain", "--full", "--profile"].includes(flag)) ||
-    upload && dryRun) {
+    upload && dryRun || flags.has("--upload") && flags.has("--deploy")) {
   throw new Error("Usage: pnpm build:smart [--upload | --deploy | --dry-run | --explain] [--full] [--profile]");
 }
 if (upload) {
   await run(["node", "scripts/build/version.mjs",
     ...(flags.has("--full") ? ["--full"] : []),
-    ...(flags.has("--deploy") ? ["--deploy"] : []),
+    ...(flags.has("--deploy") ? ["--deploy"] : ["--upload"]),
   ]);
   process.exit(0);
 }
@@ -192,7 +192,7 @@ try {
         .filter(([key]) => key.startsWith("VITE_"))
         .sort(),
     );
-    const files = [...new Set(tracked)].sort();
+    const files = [...new Set(tracked)].filter((file) => file !== "public/changelog.json").sort();
     const inputs = await observeBuild("inputs", "hash website files", async (update) => {
       const inputs = [];
       for (const file of files) {
@@ -247,7 +247,7 @@ try {
           throw new InvalidSnapshot("invalid snapshot metadata");
         });
         if (
-          state.schema !== 2 ||
+          state.schema !== 3 ||
           !/^[a-f0-9-]{36}$/u.test(state.id) ||
           !state.site ||
           !state.content ||
@@ -278,6 +278,7 @@ try {
         await observeBuild("restore", "validate restored structure", async () => {
           const files = [
             "dist/index.html",
+            "dist/changelog.json",
             ".tmp/site-renderer/template.html",
             ".tmp/site-renderer/server/main.mjs",
           ];
@@ -392,7 +393,6 @@ try {
           return;
         }
         await step("build/static-assets");
-        await step("release/changelog", "generate");
         await step("build/licenses", "--source");
       }
       await step(
@@ -496,7 +496,7 @@ try {
       ),
     };
     const state = {
-      schema: 2,
+      schema: 3,
       id,
       fingerprint,
       contentFingerprint,

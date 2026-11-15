@@ -25,6 +25,7 @@ mock
 .output
 *.old*
 /public/rss.xml
+/public/changelog.json
 
 # ViteSSG build output
 src/router/ssg-data.generated.js

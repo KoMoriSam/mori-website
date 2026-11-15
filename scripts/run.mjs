@@ -11,7 +11,6 @@ const prepare = (production) => [
   ...(!production ? [script("build/mock-articles.mjs")] : []),
   assets,
   script("build/images.mjs", ...(production ? ["--production"] : [])),
-  changelog("generate"),
   ...(production ? [routes, script("build/rss.mjs")] : []),
   script("build/licenses.mjs", "--source"),
 ];

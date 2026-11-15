@@ -58,7 +58,7 @@ export function snapshotStore({ prefix = "SSG_R2", namespace: fixedNamespace, de
   } = settings;
   const endpoint = endpointSetting.replace(/\/$/u, "");
   const objectPrefix = namespace + "/";
-  async function request(method, name, { input, output, create } = {}) {
+  async function request(method, name, { input, output, condition, metadata = false } = {}) {
     const args = [
       "--silent",
       "--show-error",
@@ -75,9 +75,11 @@ export function snapshotStore({ prefix = "SSG_R2", namespace: fixedNamespace, de
       "--write-out",
       "%{http_code}",
     ];
+    if (metadata) args.push("--dump-header", "-");
     if (method === "HEAD") args.push("--head");
     if (input) args.push("--upload-file", input);
-    if (create) args.push("--header", "If-None-Match: *");
+    if (condition === true) args.push("--header", "If-None-Match: *");
+    else if (condition) args.push("--header", `If-Match: ${condition}`);
     args.push(`${endpoint}/${bucket}/${(objectPrefix + name).split("/").map(encodeURIComponent).join("/")}`);
     return new Promise((resolveRequest, reject) => {
       const child = spawn("curl", args, { env: buildEnvironment(), stdio: ["pipe", "pipe", "inherit"] });
@@ -88,14 +90,15 @@ export function snapshotStore({ prefix = "SSG_R2", namespace: fixedNamespace, de
       });
       child.once("error", reject);
       child.stdin.on("error", reject);
-      child.once("close", (code) =>
-        code === 0
-          ? resolveRequest({
-              status: Number(response.slice(-3)),
-              body: response.slice(0, -3),
-            })
-          : reject(new Error(`R2 snapshot request failed (${method} ${name})`)),
-      );
+      child.once("close", (code) => {
+        if (code !== 0) return reject(new Error(`R2 snapshot request failed (${method} ${name})`));
+        const body = response.slice(0, -3);
+        const header = (name) => body.match(new RegExp(`^${name}:[ \t]*(.+)$`, "im"))?.[1]?.trim();
+        resolveRequest({
+          status: Number(response.slice(-3)), body,
+          ...(metadata ? { etag: header("etag"), modified: header("last-modified") } : {}),
+        });
+      });
       child.stdin.end(`user = "${key}:${secret}"\n`);
     });
   }
@@ -116,6 +119,13 @@ export function snapshotStore({ prefix = "SSG_R2", namespace: fixedNamespace, de
     const code = body.match(/<Code>([A-Za-z][A-Za-z0-9]{0,63})<\/Code>/u)?.[1];
     return new Error(`R2 ${method} ${name}: ${status}${code ? ` (${code})` : ""}`);
   }
+  async function put(name, input, condition, metadata) {
+    const response = await request("PUT", name, { input, condition, metadata });
+    if (condition && response.status === 412) return null;
+    if (response.status !== 200) throw await responseError("PUT", name, response);
+    return response;
+  }
+
   return {
     async exists(name) {
       const response = await request("HEAD", name);
@@ -131,11 +141,20 @@ export function snapshotStore({ prefix = "SSG_R2", namespace: fixedNamespace, de
       return true;
     },
     async put(name, input, create = false) {
-      const response = await request("PUT", name, { input, create });
-      if (create && response.status === 412) return false;
-      if (response.status !== 200)
-        throw await responseError("PUT", name, response);
-      return true;
+      return Boolean(await put(name, input, create));
+    },
+    async getLock(name, output) {
+      const response = await request("GET", name, { output, metadata: true });
+      if (response.status === 404) return null;
+      if (response.status !== 200) throw await responseError("GET", name, response, output);
+      if (!response.etag || !Number.isFinite(Date.parse(response.modified)))
+        throw new Error("R2 did not return the lock's ETag and modification time");
+      return { etag: response.etag, modified: Date.parse(response.modified) };
+    },
+    async putLock(name, input, condition) {
+      const response = await put(name, input, condition, true);
+      if (response && !response.etag) throw new Error("R2 did not return the written lock's ETag");
+      return response?.etag;
     },
     async delete(name) {
       const response = await request("DELETE", name);

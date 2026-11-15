@@ -8,7 +8,7 @@ import { releaseFile } from "../../shared/novel-release.js";
 import { run } from "../lib/commands.mjs";
 import { authConfig, apiConfig, directory, persist } from "./config.mjs";
 import { loadLocalAnnouncements } from "../release/announcement.mjs";
-import { STATIC_CHANGELOG_PATH, writeStaticChangelog } from "../release/changelog-content.mjs";
+import { writeStaticChangelog } from "../release/changelog-content.mjs";
 
 const digest = (body) => createHash("sha256").update(body).digest("hex");
 const json = async (path, value) => {
@@ -34,10 +34,11 @@ async function seedPublicData(env) {
   });
   const file = resolve(directory, "announcements.json");
   await json(file, { schemaVersion: 1, updatedAt: new Date().toISOString(), items });
-  await writeStaticChangelog();
+  const changelog = resolve(directory, "assets/changelog.json");
+  await writeStaticChangelog(null, changelog);
   for (const [binding, key, path] of [
     ["ANNOUNCEMENTS_KV", "announcements:v1", file],
-    ["CHANGELOG_KV", "changelog:v1", STATIC_CHANGELOG_PATH],
+    ["CHANGELOG_KV", "changelog:v1", changelog],
   ]) await run(["wrangler", "kv", "key", "put", key, "--path", path, "--binding", binding,
     "--local", "--persist-to", persist, "--config", apiConfig], { env });
 }

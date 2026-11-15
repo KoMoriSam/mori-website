@@ -1,3 +1,4 @@
+import { createHash, randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -6,13 +7,15 @@ import { assertPublicVite, buildEnvironment, deployEnvironment, sameOriginAssets
 import { buildEvent, observeBuild } from "../lib/build-report.mjs";
 import { publishStores, readWorkerConfig } from "../lib/worker-config.mjs";
 import { deployWebsiteVersion } from "./website-deployment.mjs";
+import { changelogRevision } from "../../shared/changelog.js";
 import { versionInputs } from "./version-inputs.mjs";
 
-const branch = process.env.SSG_PRODUCTION_BRANCH || "production";
+const branch = "production";
 const full = process.argv.includes("--full");
-const deploy = process.argv.includes("--deploy");
-if (process.argv.slice(2).some((arg) => !["--full", "--deploy"].includes(arg)))
-  throw new Error("Usage: node scripts/build/version.mjs [--full] [--deploy]");
+const deploy = !process.argv.includes("--upload");
+if (process.argv.slice(2).some((arg) => !["--full", "--deploy", "--upload"].includes(arg)) ||
+    !deploy && process.argv.includes("--deploy"))
+  throw new Error("Usage: node scripts/build/version.mjs [--full] [--upload | --deploy]");
 if (process.env.WORKERS_CI !== "1" || process.env.WORKERS_CI_BRANCH !== branch ||
     process.env.CONTENT_BLOG_DIR || process.env.CONTENT_NOVEL_DIR)
   throw new Error(`Version uploads require the trusted Workers Builds branch (${branch})`);
@@ -38,6 +41,7 @@ await mkdir(".tmp", { recursive: true });
 const scratch = await mkdtemp(resolve(".tmp/website-version-"));
 const pointer = resolve(scratch, "version.json");
 const releaseReceipt = resolve(scratch, "release.json");
+const existingLock = resolve(scratch, "existing-owner");
 const marker = resolve(scratch, "owner");
 const lock = "publish.lock";
 const resultFile = resolve(scratch, "build.json");
@@ -53,33 +57,59 @@ const install = () => new Promise((done, reject) => {
   child.once("error", reject);
   child.once("close", (code) => code === 0 ? done() : reject(new Error(`pnpm install failed (${code})`)));
 });
-let locked = false;
+let lockEtag;
 try {
-  await writeFile(marker, process.env.WORKERS_CI_BUILD_UUID || "website");
+  await writeFile(marker, randomUUID());
   await observeBuild("version", "acquire build lock", async () => {
     const deadline = Date.now() + 120_000;
-    while (!(locked = await cache.put(lock, marker, true))) {
-      if (Date.now() > deadline) throw new Error("The snapshot bucket publish.lock is held by another build");
+    while (!lockEtag) {
+      const current = await cache.getLock(lock, existingLock);
+      // Workers Builds kills builds after 20 minutes. A longer lease lets a
+      // cancelled build's lock expire without letting two builds publish at once.
+      if (!current || Date.now() - current.modified > 22 * 60_000 ||
+          await readFile(existingLock, "utf8") === "released") {
+        lockEtag = await cache.putLock(lock, marker, current?.etag || true);
+        if (lockEtag) break;
+      }
+      if (Date.now() > deadline) throw new Error("Another build holds publish.lock; it expires if that build was interrupted");
       await new Promise((done) => setTimeout(done, 3000));
     }
   });
   const { inputs, fingerprint } = await observeBuild("version", "resolve pinned inputs", versionInputs);
   if (deploy) await assertCurrentProduction(inputs.websiteCommit);
   const previous = await readPointer();
-  const reuse = !full && previous?.fingerprint === fingerprint && versionIdPattern.test(previous.versionId);
-  if (deploy || !reuse) await observeBuild("version", "install locked dependencies", install);
-  const record = reuse ? previous : await prepareVersion(inputs, fingerprint, previous);
+  await observeBuild("version", "install locked dependencies", install);
+  let changelog, digest, needsSync;
+  if (deploy) {
+    const { createChangelogPayload, readReleaseFiles } = await import("../release/changelog-content.mjs");
+    changelog = createChangelogPayload(await readReleaseFiles({ allowDraftPlaceholders: true }));
+    digest = createHash("sha256").update(changelogRevision(changelog)).digest("hex");
+    const receipt = await cache.get("release.json", releaseReceipt) ?
+      JSON.parse(await readFile(releaseReceipt, "utf8")) : null;
+    needsSync = receipt?.digest !== digest;
+    if (needsSync) await assertReleaseTag(changelog.items[0].version, inputs.websiteCommit);
+  }
+  const versions = JSON.parse(await observeBuild("version", "check existing Worker versions", () =>
+    run(["wrangler", "versions", "list", "--config", "wrangler.jsonc", "--json"], { env: wranglerEnv, capture: true })));
+  const reuse = !full && previous?.fingerprint === fingerprint &&
+    versionIdPattern.test(previous.versionId) && versions.some(({ id }) => id === previous.versionId);
+  const record = reuse ? previous : await prepareVersion(inputs, fingerprint, previous, versions);
   if (reuse) buildEvent("version", "input fingerprint", "skip", { reason: "inputs unchanged", ...record });
   if (deploy) {
     await deployWebsiteVersion(record.versionId, {
       env: wranglerEnv,
       assertCurrent: () => assertCurrentProduction(inputs.websiteCommit),
+      changelog,
     });
-    if (branch === "production") await syncWebsiteRelease(inputs.websiteCommit);
+    if (needsSync) await syncWebsiteRelease(record.versionId, digest);
+    else buildEvent("release", "sync changelog", "skip", { reason: "revision already verified", digest });
   }
 } finally {
   try {
-    if (locked) await cache.delete(lock);
+    if (lockEtag) {
+      await writeFile(marker, "released");
+      await cache.putLock(lock, marker, lockEtag);
+    }
   } finally {
     await rm(scratch, { recursive: true, force: true });
   }
@@ -92,45 +122,35 @@ async function assertCurrentProduction(commit) {
     throw new Error(`This build is no longer at the head of ${branch}`);
 }
 
-async function syncWebsiteRelease(commit) {
-  const { version } = JSON.parse(await readFile("package.json", "utf8"));
-  const exists = await cache.get("release.json", releaseReceipt);
-  if (exists && JSON.parse(await readFile(releaseReceipt, "utf8")).version === version) return;
+async function assertReleaseTag(version, commit) {
+  const tag = `refs/tags/v${version}`;
+  const remote = "https://github.com/KoMoriSam/MoriWebsite.git";
+  const env = { ...buildEnvironment(), GIT_TERMINAL_PROMPT: "0" };
+  const options = () => ({ env, signal: AbortSignal.timeout(45_000) });
+  await run(["git", "fetch", "--no-tags", remote, tag], options());
+  const tagged = await run(["git", "rev-parse", "FETCH_HEAD^{commit}"], { capture: true });
+  if (tagged !== commit && await run(["git", "rev-parse", "--is-shallow-repository"], { capture: true }) === "true") {
+    await run(["git", "fetch", "--no-tags", "--unshallow", remote, `refs/heads/${branch}`], options());
+  }
+  await run(["git", "merge-base", "--is-ancestor", tagged, commit]);
+}
 
+async function syncWebsiteRelease(versionId, digest) {
   await observeBuild("release", "sync changelog", async () => {
-    await assertCurrentProduction(commit);
-    const gitEnv = { ...buildEnvironment(), GIT_TERMINAL_PROMPT: "0" };
-    const tag = `refs/tags/v${version}`;
-    const remote = "https://github.com/KoMoriSam/MoriWebsite.git";
-    const listed = await run(["git", "ls-remote", remote, tag],
-      { capture: true, env: gitEnv, signal: AbortSignal.timeout(30_000) });
-    if (!listed) return;
-    await run(["git", "fetch", "--no-tags", remote, tag],
-      { env: gitEnv, signal: AbortSignal.timeout(30_000) });
-    const [releaseTree, deployedTree] = await Promise.all([
-      run(["git", "rev-parse", "FETCH_HEAD^{tree}"], { capture: true }),
-      run(["git", "rev-parse", `${commit}^{tree}`], { capture: true }),
-    ]);
-    if (releaseTree !== deployedTree) {
-      buildEvent("release", "release tag", "skip", { reason: "build is not the tagged release", version });
-      return;
-    }
     const env = { ...wranglerEnv, CLOUDFLARE_ACCOUNT_ID: config.account_id,
       WORKERS_CI: "1", WORKERS_CI_BRANCH: branch };
     delete env.WRANGLER_CI_OVERRIDE_NAME;
     delete env.WRANGLER_CI_MATCH_TAG;
-    await run(["node", "scripts/release/cli.mjs", "sync", version], { env });
-    await writeFile(releaseReceipt, JSON.stringify({ version, commit }));
+    await run(["node", "scripts/release/cli.mjs", "sync", versionId], { env });
+    await writeFile(releaseReceipt, JSON.stringify({ digest, versionId, verifiedAt: new Date().toISOString() }));
     await cache.put("release.json", releaseReceipt);
-  }, { version });
+  }, { versionId });
 }
 
-async function prepareVersion(inputs, fingerprint, previous) {
+async function prepareVersion(inputs, fingerprint, previous, versions) {
   buildEvent("version", "input fingerprint", "miss", { fingerprint, websiteCommit: inputs.websiteCommit, sources: inputs.sources });
   const tag = `input-${fingerprint.slice(0, 26)}`;
   const message = `MoriWebsite inputs ${fingerprint}`;
-  const versions = JSON.parse(await observeBuild("version", "check existing Worker versions", () =>
-    run(["wrangler", "versions", "list", "--config", "wrangler.jsonc", "--json"], { env: wranglerEnv, capture: true })));
   const uploaded = !full && versions.find(({ id, annotations }) =>
     versionIdPattern.test(id) && annotations?.["workers/tag"] === tag && annotations?.["workers/message"] === message);
   if (uploaded) {

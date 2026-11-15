@@ -1,19 +1,19 @@
 import { spawn } from "node:child_process";
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
-import { createInterface } from "node:readline/promises";
+import { sameChangelog } from "../../shared/changelog.js";
+import { readWorkerConfig } from "../lib/worker-config.mjs";
+import { run } from "../lib/commands.mjs";
 import { waitForPublishedContent } from "./verify-published.mjs";
 
 import {
   CHANGELOG_DIR,
   PROJECT_ROOT,
   SEMVER_BUMPS,
-  STATIC_CHANGELOG_PATH,
   compareVersions,
   createChangelogPayload,
   formatLocalDate,
-  formatLocalIso,
   nextVersion,
   parseReleaseMarkdown,
   readReleaseFiles,
@@ -27,7 +27,6 @@ const CONFIG_PATH = "wrangler.api.jsonc";
 const KV_BINDING = "CHANGELOG_KV";
 const KV_KEY = "changelog:v1";
 const PUBLIC_ENDPOINT = "https://api.komori.cc/changelog";
-const WRANGLER_BIN = join(PROJECT_ROOT, "node_modules", "wrangler", "bin", "wrangler.js");
 const BACKUP_DIR = join(PROJECT_ROOT, ".tmp", "changelog-backups");
 const TEMP_DIR = join(PROJECT_ROOT, ".tmp", "changelog");
 const PACKAGE_PATH = join(PROJECT_ROOT, "package.json");
@@ -50,11 +49,10 @@ const helpText = `撰写版本更新日志，准备发布资料，并将更新�
   check                                 检查版本内容与发布顺序
   generate                              生成供网站展示的更新日志
   prepare <version> [--date YYYY-MM-DD] 同步版本号、项目说明和更新日志
-  publish [--dry-run] [--yes]           上线全部正式版本的更新记录
+  publish --dry-run                    查看正式更新日志的同步差异
 
 选项：
   --dry-run    预览版本准备或发布结果
-  --yes        跳过远端发布确认
 `;
 
 const parseOptions = (args) => {
@@ -105,67 +103,29 @@ const openEditor = async (path) => {
   });
 };
 
-const confirm = async (message) => {
-  if (!process.stdin.isTTY) throw new Error("非交互环境发布时请添加 --yes。");
-  const prompt = createInterface({ input: process.stdin, output: process.stdout });
+async function getRemotePayload(request = fetch) {
+  const { kv_namespaces: namespaces } = await readWorkerConfig(CONFIG_PATH);
+  const account = process.env.CLOUDFLARE_ACCOUNT_ID || (await readWorkerConfig()).account_id;
+  const namespace = namespaces?.find(({ binding }) => binding === KV_BINDING)?.id;
+  if (!namespace || !account || !process.env.CLOUDFLARE_API_TOKEN)
+    throw new Error("缺少更新日志 KV 配置或 Workers Builds API Token。");
+  const response = await request(
+    `https://api.cloudflare.com/client/v4/accounts/${account}/storage/kv/namespaces/${namespace}/values/${encodeURIComponent(KV_KEY)}`,
+    {
+      headers: { Authorization: `Bearer ${process.env.CLOUDFLARE_API_TOKEN}` },
+      signal: AbortSignal.timeout(15_000),
+    },
+  );
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(`读取更新日志 KV 失败（HTTP ${response.status}）。`);
+  const raw = await response.text();
   try {
-    return /^(?:y|yes)$/i.test((await prompt.question(`${message} [y/N] `)).trim());
-  } finally {
-    prompt.close();
-  }
-};
-
-const runWrangler = async (args, { capture = false } = {}) =>
-  new Promise((resolvePromise, rejectPromise) => {
-    const child = spawn(process.execPath, [WRANGLER_BIN, ...args], {
-      cwd: PROJECT_ROOT,
-      env: process.env,
-      stdio: capture ? ["ignore", "pipe", "pipe"] : "inherit",
-      windowsHide: true,
-    });
-    let stdout = "";
-    let stderr = "";
-    if (capture) {
-      child.stdout.setEncoding("utf8");
-      child.stderr.setEncoding("utf8");
-      child.stdout.on("data", (chunk) => (stdout += chunk));
-      child.stderr.on("data", (chunk) => (stderr += chunk));
-    }
-    child.on("error", rejectPromise);
-    child.on("exit", (code) => {
-      if (code === 0) resolvePromise({ stdout, stderr });
-      else rejectPromise(new Error(`Wrangler 命令失败（${code}）${stderr.trim() ? `：\n${stderr.trim()}` : ""}`));
-    });
-  });
-
-const kvArguments = (command) => [
-  "kv",
-  "key",
-  command,
-  KV_KEY,
-  "--binding",
-  KV_BINDING,
-  "--remote",
-  "--config",
-  CONFIG_PATH,
-];
-
-const getRemotePayload = async () => {
-  const { stdout } = await runWrangler([...kvArguments("get"), "--text"], { capture: true });
-  const firstBrace = stdout.indexOf("{");
-  const lastBrace = stdout.lastIndexOf("}");
-  const raw = firstBrace >= 0 && lastBrace > firstBrace
-    ? stdout.slice(firstBrace, lastBrace + 1)
-    : stdout.trim();
-  if (!raw) throw new Error("远端 changelog:v1 尚未初始化。");
-  let payload;
-  try {
-    payload = JSON.parse(raw.replace(/^\uFEFF/, ""));
+    return validateChangelogPayload(JSON.parse(raw), { source: "远端 KV" });
   } catch {
-    throw new Error("远端 changelog:v1 不是有效 JSON，已停止发布。");
+    console.warn("远端更新日志格式无效，将以已部署网站的 Markdown 数据为准。");
+    return null;
   }
-  return validateChangelogPayload(payload, { source: "远端 KV" });
-};
+}
 
 const releaseMap = (items) => new Map(items.map((item) => [item.version, item]));
 
@@ -189,91 +149,62 @@ const printDiff = ({ added, changed, removed }) => {
   print("~", "修改", changed);
   print("-", "移除", removed);
   if (!added.length && !changed.length && !removed.length) {
-    console.log("更新日志已与网站一致。本次发布将更新同步时间。");
+    console.log("更新日志内容已与网站一致。");
   }
 };
 
-const verifyRemoteWrite = async (updatedAt) => {
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    const payload = await getRemotePayload();
-    if (payload.updatedAt === new Date(Date.parse(updatedAt)).toISOString()) return true;
-    await new Promise((resolvePromise) => setTimeout(resolvePromise, 1000));
-  }
-  return false;
-};
-
-const verifyPublicEndpoint = async (updatedAt) => {
+const verifyPublicEndpoint = async (expected, request) => {
   try {
-    const response = await fetch(`${PUBLIC_ENDPOINT}?publish=${Date.now()}`, {
+    const response = await request(`${PUBLIC_ENDPOINT}?publish=${Date.now()}`, {
       cache: "no-store",
       headers: { Accept: "application/json" },
       signal: AbortSignal.timeout(6000),
     });
-    if (!response.ok) return false;
-    const payload = validateChangelogPayload(await response.json(), {
-      requireServerTime: true,
-      source: "公开接口",
-    });
-    return payload.updatedAt === new Date(Date.parse(updatedAt)).toISOString();
+    return response.ok && sameChangelog(expected, validateChangelogPayload(await response.json(), {
+      requireServerTime: true, source: "公开接口",
+    }));
   } catch {
     return false;
   }
 };
 
-const publishReleases = async (releases, { dryRun = false, yes = false, releaseVersion } = {}) => {
-  let updatedAt = formatLocalIso();
-  const localPayload = createChangelogPayload(releases, { updatedAt });
-  const remotePayload = await getRemotePayload();
-  if (releaseVersion) {
-    if (remotePayload.items.some(({ version }) => compareVersions(version, releaseVersion) > 0))
-      throw new Error("远端更新日志已有更新版本，已停止同步。");
-    const items = releaseMap(remotePayload.items);
-    for (const release of localPayload.items) {
-      if (release.version === releaseVersion || !items.has(release.version)) items.set(release.version, release);
-    }
-    localPayload.items = [...items.values()].sort((left, right) => compareVersions(right.version, left.version));
-  }
-  const diff = diffPayloads(localPayload.items, remotePayload.items);
-  console.log(`本地正式版本：${localPayload.items.length} 个；远端版本：${remotePayload.items.length} 个。`);
-  const unchanged = !diff.added.length && !diff.changed.length && !diff.removed.length;
-  if (releaseVersion && unchanged) console.log("更新日志已同步，检查线上接口。");
-  else printDiff(diff);
-  if (dryRun) {
-    console.log("\n更新日志发布预览完成。确认以上内容后，移除 --dry-run 再次运行以正式发布。");
-    return { published: false, payload: localPayload };
-  }
-  if (!yes && !(await confirm("确认将以上正式版本的更新日志发布到网站？已发布内容将备份后替换。"))) {
-    console.log("已取消发布。");
-    return { published: false, payload: localPayload };
-  }
-
-  if (releaseVersion && unchanged) {
-    updatedAt = remotePayload.updatedAt;
-  } else {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const backupPath = join(BACKUP_DIR, `${timestamp}.json`);
-    const publishPath = join(TEMP_DIR, `publish-${process.pid}.json`);
-    await mkdir(BACKUP_DIR, { recursive: true });
-    await mkdir(TEMP_DIR, { recursive: true });
-    await writeFile(backupPath, `${JSON.stringify(remotePayload, null, 2)}\n`, "utf8");
-    await writeFile(publishPath, `${JSON.stringify(localPayload, null, 2)}\n`, "utf8");
-    try {
-      await runWrangler([...kvArguments("put"), "--path", publishPath]);
-    } finally {
-      await unlink(publishPath).catch(() => {});
-    }
-    if (!(await verifyRemoteWrite(updatedAt))) {
-      throw new Error(`KV 写入后校验失败。远端旧数据备份位于：${backupPath}`);
-    }
-    console.log(`远端备份：${backupPath}`);
-  }
-  const publicVerified = releaseVersion
-    ? await waitForPublishedContent(() => verifyPublicEndpoint(updatedAt))
-    : await verifyPublicEndpoint(updatedAt);
-  console.log(`\n发布成功：${localPayload.items.length} 个版本。`);
-  console.log(publicVerified ? "网站已可获取本次更新日志。" : "更新日志已保存到云端，网站接口尚未返回本次内容。请稍后查看网站。");
-  return { published: true, payload: localPayload };
+export const publishAllReleases = async ({ dryRun }) => {
+  if (!dryRun) throw new Error("更新日志只在正式网站部署验证后自动同步；可用 --dry-run 查看差异。");
+  const local = createChangelogPayload(await readReleaseFiles({ allowDraftPlaceholders: true }));
+  const remote = await getRemotePayload();
+  printDiff(diffPayloads(local.items, remote?.items || []));
 };
+
+export async function publishReleaseChangelog(versionId,
+  { request = fetch, command = run, wait = waitForPublishedContent } = {}) {
+  const payload = createChangelogPayload(await readReleaseFiles({ allowDraftPlaceholders: true }));
+  const remote = await getRemotePayload(request);
+  // Retry a write only when needed. A previous attempt may have written KV but timed
+  // out waiting for propagation; in that case just verify the public endpoint again.
+  if (!sameChangelog(payload, remote)) {
+    const active = await request("https://komori.cc/api/version", {
+      cache: "no-store", signal: AbortSignal.timeout(6000),
+    });
+    if (!active.ok || (await active.json()).version !== versionId)
+      throw new Error("更新日志所属的网站版本未在线上生效。");
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    await mkdir(TEMP_DIR, { recursive: true });
+    const file = join(TEMP_DIR, `publish-${process.pid}.json`);
+    if (remote) {
+      await mkdir(BACKUP_DIR, { recursive: true });
+      await writeFile(join(BACKUP_DIR, `${timestamp}.json`), JSON.stringify(remote), "utf8");
+    }
+    await writeFile(file, JSON.stringify(payload), "utf8");
+    try {
+      await command(["wrangler", "kv", "key", "put", KV_KEY, "--binding", KV_BINDING,
+        "--remote", "--config", CONFIG_PATH, "--path", file]);
+    } finally {
+      await unlink(file).catch(() => {});
+    }
+  }
+  await wait(() => verifyPublicEndpoint(payload, request));
+  console.log(`更新日志同步并验证成功：${payload.items.length} 个版本。`);
+}
 
 const findRelease = async (version, options) => {
   if (!version) throw new Error("请提供版本号。");
@@ -400,36 +331,6 @@ export const verifyReleaseVersion = async (expectedVersion) => {
   return { entries, version: latest.version };
 };
 
-export const publishAllReleases = async ({ dryRun, yes }) => {
-  const entries = await readReleaseFiles();
-  const result = await publishReleases(entries, { dryRun, yes });
-  if (result.published) {
-    await writeStaticChangelog(entries);
-    console.log("静态更新日志快照已同步。\n");
-  }
-  return result;
-};
-
-const readOptionalFile = async (path) => {
-  try {
-    return await readFile(path, "utf8");
-  } catch (error) {
-    if (error.code === "ENOENT") return null;
-    throw error;
-  }
-};
-
-const restoreFile = async (path, content) => {
-  if (content === null) {
-    await unlink(path).catch((error) => {
-      if (error.code !== "ENOENT") throw error;
-    });
-    return;
-  }
-  await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, content, "utf8");
-};
-
 const updatePackageVersion = (content, currentVersion, nextVersionValue) => {
   const escapedVersion = currentVersion.replaceAll(".", "\\.");
   const pattern = new RegExp(
@@ -472,14 +373,11 @@ export const prepareRelease = async (version, { date, dryRun = false } = {}) => 
     return;
   }
 
-  const snapshots = new Map(readmes.map(({ path, content }) => [path, content]));
-  for (const path of [
-    entry.path,
-    PACKAGE_PATH,
-    STATIC_CHANGELOG_PATH,
-  ]) {
-    snapshots.set(path, await readOptionalFile(path));
-  }
+  const snapshots = [
+    ...readmes.map(({ path, content }) => [path, content]),
+    [entry.path, entry.content],
+    [PACKAGE_PATH, packageContent],
+  ];
 
   try {
     await writeFile(entry.path, releaseContent, "utf8");
@@ -497,10 +395,9 @@ export const prepareRelease = async (version, { date, dryRun = false } = {}) => 
         "utf8",
       );
     }
-    await writeStaticChangelog(candidateEntries);
   } catch (error) {
     await Promise.all(
-      Array.from(snapshots, ([path, content]) => restoreFile(path, content)),
+      snapshots.map(([path, content]) => writeFile(path, content, "utf8")),
     );
     throw error;
   }
@@ -508,18 +405,12 @@ export const prepareRelease = async (version, { date, dryRun = false } = {}) => 
   console.log(`\n版本 ${version} 的发布资料已准备完成。`);
 };
 
-export async function finalizeRelease() {
-  const draft = (await readReleaseFiles()).find(({ release }) => release.status === "draft")?.release;
-  if (!draft || !/^\d+\.\d+\.\d+$/.test(draft.version))
+export async function finalizeRelease(version) {
+  if (!/^\d+\.\d+\.\d+$/.test(version))
     throw new Error("请先将一个正式版本号的更新日志草稿提交到 main。");
-  await prepareRelease(draft.version);
-  await verifyReleaseVersion(draft.version);
-  return draft.version;
-}
-
-export async function publishReleaseChangelog(version) {
-  const { entries } = await verifyReleaseVersion(version);
-  await publishReleases(entries, { yes: true, releaseVersion: version });
+  await prepareRelease(version);
+  await verifyReleaseVersion(version);
+  return version;
 }
 
 const main = async () => {
@@ -563,7 +454,6 @@ const main = async () => {
     case "publish":
       await publishAllReleases({
         dryRun: options.has("--dry-run"),
-        yes: options.has("--yes"),
       });
       break;
     case "help":

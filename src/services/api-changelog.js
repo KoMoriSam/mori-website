@@ -6,10 +6,7 @@ const normalizeEndpoint = (value = "") =>
     .replace(/\/+$/, "");
 
 const REMOTE_ENDPOINT = normalizeEndpoint(
-  import.meta.env?.VITE_CHANGELOG_API ||
-    (import.meta.env?.PROD
-      ? "https://api.komori.cc/changelog"
-      : "/api/changelog"),
+  import.meta.env?.VITE_CHANGELOG_API || "/api/changelog",
 );
 const STATIC_ENDPOINT = "/changelog.json";
 const REQUEST_TIMEOUT_MS = 6000;
@@ -118,12 +115,12 @@ export const normalizeChangelogPayload = (payload) => {
   };
 };
 
-const fetchPayload = async (endpoint, { force = false } = {}) => {
+const fetchPayload = async (endpoint) => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
     const response = await fetch(endpoint, {
-      cache: force ? "reload" : "default",
+      cache: "no-store",
       headers: { Accept: "application/json" },
       signal: controller.signal,
     });

@@ -45,9 +45,7 @@ export const useChangelogStore = defineStore("changelog", () => {
 
     requestPromise = fetchChangelogWithFallback({ force })
       .then(({ payload, source: payloadSource, remoteError }) => {
-        if (payloadSource !== "static" || !hasSnapshot) {
-          applyPayload(payload, payloadSource);
-        }
+        applyPayload(payload, payloadSource);
         error.value = remoteError || null;
         return payload;
       })

@@ -1,3 +1,4 @@
+import { sameChangelog } from "../shared/changelog.js";
 import { testAuthPrefix, testCallback, testOrigin } from "../shared/test-preview.js";
 import { discussionRegistry, discussionTarget } from "../shared/discussions.js";
 import { AUTH, SITE, COOKIE, json, privateHeaders, readCookie, redirect, returnPath, sessionCookie } from "./auth/http.js";
@@ -35,8 +36,25 @@ export default {
         return json({ version });
     }
     if (preview) return json({ error: "NOT_FOUND" }, 404);
+    if (path === "/api/changelog" && request.method === "GET") {
+      // The bundle defines the public revision. KV can lag after a deployment or
+      // still contain a newer revision after a native Worker rollback.
+      const snapshot = await env.ASSETS.fetch(new Request(new URL("/changelog.json", url)));
+      if (!snapshot.ok) return json({ error: "CHANGELOG_UNAVAILABLE" }, 503);
+      const local = await snapshot.json();
+      try {
+        const remote = await env.PUBLIC_API?.fetch(new Request(new URL("/changelog", url)));
+        if (remote?.ok) {
+          const payload = await remote.json();
+          if (sameChangelog(local, payload)) return json(payload);
+        }
+      } catch {
+        // Serve the active Worker's data during KV outages and propagation.
+      }
+      return json({ ...local, serverTime: new Date().toISOString() });
+    }
     const token = readCookie(request, COOKIE.site);
-    if (env.PUBLIC_API && /^\/api\/(?:github|games|analytics|announcements|changelog|random-hero)(?:\/|$)/.test(path)) {
+    if (env.PUBLIC_API && /^\/api\/(?:github|games|analytics|announcements|random-hero)(?:\/|$)/.test(path)) {
       url.pathname = path.slice(4);
       return env.PUBLIC_API.fetch(new Request(url, request));
     }
