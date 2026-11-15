@@ -1,7 +1,6 @@
 import { run } from "../lib/commands.mjs";
-import { readReleaseFiles } from "./changelog-content.mjs";
 
-const [production, before] = process.argv.slice(2);
+const [production, before, mode] = process.argv.slice(2);
 if (!production) throw new Error("需要 production 的 Git 引用。");
 
 // Use the last main commit incorporated into production, not the current push's
@@ -16,13 +15,29 @@ if (/^[a-f0-9]{40}$/.test(before) && !/^0+$/.test(before)) {
 }
 const floor = await run(["git", "merge-base", base, activationBase], { capture: true });
 const since = floor === base ? activationBase : base;
-const changed = await run(["git", "diff", "--name-only", "-z", "--diff-filter=AM", "--no-renames",
+const changed = await run(["git", "diff", "--name-only", "-z", "--diff-filter=AMT", "--no-renames",
   since, "HEAD", "--", "changelog/releases"], { capture: true });
-const candidates = new Set(changed.split("\0").filter((file) =>
-  /^changelog\/releases\/\d+\.\d+\.\d+\.md$/.test(file)));
-if (candidates.size) {
-  const entries = await readReleaseFiles({ allowDraftPlaceholders: true });
-  const request = entries.find(({ name, release }) =>
-    release.status === "draft" && candidates.has("changelog/releases/" + name));
-  if (request) console.log(request.release.version);
+const changedVersions = changed.split("\0").flatMap((file) => {
+  const match = /^changelog\/releases\/(\d+\.\d+\.\d+)\.md$/.exec(file);
+  return match ? [match[1]] : [];
+});
+if (changedVersions.length) {
+  // A valid draft is newer than the formal version already on production.
+  // Historical corrections can stay on main without requiring CI dependencies on each push.
+  const manifest = await run(["git", "show", `${production}:package.json`], { capture: true });
+  const { version } = JSON.parse(manifest);
+  const candidates = new Set(changedVersions.filter((candidate) =>
+    !/^\d+\.\d+\.\d+$/.test(version) ||
+    candidate.localeCompare(version, "en", { numeric: true }) > 0));
+  if (candidates.size) {
+    if (mode === "--check-paths") {
+      console.log("true");
+    } else {
+      const { readReleaseFiles } = await import("./changelog-content.mjs");
+      const entries = await readReleaseFiles({ allowDraftPlaceholders: true });
+      const request = entries.find(({ release }) =>
+        release.status === "draft" && candidates.has(release.version));
+      if (request) console.log(request.release.version);
+    }
+  }
 }
