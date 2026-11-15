@@ -58,5 +58,6 @@ export const descriptions = {
     "sinhala-documents": "僧伽罗语文档转换",
     "site-perf": "网站资源加载",
     changelog: "版本更新日志",
+    "release-deploy": "发版触发、流量切换与更新日志同步",
   },
 };

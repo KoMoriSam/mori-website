@@ -97,7 +97,7 @@ function choose(title, options) {
 
 async function openReleasePage() {
   const url = "https://github.com/KoMoriSam/MoriWebsite/actions/workflows/release.yml";
-  console.log("将更新日志草稿随代码推到 main，再点 Run workflow。");
+  console.log("将有效的更新日志草稿推送到 main 后会自动发版；这里可查看执行状态。");
   const [program, ...args] = process.platform === "win32"
     ? ["rundll32.exe", "url.dll,FileProtocolHandler", url]
     : process.platform === "darwin"
@@ -200,7 +200,7 @@ const groups = [
     localScript("更新测试认证（登录）", "release/bootstrap-test", "--apply", "--auth-only"),
   ]),
   submenu("发布", [
-    { label: "打开 GitHub 网站发版", run: openReleasePage },
+    { label: "查看 GitHub 发版状态", run: openReleasePage },
     action("发布正式 API", "deploy", "api"),
     action("发布正式认证", "deploy", "auth"),
     action("上传公开内容版本", "deploy", "content", "--upload"),

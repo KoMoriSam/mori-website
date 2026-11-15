@@ -12,6 +12,7 @@ export default {
     host: "localhost",
     fs: { deny: [".env", ".env.*", "*.{crt,pem}", "**/.git/**", "**/.tmp/**", "**/.output/**", "**/.dev.vars*"] },
     proxy: {
+      "/changelog.json": `http://127.0.0.1:${workerPort}`,
       "^/(?:api|auth|site-data|mock/novel|content/kaiming|pagefind-novel)(?:/|$)": {
         target: `http://127.0.0.1:${workerPort}`, ws: true,
       },

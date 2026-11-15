@@ -77,6 +77,8 @@ if (full) {
 
 const snapshot = (await import("../../src/router/ssg-data.generated.js"))
   .default;
+// Both the rendered page and this static fallback use the same Markdown snapshot.
+if (!dryRun) await writeFile(resolve(output, "changelog.json"), `${JSON.stringify(snapshot.changelog, null, 2)}\n`);
 const articles = (
   await import("../../src/router/article-metadata.generated.js")
 ).default;

@@ -17,11 +17,11 @@ const helpText = `准备发布资料，并管理更新日志与公告。
 命令：
   prepare <version> [--date YYYY-MM-DD] 准备版本号、项目说明和更新日志
   verify <version>                     确认发布资料中的版本号一致
-  publish <version> [--dry-run] [--yes] 上线更新日志
+  publish <version> --dry-run           查看更新日志同步差异
   changelog <command> [options]        管理更新日志
   announcement <command> [options]     管理公告
 
-日常发版只需将一份更新日志草稿提交到 main，再运行 GitHub Actions → 发布网站。
+将新增或修改的有效更新日志草稿推送到 main 后，GitHub Actions 会自动发版。
 Cloudflare Workers Builds 验证网站上线后会同步更新日志。
 `;
 
@@ -48,7 +48,6 @@ const publishRelease = async (version, options) => {
   await verifyReleaseVersion(version);
   await publishAllReleases({
     dryRun: options.has("--dry-run"),
-    yes: options.has("--yes"),
   });
 };
 
@@ -66,14 +65,14 @@ const main = async () => {
   switch (command) {
     case "finalize": {
       const output = process.env.GITHUB_OUTPUT;
-      if (process.env.GITHUB_ACTIONS !== "true" || !output)
-        throw new Error("请通过 GitHub Actions → 发布网站执行。");
-      const next = await finalizeRelease();
+      if (process.env.GITHUB_ACTIONS !== "true" || !output || !version)
+        throw new Error("正式发版由 main 的推送自动执行。");
+      const next = await finalizeRelease(version);
       await appendFile(output, `tag=v${next}\n`);
       break;
     }
     case "sync":
-      if (!version) throw new Error("请提供已部署的网站版本号。");
+      if (!version) throw new Error("请提供已部署的 Worker Version ID。");
       await syncRelease(version);
       break;
     case "prepare":
