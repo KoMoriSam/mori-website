@@ -54,7 +54,7 @@ The blog and novel share a reader with a table of contents, progress tracking, f
 
 Articles support syntax highlighting, mathematical notation, Mermaid diagrams, footnotes, ruby annotations, wiki links, and other Markdown extensions. You can jump to a heading or paragraph, browse related content, or turn a selection into an image to share. Articles also show related recommendations, when they were last updated, and notices about how current the information is.
 
-**On-site comments connect directly to GitHub Discussions.** Sign in with GitHub to post, reply, edit, delete, and react on the site. Discussions are available for articles, novel chapters, and individual paragraphs. You can sort comments by popularity, newest first, or oldest first. Long comments and nested discussions are designed to work across screen sizes. The blog and novel store their discussions in [theWake](https://github.com/KoMoriSam/theWake) and [theHorizon](https://github.com/KoMoriSam/theHorizon), respectively, without relying on an embedded comment interface.
+**On-site comments connect directly to GitHub Discussions.** Sign in with GitHub to post, reply, edit, delete, and react on the site. Discussions are available for articles, novel chapters, and individual paragraphs. You can sort comments by popularity, newest first, or oldest first. Long comments and nested discussions are designed to work across screen sizes. The blog and novel store their discussions in [mori-blog-discussions](https://github.com/KoMoriSam/mori-blog-discussions) and [mori-novel-discussions](https://github.com/KoMoriSam/mori-novel-discussions), respectively, without relying on an embedded comment interface.
 
 The site interface supports **Simplified Chinese, English, French, and Sinhala**. Blog translations have their own URLs for direct sharing and search indexing. You can switch an article's language independently of the site interface.
 
@@ -79,8 +79,8 @@ The build process checks what changed and decides whether to skip the build, upd
 Requires **Node.js 24.15+ (within 24.x) or 26+**, and **pnpm 12.3.4**.
 
 ```bash
-git clone https://github.com/KoMoriSam/MoriWebsite.git
-cd MoriWebsite
+git clone https://github.com/KoMoriSam/mori-website.git
+cd mori-website
 pnpm install
 pnpm dev
 ```
@@ -120,4 +120,4 @@ For third-party licensing information, see the [site's licenses page](https://ko
 
 ## Feedback
 
-Use [GitHub Issues](https://github.com/KoMoriSam/MoriWebsite/issues) to report problems or suggest improvements. To discuss an article or the novel, you can also leave a comment on the relevant page.
+Use [GitHub Issues](https://github.com/KoMoriSam/mori-website/issues) to report problems or suggest improvements. To discuss an article or the novel, you can also leave a comment on the relevant page.

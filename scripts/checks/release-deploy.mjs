@@ -29,6 +29,8 @@ function deployment({ initial = oldId, failCandidate = false, failActive = false
   };
   const request = async (url, { headers }) => {
     const overridden = "Cloudflare-Workers-Version-Overrides" in headers;
+    if (overridden)
+      assert.equal(headers["Cloudflare-Workers-Version-Overrides"], `mori-website="${candidateId}"`);
     const id = overridden
       ? active.versions.find(({ percentage }) => percentage === 0)?.version_id
       : active.versions.find(({ percentage }) => percentage === 100)?.version_id;
@@ -163,27 +165,39 @@ test("Git history keeps a failed release pending but skips an untouched old draf
 
   await copy("scripts/release/pending-release.mjs");
   commit("enable release automation");
-  await symlink(resolve("node_modules"), join(dir, "node_modules"), "junction");
-  const pending = () => execFileSync(process.execPath, ["scripts/release/pending-release.mjs", "production"],
+  const productionBefore = git("rev-parse", "production");
+  const pending = (...args) => execFileSync(process.execPath, ["scripts/release/pending-release.mjs", "production", "", ...args],
     { cwd: dir, encoding: "utf8" }).trim();
   assert.equal(pending(), "");
 
   await put("feature.txt", "daily update");
   commit("ordinary push");
-  assert.equal(pending(), "");
-  git("branch", "-f", "production", "HEAD");
+  await put("changelog/releases/1.0.0.md", releases.at(-1).content + "\n");
+  commit("historical changelog correction");
+  assert.equal(pending("--check-paths"), "");
+  assert.equal(git("rev-parse", "production"), productionBefore);
 
   await put(path, draft.replace("修复无效链接", "修复博客无效链接"));
+  await put("README.md", "Missing release marker\n");
   commit("request release");
-  assert.equal(pending(), "1.0.1");
-  await put("feature.txt", "a fix after failed release");
-  commit("retry with a code fix");
+  assert.equal(pending("--check-paths"), "true");
+  await symlink(resolve("node_modules"), join(dir, "node_modules"), "junction");
   assert.equal(pending(), "1.0.1");
 
   const output = join(dir, ".github-output");
-  execFileSync(process.execPath, ["scripts/release/cli.mjs", "finalize", pending()], {
+  const finalize = () => execFileSync(process.execPath, ["scripts/release/cli.mjs", "finalize", pending()], {
     cwd: dir, env: { ...process.env, GITHUB_ACTIONS: "true", GITHUB_OUTPUT: output },
+    stdio: "pipe",
   });
+  assert.throws(finalize, /当前版本标记/);
+  await assert.rejects(readFile(output), { code: "ENOENT" });
+  assert.equal(git("rev-parse", "production"), productionBefore);
+
+  await put("README.md", "Current version: <strong>1.0.0</strong>\n");
+  commit("retry with a code fix");
+  assert.equal(pending(), "1.0.1");
+
+  finalize();
   assert.equal(await readFile(output, "utf8"), "tag=v1.0.1\n");
   assert.match(await readFile(join(dir, path), "utf8"), /status: released/);
   assert.equal(JSON.parse(await readFile(join(dir, "package.json"), "utf8")).version, "1.0.1");
@@ -192,5 +206,5 @@ test("Git history keeps a failed release pending but skips an untouched old draf
   commit("finalized release");
   git("tag", "v1.0.1");
   git("branch", "-f", "production", "HEAD");
-  assert.equal(pending(), "");
+  assert.equal(pending("--check-paths"), "");
 });

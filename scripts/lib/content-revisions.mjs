@@ -4,12 +4,12 @@ import { run } from "./commands.mjs";
 export const sources = [
   {
     name: "blog",
-    repository: "KoMoriSam/ObsidianVault",
+    repository: "KoMoriSam/mori-notes",
     folders: ["notes", "attachments", "scripts"],
   },
   {
     name: "novel",
-    repository: "KoMoriSam/MyWritingVault",
+    repository: "KoMoriSam/mori-novels",
     folders: ["public", "scripts"],
   },
 ];

@@ -32,7 +32,7 @@ export default {
     }
     if (path === "/api/version" && request.method === "GET") {
       const version = env.WEBSITE_VERSION?.id;
-      if (version && (!preview || url.origin !== siteOrigin || override === `website="${version}"`))
+      if (version && (!preview || url.origin !== siteOrigin || override === `mori-website="${version}"`))
         return json({ version });
     }
     if (preview) return json({ error: "NOT_FOUND" }, 404);

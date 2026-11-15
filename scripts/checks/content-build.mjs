@@ -34,9 +34,9 @@ try {
   assert.equal(await readFile(path.join(fonts, "Sans-VF.woff2"), "utf8"), "wOF2sans");
   await assert.rejects(readFile(path.join(fonts, "README.md")), { code: "ENOENT" });
   await assert.rejects(extractKaiming(archive, "0".repeat(64), fonts), /checksum mismatch/);
-  const ciEnv = { WRANGLER_CI_OVERRIDE_NAME: "website", WRANGLER_CI_MATCH_TAG: "website-tag", CLOUDFLARE_API_TOKEN: "test-token" };
+  const ciEnv = { WRANGLER_CI_OVERRIDE_NAME: "mori-website", WRANGLER_CI_MATCH_TAG: "website-tag", CLOUDFLARE_API_TOKEN: "test-token" };
   assert.deepEqual(contentDeploymentEnvironment(ciEnv), { CLOUDFLARE_API_TOKEN: "test-token" });
-  assert.equal(ciEnv.WRANGLER_CI_OVERRIDE_NAME, "website", "primary Worker must retain Workers Builds identity checks");
+  assert.equal(ciEnv.WRANGLER_CI_OVERRIDE_NAME, "mori-website", "primary Worker must retain Workers Builds identity checks");
   for (const value of ["../private.md", "/private.md", "a/../private.md", "a/.env", "C:/private.md", "a\\private.md", "a//b", "a\0b"]) {
     assert.throws(() => publishedPath(value));
   }

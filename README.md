@@ -54,7 +54,7 @@
 
 文章支持代码高亮、数学公式、Mermaid 图表、脚注、注音、双链和扩展 Markdown 内容。可以跳转到具体标题或段落、查看相关内容，也可以将选中的内容整理为分享图片。文章还提供关联推荐、修改时间和内容时效提示。
 
-**站内评论直接连接 GitHub Discussions**：登录 GitHub 后，可在网站中发表评论、回复、编辑、删除和表态；文章、小说章节与正文段落都有相应的讨论入口。评论支持热门、最新和最早排序，长评论与多级浏览体验针对不同屏幕做了优化。讨论数据分别保存在 [theWake](https://github.com/KoMoriSam/theWake) 和 [theHorizon](https://github.com/KoMoriSam/theHorizon)，不依赖外嵌评论界面。
+**站内评论直接连接 GitHub Discussions**：登录 GitHub 后，可在网站中发表评论、回复、编辑、删除和表态；文章、小说章节与正文段落都有相应的讨论入口。评论支持热门、最新和最早排序，长评论与多级浏览体验针对不同屏幕做了优化。讨论数据分别保存在 [mori-blog-discussions](https://github.com/KoMoriSam/mori-blog-discussions) 和 [mori-novel-discussions](https://github.com/KoMoriSam/mori-novel-discussions)，不依赖外嵌评论界面。
 
 网站界面支持**简体中文、英语、法语和僧伽罗语**。博客译文有独立地址，便于直接分享与搜索收录；不同语言的文章内容可单独切换，而不影响网站界面语言。
 
@@ -79,8 +79,8 @@
 要求 **Node.js 24.15+（24.x）或 26+**，以及 **pnpm 12.3.4**。
 
 ```bash
-git clone https://github.com/KoMoriSam/MoriWebsite.git
-cd MoriWebsite
+git clone https://github.com/KoMoriSam/mori-website.git
+cd mori-website
 pnpm install
 pnpm dev
 ```
@@ -120,4 +120,4 @@ pnpm dev
 
 ## 反馈
 
-欢迎通过 [GitHub Issues](https://github.com/KoMoriSam/MoriWebsite/issues) 反馈问题或提出建议；与文章、小说有关的交流也可以直接留在对应内容的评论区。
+欢迎通过 [GitHub Issues](https://github.com/KoMoriSam/mori-website/issues) 反馈问题或提出建议；与文章、小说有关的交流也可以直接留在对应内容的评论区。

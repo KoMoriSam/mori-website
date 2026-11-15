@@ -75,7 +75,7 @@ import { useLocale } from '@/i18n';
 const { t: translate } = useLocale();
 import { computed } from "vue";
 
-const githubIssueUrl = computed(() => `https://github.com/KoMoriSam/MoriWebsite/issues/new?${new URLSearchParams(
+const githubIssueUrl = computed(() => `https://github.com/KoMoriSam/mori-website/issues/new?${new URLSearchParams(
   {
     get title() { return translate('sinhala.notes.issueTitle'); },
     body: translate('sinhala.notes.feedbackTemplate'),

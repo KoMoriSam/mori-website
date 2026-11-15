@@ -20,7 +20,7 @@ if (process.env.WORKERS_CI !== "1" || process.env.WORKERS_CI_BRANCH !== branch |
     process.env.CONTENT_BLOG_DIR || process.env.CONTENT_NOVEL_DIR)
   throw new Error(`Version uploads require the trusted Workers Builds branch (${branch})`);
 if (process.env.SKIP_DEPENDENCY_INSTALL !== "1")
-  throw new Error("Set SKIP_DEPENDENCY_INSTALL=1 in website → Settings → Builds");
+  throw new Error("Set SKIP_DEPENDENCY_INSTALL=1 in mori-website → Settings → Builds");
 const unused = unusedBuildVariables();
 for (const name of unused) delete process.env[name];
 if (unused.length) buildEvent("version", "build configuration", "skip", {
@@ -31,7 +31,7 @@ assertPublicVite();
 Object.assign(process.env, sameOriginAssets());
 
 const config = await readWorkerConfig();
-if (config.name !== "website" || config.assets?.directory !== "./dist" ||
+if (config.name !== "mori-website" || config.assets?.directory !== "./dist" ||
     config.r2_buckets?.find(({ binding }) => binding === "NOVEL_VAULT")?.bucket_name !== "novel-vault" ||
     process.env.WRANGLER_CI_OVERRIDE_NAME && process.env.WRANGLER_CI_OVERRIDE_NAME !== config.name)
   throw new Error("This build must be connected to the website Worker and use its configured private bucket");
@@ -116,7 +116,7 @@ try {
 }
 
 async function assertCurrentProduction(commit) {
-  const head = await run(["git", "ls-remote", "--exit-code", "https://github.com/KoMoriSam/MoriWebsite.git", `refs/heads/${branch}`],
+  const head = await run(["git", "ls-remote", "--exit-code", "https://github.com/KoMoriSam/mori-website.git", `refs/heads/${branch}`],
     { capture: true, env: { ...buildEnvironment(), GIT_TERMINAL_PROMPT: "0" }, signal: AbortSignal.timeout(30_000) });
   if (commit !== head.split("\t")[0])
     throw new Error(`This build is no longer at the head of ${branch}`);
@@ -124,7 +124,7 @@ async function assertCurrentProduction(commit) {
 
 async function assertReleaseTag(version, commit) {
   const tag = `refs/tags/v${version}`;
-  const remote = "https://github.com/KoMoriSam/MoriWebsite.git";
+  const remote = "https://github.com/KoMoriSam/mori-website.git";
   const env = { ...buildEnvironment(), GIT_TERMINAL_PROMPT: "0" };
   const options = () => ({ env, signal: AbortSignal.timeout(45_000) });
   await run(["git", "fetch", "--no-tags", remote, tag], options());

@@ -25,8 +25,10 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-      - name: 读取最新分支状态
+      - name: 检查是否有待发布版本的变更
         id: branches
+        env:
+          PUSH_BEFORE: ${{ github.event.before }}
         run: |
           git fetch --no-tags origin \
             refs/heads/main:refs/remotes/origin/main \
@@ -36,21 +38,19 @@ jobs:
           git checkout --detach "$main"
           echo "main=$main" >> "$GITHUB_OUTPUT"
           echo "production=$production" >> "$GITHUB_OUTPUT"
-          if git merge-base --is-ancestor "$main" "$production" &&
-             git diff --quiet "$main" "$production"; then
-            echo "synced=true" >> "$GITHUB_OUTPUT"
-          fi
+          candidates=$(node scripts/release/pending-release.mjs origin/production "$PUSH_BEFORE" --check-paths)
+          echo "candidates=$candidates" >> "$GITHUB_OUTPUT"
       - uses: pnpm/action-setup@v4
-        if: steps.branches.outputs.synced != 'true'
+        if: steps.branches.outputs.candidates == 'true'
         with:
           version: 12.3.4
       - uses: actions/setup-node@v6
-        if: steps.branches.outputs.synced != 'true'
+        if: steps.branches.outputs.candidates == 'true'
         with:
           node-version: 24.15.0
           package-manager-cache: false
       - name: 检查发布请求并准备正式版本
-        if: steps.branches.outputs.synced != 'true'
+        if: steps.branches.outputs.candidates == 'true'
         id: prepare
         env:
           PUSH_BEFORE: ${{ github.event.before }}
@@ -61,14 +61,14 @@ jobs:
             pnpm release finalize "$draft"
           fi
       - uses: actions/create-github-app-token@v3
-        if: steps.branches.outputs.synced != 'true'
+        if: steps.prepare.outputs.tag != ''
         id: release-token
         with:
           client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
           permission-contents: write
-      - name: 同步 production，并原子推送正式版本和标签
-        if: steps.branches.outputs.synced != 'true'
+      - name: 原子推送正式发布提交、production 和标签
+        if: steps.prepare.outputs.tag != ''
         shell: bash
         env:
           MAIN: ${{ steps.branches.outputs.main }}
@@ -76,6 +76,7 @@ jobs:
           RELEASE_TAG: ${{ steps.prepare.outputs.tag }}
           RELEASE_TOKEN: ${{ steps.release-token.outputs.token }}
         run: |
+          : "${RELEASE_TAG:?Missing validated release tag}"
           git_auth=$(printf 'x-access-token:%s' "$RELEASE_TOKEN" | base64 -w0)
           echo "::add-mask::$git_auth"
           export GIT_CONFIG_COUNT=1
@@ -83,13 +84,10 @@ jobs:
           export GIT_CONFIG_VALUE_0="Authorization: Basic $git_auth"
           git config user.name 'MoriWebsite Release'
           git config user.email 'release@komori.cc'
-          release=$MAIN
-          if [[ -n "$RELEASE_TAG" ]]; then
-            git add -- package.json README.md README_en.md README_fr.md README_si.md \
-              "changelog/releases/${RELEASE_TAG#v}.md"
-            git commit -m "chore(release): ${RELEASE_TAG#v}"
-            release=$(git rev-parse HEAD)
-          fi
+          git add -- package.json README.md README_en.md README_fr.md README_si.md \
+            "changelog/releases/${RELEASE_TAG#v}.md"
+          git commit -m "chore(release): ${RELEASE_TAG#v}"
+          release=$(git rev-parse HEAD)
 
           target=$release
           if ! git merge-base --is-ancestor "$PRODUCTION" "$release"; then
@@ -98,15 +96,12 @@ jobs:
               echo "::error::production contains changes outside the validated main tree."
               exit 1
             fi
-            target=$(git commit-tree "$merged_tree" -p "$PRODUCTION" -p "$release" -m "Deploy ${RELEASE_TAG:-$MAIN}")
+            target=$(git commit-tree "$merged_tree" -p "$PRODUCTION" -p "$release" -m "Release $RELEASE_TAG")
           fi
 
-          refs=("$target:refs/heads/production")
-          leases=("--force-with-lease=refs/heads/production:$PRODUCTION")
-          if [[ -n "$RELEASE_TAG" ]]; then
-            git tag -a "$RELEASE_TAG" "$release" -m "Release $RELEASE_TAG"
-            refs+=("$release:refs/heads/main" "refs/tags/$RELEASE_TAG")
-            leases+=("--force-with-lease=refs/heads/main:$MAIN")
-          fi
-          git push --atomic "${leases[@]}" origin "${refs[@]}"
-          printf '已同步 production：%s。Cloudflare Workers Builds 将构建并部署。\n' "${RELEASE_TAG:-$target}" >> "$GITHUB_STEP_SUMMARY"
+          git tag -a "$RELEASE_TAG" "$release" -m "Release $RELEASE_TAG"
+          git push --atomic \
+            "--force-with-lease=refs/heads/main:$MAIN" \
+            "--force-with-lease=refs/heads/production:$PRODUCTION" \
+            origin "$release:refs/heads/main" "$target:refs/heads/production" "refs/tags/$RELEASE_TAG"
+          printf '已发布 %s 并同步 production。Cloudflare Workers Builds 将构建并部署。\n' "$RELEASE_TAG" >> "$GITHUB_STEP_SUMMARY"

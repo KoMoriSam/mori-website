@@ -1,19 +1,12 @@
 import { readdir } from "node:fs/promises";
-import path from "node:path";
 import { descriptions } from "./lib/task-descriptions.mjs";
-import { PROJECT_ROOT, run } from "./lib/commands.mjs";
+import { run } from "./lib/commands.mjs";
 
 const script = (file, ...args) => ["node", `scripts/${file}`, ...args];
 const changelog = (...args) => script("release/changelog.mjs", ...args);
 const assets = script("build/static-assets.mjs");
 const routes = script("build/routes.mjs");
-const prepare = (production) => [
-  ...(!production ? [script("build/mock-articles.mjs")] : []),
-  assets,
-  script("build/images.mjs", ...(production ? ["--production"] : [])),
-  ...(production ? [routes, script("build/rss.mjs")] : []),
-  script("build/licenses.mjs", "--source"),
-];
+const seedDev = script("dev/start.mjs", "seed");
 const generators = {
   mock: [script("build/mock-articles.mjs")],
   assets: [assets],
@@ -30,10 +23,12 @@ const generators = {
 };
 const deployments = {
   test: [
-    script("dev/start.mjs", "seed"),
+    seedDev,
     script("preview/build.mjs"),
     script("preview/deploy-test.mjs"),
   ],
+  "test-api": [script("release/bootstrap-test.mjs", "--apply", "--api-only")],
+  "test-auth": [script("release/bootstrap-test.mjs", "--apply", "--auth-only")],
   website: [script("build/deploy.mjs", "website")],
   api: [
     ["wrangler", "deploy", "--config", "wrangler.api.jsonc", "--keep-vars"],
@@ -90,6 +85,8 @@ async function main() {
         "8787",
         ...args,
       ]);
+    } else if (target === "seed") {
+      await run([...seedDev, ...args]);
     } else if (target === "site") {
       console.log("正在准备本地网站…");
       await run(script("dev/start.mjs", "site", ...args));
@@ -97,32 +94,26 @@ async function main() {
       throw new Error(
         `无法启动“${target}”。运行 pnpm dev --help 选择网站或游戏服务。`,
       );
-  } else if (command === "build") {
+  } else if (command === "build" || command === "build:smart") {
+    const smart = command === "build:smart";
     if (args.some((arg) => ["--help", "-h"].includes(arg))) {
-      console.log(
-        "生成可部署的网站和内容资源。\n\n用法：pnpm build [参数]\n\n输出：\n  dist/             网站、RSS、搜索与许可文件\n  .output/content/  博客、小说与开明字体\n\n构建需要内容源访问权限。完成后运行 pnpm preview 预览。正式版本由 Cloudflare Workers Builds 上传、部署并验证。\n小说正文和全文索引由发布命令上传到私有 R2。",
-      );
+      const options = smart
+        ? "[--full] [--profile] [--dry-run | --explain | --upload | --deploy]"
+        : "[--profile] [--dry-run | --explain]";
+      console.log([
+        `用法：pnpm ${command} ${options}`,
+        "",
+        smart ? "根据快照选择构建范围。" : "全量构建网站、搜索索引与内容资源。",
+        "构建需要访问内容源，产物位于 dist/ 和 .output/content/，完成后可运行 pnpm preview。",
+        "可从 pnpm menu 选择本地构建操作。正式部署由 Cloudflare Workers Builds 执行。",
+      ].join("\n"));
       return;
     }
-    console.log("正在构建网站和内容资源…");
-    const { default: dotenv } = await import("dotenv");
-    dotenv.config({ path: [".env.production", ".env"], quiet: true });
-    process.env.VITE_BLOG_RAW ||= "/content/post";
-    process.env.VITE_NOVEL_RAW ||= "/content/novel";
-    await run(script("build/content.mjs"));
-    process.env.CONTENT_BUILD_DIR = path.join(PROJECT_ROOT, ".output/content-build");
-    await sequence(prepare(true));
-    await run(script("build/prerender.mjs", "--full", ...args));
-    await sequence([
-      script("build/pagefind.mjs"),
-      script("build/sitemap.mjs"),
-      script("build/licenses.mjs", "--dist"),
-      script("build/prune-assets.mjs"),
-      script("build/content.mjs", "--seal", "--include-public"),
-    ]);
-    console.log(
-      "构建完成。\n网站：dist/\n内容资源：.output/content/\n预览：pnpm preview\n正式发布由 Cloudflare Workers Builds 执行",
-    );
+    if (!smart && args.some((arg) => !["--full", "--profile", "--dry-run", "--explain"].includes(arg)))
+      throw new Error("用法：pnpm build [--profile] [--dry-run | --explain]");
+    await run(script("build/smart.mjs", ...(smart ? [] : ["--full"]), ...args));
+    if (!smart && !args.some((arg) => ["--dry-run", "--explain"].includes(arg)))
+      console.log("构建完成。\n网站：dist/\n内容资源：.output/content/\n预览：pnpm preview");
   } else if (command === "preview") {
     if (args.some((arg) => ["--help", "-h"].includes(arg))) {
       console.log(
@@ -194,6 +185,7 @@ main().catch((error) => {
     {
       dev: "本地开发",
       build: "网站构建",
+      "build:smart": "网站构建",
       preview: "网站预览",
       check: "功能检查",
       generate: "资源生成",

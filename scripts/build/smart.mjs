@@ -347,7 +347,7 @@ try {
     if (!full && !delta.total) {
       if (!dryRun) {
         await phase("seal unchanged build", sealContentBuild);
-        if (!versionBuild) await phase("include public content", includePublicContent);
+        if (!versionBuild) await phase("include public content", () => includePublicContent());
       }
       await saveBuildResult({ mode: "SKIPPED", snapshotId: previous.id });
       console.log(
@@ -537,7 +537,7 @@ try {
           console.warn(`Previous snapshot cleanup failed: ${error.message}`),
         );
     await saveBuildResult({ mode, snapshotId: id });
-    if (!versionBuild) await phase("include public content", includePublicContent);
+    if (!versionBuild) await phase("include public content", () => includePublicContent());
     console.log(
       JSON.stringify({
         ...summary,
