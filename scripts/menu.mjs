@@ -1,15 +1,26 @@
 import { spawn } from "node:child_process";
 import { readdir } from "node:fs/promises";
-import { emitKeypressEvents } from "node:readline";
+import { resolve } from "node:path";
+import { createInterface, emitKeypressEvents } from "node:readline";
 import { styleText, stripVTControlCharacters } from "node:util";
 import { descriptions } from "./lib/task-descriptions.mjs";
-import { run } from "./lib/commands.mjs";
+import { PROJECT_ROOT, run } from "./lib/commands.mjs";
 
 const { stdin, stdout } = process;
 const command = (...args) => run(["node", "scripts/run.mjs", ...args]);
 const action = (label, ...args) => ({ label, run: () => command(...args) });
-const localScript = (label, file, ...args) => ({
-  label, run: () => run(["node", `scripts/${file}.mjs`, ...args]),
+const fileAction = (label, prompt, ...args) => ({
+  label,
+  async run() {
+    const input = createInterface({ input: stdin, output: stdout });
+    const answer = await new Promise((done) => {
+      input.once("close", () => done(""));
+      input.question(`${prompt}（留空返回）：`, done);
+    });
+    input.close();
+    const file = answer.trim().replace(/^(['"])(.+)\1$/u, "$2");
+    if (file) await command(...args, resolve(PROJECT_ROOT, file));
+  },
 });
 const submenu = (label, options) => ({ label, options });
 const back = { label: "返回" };
@@ -97,7 +108,7 @@ function choose(title, options) {
 
 async function openReleasePage() {
   const url = "https://github.com/KoMoriSam/MoriWebsite/actions/workflows/release.yml";
-  console.log("将有效的更新日志草稿推送到 main 后会自动发版；这里可查看执行状态。");
+  console.log("普通开发提交留在 main。将有效的更新日志草稿推送到 main 后，工作流会自动发版并更新 production。");
   const [program, ...args] = process.platform === "win32"
     ? ["rundll32.exe", "url.dll,FileProtocolHandler", url]
     : process.platform === "darwin"
@@ -162,13 +173,18 @@ async function checkOptions() {
     ["阅读与正文", ["blog", "blog-build", "blog-translations", "blog-translations-runtime",
       "blog-translations-ssr", "markdown", "markdown-styles", "markdown-avatars", "markdown-xss"]],
     ["构建与发布", ["build-assets", "content-build", "content-licenses", "rss",
-      "site-perf", "announcements", "changelog"]],
+      "site-perf", "announcements", "changelog", "release-deploy"]],
     ["语言与翻译", ["i18n", "i18n-loading", "i18n-quantities", "i18n-runtime"]],
     ["游戏", ["games", "game-room-client", "room-dissolution", "avalon",
       "avalon-extensions", "avalon-knowledge", "fogport"]],
     ["图片与转换工具", ["images", "responsive-images", "image-converter", "sinhala", "sinhala-documents"]],
   ];
-  const check = (name) => action(descriptions.check[name] || name, "check", name);
+  const check = (name) => name === "env"
+    ? submenu("检查 Worker 配置", [
+      action("检查本地配置", "check", "env"),
+      action("核对线上 R2 与 Secret 名称", "check", "env", "--remote"),
+    ])
+    : action(descriptions.check[name] || name, "check", name);
   const options = groups.map(([label, checks]) =>
     submenu(label, checks.filter((name) => targets.delete(name)).map(check)));
   if (targets.size) options.push(submenu("其他检查", [...targets].map(check)));
@@ -182,13 +198,13 @@ const groups = [
   submenu("本地开发", [
     action("启动本地网站", "dev"),
     action("启动本地游戏服务", "dev", "games"),
-    localScript("刷新本地测试数据", "dev/start", "seed"),
+    action("刷新本地测试数据", "dev", "seed"),
   ]),
   submenu("构建与预览", [
-    localScript("构建网站（自动选增量或全量）", "build/smart"),
-    localScript("构建网站（强制全量）", "build/smart", "--full"),
-    localScript("查看构建计划", "build/smart", "--dry-run"),
-    action("构建网站与内容部署包", "build"),
+    action("构建网站（自动选择增量或全量）", "build:smart"),
+    action("全量构建网站与内容部署包", "build"),
+    action("查看构建计划", "build:smart", "--dry-run"),
+    action("构建网站并记录性能报告", "build:smart", "--profile"),
     action("预览本地构建", "preview"),
     action("检查网站部署包", "deploy", "website", "--dry-run"),
     action("检查内容部署包", "deploy", "content", "--dry-run"),
@@ -196,11 +212,18 @@ const groups = [
   submenu("检查", checkOptions),
   submenu("测试部署", [
     action("更新测试网站（仅预览）", "deploy", "test"),
-    localScript("更新测试 API（评论等）", "release/bootstrap-test", "--apply", "--api-only"),
-    localScript("更新测试认证（登录）", "release/bootstrap-test", "--apply", "--auth-only"),
+    action(descriptions["run deploy"]["test-api"], "deploy", "test-api"),
+    action(descriptions["run deploy"]["test-auth"], "deploy", "test-auth"),
   ]),
   submenu("发布", [
-    { label: "查看 GitHub 发版状态", run: openReleasePage },
+    submenu("网站发版（推送有效草稿后自动执行）", [
+      { label: "撰写下一版更新日志草稿", run: () => chooseRelease("draft") },
+      action("检查更新日志格式与版本链", "check", "changelog"),
+      action("校验当前正式版本的发布资料", "release", "verify"),
+      action("验证自动发版流程（本地）", "check", "release-deploy"),
+      action("查看更新日志同步差异（只读）", "release", "changelog", "publish", "--dry-run"),
+      { label: "查看 GitHub 发版状态", run: openReleasePage },
+    ]),
     action("发布正式 API", "deploy", "api"),
     action("发布正式认证", "deploy", "auth"),
     action("上传公开内容版本", "deploy", "content", "--upload"),
@@ -214,6 +237,9 @@ const groups = [
     submenu("公告", [
       action("新建公告", "release", "announcement", "new"),
       { label: "编辑公告", run: () => chooseAnnouncement("选择要编辑的公告", "edit") },
+      action("查看本地公告", "release", "announcement", "list"),
+      action("校验本地公告", "release", "announcement", "check"),
+      fileAction("导入公告 JSON", "输入公告 JSON 文件路径", "release", "announcement", "import"),
       { label: "提高公告修订号", run: () => chooseAnnouncement("选择要更新修订号的公告", "bump") },
       { label: "结束公告展示", run: () => chooseAnnouncement("选择要结束的公告", "expire") },
       action("下载线上公告", "release", "announcement", "pull"),
@@ -224,7 +250,13 @@ const groups = [
   submenu("生成资源", [
     submenu("页面与索引", generateOptions("mock", "routes", "pagefind", "sitemap", "rss", "changelog", "licenses")),
     submenu("图片与字体", generateOptions("assets", "images", "fonts")),
-    submenu("词库与字形", generateOptions("lexicon", "pdf-glyphs")),
+    submenu("词库与字形", [
+      fileAction(descriptions.generate.lexicon, "输入词库 TSV 文件路径", "generate", "lexicon"),
+      submenu(descriptions.generate["pdf-glyphs"], [
+        ...(process.platform === "win32" ? [action("使用 Windows 默认字体", "generate", "pdf-glyphs")] : []),
+        fileAction("使用指定字体文件", "输入字体文件路径", "generate", "pdf-glyphs"),
+      ]),
+    ]),
   ]),
 ];
 

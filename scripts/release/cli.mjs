@@ -16,7 +16,7 @@ const helpText = `准备发布资料，并管理更新日志与公告。
 
 命令：
   prepare <version> [--date YYYY-MM-DD] 准备版本号、项目说明和更新日志
-  verify <version>                     确认发布资料中的版本号一致
+  verify [version]                     校验当前正式版本的发布资料
   publish <version> --dry-run           查看更新日志同步差异
   changelog <command> [options]        管理更新日志
   announcement <command> [options]     管理公告
@@ -82,7 +82,6 @@ const main = async () => {
       });
       break;
     case "verify": {
-      if (!version) throw new Error("请提供版本号。");
       const result = await verifyReleaseVersion(version);
       console.log(`发布资料已就绪：版本 ${result.version} 的项目说明与更新日志一致。`);
       break;

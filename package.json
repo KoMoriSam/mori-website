@@ -11,9 +11,9 @@
   "scripts": {
     "menu": "node scripts/menu.mjs",
     "dev": "node scripts/run.mjs dev",
-    "dev:seed": "node scripts/dev/start.mjs seed",
+    "dev:seed": "node scripts/run.mjs dev seed",
     "build": "node scripts/run.mjs build",
-    "build:smart": "node scripts/build/smart.mjs",
+    "build:smart": "node scripts/run.mjs build:smart",
     "preview": "node scripts/run.mjs preview",
     "check": "node scripts/run.mjs check",
     "generate": "node scripts/run.mjs generate",

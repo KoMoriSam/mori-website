@@ -15,6 +15,8 @@ export const descriptions = {
   },
   "run deploy": {
     test: "更新 test.dev.komori.cc 测试预览",
+    "test-api": "更新测试 API（评论等）",
+    "test-auth": "更新测试认证（登录）",
     website: "检查网站部署包（--dry-run）",
     content: "检查公开内容部署包（--dry-run）或上传兼容外链的新版本（--upload）",
     api: "发布网站 API 服务",
