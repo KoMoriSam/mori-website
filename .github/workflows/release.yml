@@ -82,7 +82,7 @@ jobs:
           export GIT_CONFIG_COUNT=1
           export GIT_CONFIG_KEY_0=http.https://github.com/.extraheader
           export GIT_CONFIG_VALUE_0="Authorization: Basic $git_auth"
-          git config user.name 'MoriWebsite Release'
+          git config user.name 'mori-website-release'
           git config user.email 'release@komori.cc'
           git add -- package.json README.md README_en.md README_fr.md README_si.md \
             "changelog/releases/${RELEASE_TAG#v}.md"

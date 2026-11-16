@@ -32,7 +32,12 @@ function fitLabel(text, columns) {
   let width = 0;
   let label = "";
   for (const char of clean) {
-    width += /[\p{Script=Han}\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}\p{Extended_Pictographic}\u3000-\u303f\uff00-\uff60]/u.test(char) ? 2 : 1;
+    width +=
+      /[\p{Script=Han}\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}\p{Extended_Pictographic}\u3000-\u303f\uff00-\uff60]/u.test(
+        char,
+      )
+        ? 2
+        : 1;
     if (width >= columns) return label + "…";
     label += char;
   }
@@ -50,10 +55,17 @@ function choose(title, options) {
     function render() {
       const pageSize = Math.max(1, Math.min(12, (stdout.rows || 24) - 4));
       const columns = Math.max(1, (stdout.columns || 80) - 5);
-      const start = Math.max(0, Math.min(selected - Math.floor(pageSize / 2), options.length - pageSize));
+      const start = Math.max(
+        0,
+        Math.min(
+          selected - Math.floor(pageSize / 2),
+          options.length - pageSize,
+        ),
+      );
       const items = options.slice(start, start + pageSize);
       const bar = color("cyan", "│");
-      const position = options.length > pageSize ? `  ${selected + 1}/${options.length}` : "";
+      const position =
+        options.length > pageSize ? `  ${selected + 1}/${options.length}` : "";
       const lines = [
         `${color("cyan", "◆")}  ${color("bold", fitLabel(title, columns))}`,
         ...items.map(({ label }, index) => {
@@ -87,8 +99,10 @@ function choose(title, options) {
         return finish(null);
       }
       if (key.name === "escape") return finish(null);
-      if (key.name === "return" || key.name === "enter") return finish(options[selected]);
-      if (key.name === "up") selected = (selected + options.length - 1) % options.length;
+      if (key.name === "return" || key.name === "enter")
+        return finish(options[selected]);
+      if (key.name === "up")
+        selected = (selected + options.length - 1) % options.length;
       else if (key.name === "down") selected = (selected + 1) % options.length;
       else if (key.name === "home") selected = 0;
       else if (key.name === "end") selected = options.length - 1;
@@ -107,19 +121,28 @@ function choose(title, options) {
 }
 
 async function openReleasePage() {
-  const url = "https://github.com/KoMoriSam/mori-website/actions/workflows/release.yml";
-  console.log("普通开发提交留在 main。将有效的更新日志草稿推送到 main 后，工作流会自动发版并更新 production。");
-  const [program, ...args] = process.platform === "win32"
-    ? ["rundll32.exe", "url.dll,FileProtocolHandler", url]
-    : process.platform === "darwin"
-      ? ["open", url]
-      : process.env.WSL_DISTRO_NAME ? ["explorer.exe", url] : ["xdg-open", url];
+  const url =
+    "https://github.com/KoMoriSam/mori-website/actions/workflows/release.yml";
+  console.log(
+    "普通开发提交留在 main。将有效的更新日志草稿推送到 main 后，工作流会自动发版并更新 production。",
+  );
+  const [program, ...args] =
+    process.platform === "win32"
+      ? ["rundll32.exe", "url.dll,FileProtocolHandler", url]
+      : process.platform === "darwin"
+        ? ["open", url]
+        : process.env.WSL_DISTRO_NAME
+          ? ["explorer.exe", url]
+          : ["xdg-open", url];
   try {
     await new Promise((resolve, reject) => {
       const child = spawn(program, args, { stdio: "ignore" });
       child.once("error", reject);
-      child.once("close", (code) => code === 0 || program === "explorer.exe" && code === 1
-        ? resolve() : reject(new Error("无法打开浏览器")));
+      child.once("close", (code) =>
+        code === 0 || (program === "explorer.exe" && code === 1)
+          ? resolve()
+          : reject(new Error("无法打开浏览器")),
+      );
     });
   } catch {
     console.log(url);
@@ -127,7 +150,8 @@ async function openReleasePage() {
 }
 
 async function chooseRelease(actionName) {
-  const { nextVersion, readReleaseFiles } = await import("./release/changelog-content.mjs");
+  const { nextVersion, readReleaseFiles } =
+    await import("./release/changelog-content.mjs");
   const entries = await readReleaseFiles({ allowDraftPlaceholders: true });
   const draft = entries.find(({ release }) => release.status === "draft");
   if (actionName === "draft" && draft) {
@@ -135,16 +159,34 @@ async function chooseRelease(actionName) {
     return;
   }
   if (actionName === "draft") {
-    const latest = entries.find(({ release }) => release.status === "released").release.version;
-    const options = [["修复", "patch"], ["新功能", "minor"], ["有破坏性变更", "major"]]
-      .map(([label, bump]) => action(`${label} · ${nextVersion(latest, bump)}`, "release", "changelog", "new", bump));
+    const latest = entries.find(({ release }) => release.status === "released")
+      .release.version;
+    const options = [
+      ["修复", "patch"],
+      ["新功能", "minor"],
+      ["有破坏性变更", "major"],
+    ].map(([label, bump]) =>
+      action(
+        `${label} · ${nextVersion(latest, bump)}`,
+        "release",
+        "changelog",
+        "new",
+        bump,
+      ),
+    );
     const choice = await choose("选择版本类型", [...options, back]);
     await choice?.run?.();
     return;
   }
-  const options = entries.map(({ release }) => action(
-    `${release.version}${release.status === "draft" ? "（草稿）" : ""}`, "release", "changelog", "edit", release.version,
-  ));
+  const options = entries.map(({ release }) =>
+    action(
+      `${release.version}${release.status === "draft" ? "（草稿）" : ""}`,
+      "release",
+      "changelog",
+      "edit",
+      release.version,
+    ),
+  );
   const choice = await choose("选择要编辑的更新日志", [...options, back]);
   await choice?.run?.();
 }
@@ -156,9 +198,15 @@ async function chooseAnnouncement(label, operation) {
     console.log("本地还没有公告，可以先新建或下载线上公告。");
     return;
   }
-  const options = entries.map(({ announcement }) => action(
-    announcement.title.replace(/\s+/g, " "), "release", "announcement", operation, announcement.id,
-  ));
+  const options = entries.map(({ announcement }) =>
+    action(
+      announcement.title.replace(/\s+/g, " "),
+      "release",
+      "announcement",
+      operation,
+      announcement.id,
+    ),
+  );
   const choice = await choose(label, [...options, back]);
   await choice?.run?.();
 }
@@ -170,29 +218,73 @@ async function checkOptions() {
   const targets = new Set([...Object.keys(descriptions.check), ...names]);
   const groups = [
     ["认证与联调", ["dev", "github", "github-access", "github-profile", "env"]],
-    ["阅读与正文", ["blog", "blog-build", "blog-translations", "blog-translations-runtime",
-      "blog-translations-ssr", "markdown", "markdown-styles", "markdown-avatars", "markdown-xss"]],
-    ["构建与发布", ["build-assets", "content-build", "content-licenses", "rss",
-      "site-perf", "announcements", "changelog", "release-deploy"]],
+    [
+      "阅读与正文",
+      [
+        "blog",
+        "blog-build",
+        "blog-translations",
+        "blog-translations-runtime",
+        "blog-translations-ssr",
+        "markdown",
+        "markdown-styles",
+        "markdown-avatars",
+        "markdown-xss",
+      ],
+    ],
+    [
+      "构建与发布",
+      [
+        "build-assets",
+        "content-build",
+        "content-licenses",
+        "rss",
+        "site-perf",
+        "announcements",
+        "changelog",
+        "release-deploy",
+      ],
+    ],
     ["语言与翻译", ["i18n", "i18n-loading", "i18n-quantities", "i18n-runtime"]],
-    ["游戏", ["games", "game-room-client", "room-dissolution", "avalon",
-      "avalon-extensions", "avalon-knowledge", "fogport"]],
-    ["图片与转换工具", ["images", "responsive-images", "image-converter", "sinhala", "sinhala-documents"]],
+    [
+      "游戏",
+      [
+        "games",
+        "game-room-client",
+        "room-dissolution",
+        "avalon",
+        "avalon-extensions",
+        "avalon-knowledge",
+        "fogport",
+      ],
+    ],
+    [
+      "图片与转换工具",
+      [
+        "images",
+        "responsive-images",
+        "image-converter",
+        "sinhala",
+        "sinhala-documents",
+      ],
+    ],
   ];
-  const check = (name) => name === "env"
-    ? submenu("检查 Worker 配置", [
-      action("检查本地配置", "check", "env"),
-      action("核对线上 R2 与 Secret 名称", "check", "env", "--remote"),
-    ])
-    : action(descriptions.check[name] || name, "check", name);
+  const check = (name) =>
+    name === "env"
+      ? submenu("检查 Worker 配置", [
+          action("检查本地配置", "check", "env"),
+          action("核对线上 R2 与 Secret 名称", "check", "env", "--remote"),
+        ])
+      : action(descriptions.check[name] || name, "check", name);
   const options = groups.map(([label, checks]) =>
-    submenu(label, checks.filter((name) => targets.delete(name)).map(check)));
+    submenu(label, checks.filter((name) => targets.delete(name)).map(check)),
+  );
   if (targets.size) options.push(submenu("其他检查", [...targets].map(check)));
   return options;
 }
 
-const generateOptions = (...targets) => targets.map((name) =>
-  action(descriptions.generate[name], "generate", name));
+const generateOptions = (...targets) =>
+  targets.map((name) => action(descriptions.generate[name], "generate", name));
 
 const groups = [
   submenu("本地开发", [
@@ -221,7 +313,13 @@ const groups = [
       action("检查更新日志格式与版本链", "check", "changelog"),
       action("校验当前正式版本的发布资料", "release", "verify"),
       action("验证自动发版流程（本地）", "check", "release-deploy"),
-      action("查看更新日志同步差异（只读）", "release", "changelog", "publish", "--dry-run"),
+      action(
+        "查看更新日志同步差异（只读）",
+        "release",
+        "changelog",
+        "publish",
+        "--dry-run",
+      ),
       { label: "查看 GitHub 发版状态", run: openReleasePage },
     ]),
     action("发布正式 API", "deploy", "api"),
@@ -236,25 +334,69 @@ const groups = [
     ]),
     submenu("公告", [
       action("新建公告", "release", "announcement", "new"),
-      { label: "编辑公告", run: () => chooseAnnouncement("选择要编辑的公告", "edit") },
+      {
+        label: "编辑公告",
+        run: () => chooseAnnouncement("选择要编辑的公告", "edit"),
+      },
       action("查看本地公告", "release", "announcement", "list"),
       action("校验本地公告", "release", "announcement", "check"),
-      fileAction("导入公告 JSON", "输入公告 JSON 文件路径", "release", "announcement", "import"),
-      { label: "提高公告修订号", run: () => chooseAnnouncement("选择要更新修订号的公告", "bump") },
-      { label: "结束公告展示", run: () => chooseAnnouncement("选择要结束的公告", "expire") },
+      fileAction(
+        "导入公告 JSON",
+        "输入公告 JSON 文件路径",
+        "release",
+        "announcement",
+        "import",
+      ),
+      {
+        label: "提高公告修订号",
+        run: () => chooseAnnouncement("选择要更新修订号的公告", "bump"),
+      },
+      {
+        label: "结束公告展示",
+        run: () => chooseAnnouncement("选择要结束的公告", "expire"),
+      },
       action("下载线上公告", "release", "announcement", "pull"),
-      action("预览公告发布差异", "release", "announcement", "publish", "--dry-run"),
+      action(
+        "预览公告发布差异",
+        "release",
+        "announcement",
+        "publish",
+        "--dry-run",
+      ),
       action("发布公告", "release", "announcement", "publish"),
     ]),
   ]),
   submenu("生成资源", [
-    submenu("页面与索引", generateOptions("mock", "routes", "pagefind", "sitemap", "rss", "changelog", "licenses")),
+    submenu(
+      "页面与索引",
+      generateOptions(
+        "mock",
+        "routes",
+        "pagefind",
+        "sitemap",
+        "rss",
+        "changelog",
+        "licenses",
+      ),
+    ),
     submenu("图片与字体", generateOptions("assets", "images", "fonts")),
     submenu("词库与字形", [
-      fileAction(descriptions.generate.lexicon, "输入词库 TSV 文件路径", "generate", "lexicon"),
+      fileAction(
+        descriptions.generate.lexicon,
+        "输入词库 TSV 文件路径",
+        "generate",
+        "lexicon",
+      ),
       submenu(descriptions.generate["pdf-glyphs"], [
-        ...(process.platform === "win32" ? [action("使用 Windows 默认字体", "generate", "pdf-glyphs")] : []),
-        fileAction("使用指定字体文件", "输入字体文件路径", "generate", "pdf-glyphs"),
+        ...(process.platform === "win32"
+          ? [action("使用 Windows 默认字体", "generate", "pdf-glyphs")]
+          : []),
+        fileAction(
+          "使用指定字体文件",
+          "输入字体文件路径",
+          "generate",
+          "pdf-glyphs",
+        ),
       ]),
     ]),
   ]),
@@ -280,11 +422,14 @@ async function browse(title, items, exit) {
 
 async function main() {
   if (!stdin.isTTY || !stdout.isTTY || process.argv.includes("--help")) {
-    console.log("pnpm menu 在交互终端中打开项目菜单。\n" + groups.map(({ label }) => label).join(" / "));
+    console.log(
+      "pnpm menu 在交互终端中打开项目菜单。\n" +
+        groups.map(({ label }) => label).join(" / "),
+    );
     return;
   }
 
-  await browse("MoriWebsite · 选择操作", groups, { label: "退出" });
+  await browse("mori-website · 选择操作", groups, { label: "退出" });
 }
 
 main().catch((error) => {
