@@ -1,5 +1,6 @@
 <template>
   <div
+    ref="editorElement"
     class="min-w-0"
     :class="{ '@container/comments flex min-h-0 flex-1 flex-col': expanded }"
     @paste="pasteAttachments"
@@ -18,7 +19,9 @@
     <form
       v-if="compact && !expanded && !inlineOpen"
       class="flex min-w-0 items-center gap-2 text-sm"
-      :class="{ 'p-(--comment-inset)': embedded }"
+      :class="{
+        'p-(--comment-inset) border-t border-base-300': embedded,
+      }"
       :data-inline-comment-editor="embedded || undefined"
       :inert="loading"
       :aria-hidden="loading || undefined"
@@ -109,6 +112,7 @@
         !embedded &&
           !expanded &&
           'comment-surface card card-border border-base-300 bg-base-100',
+        embedded ? 'border-t border-base-300' : '',
       ]"
       :data-inline-comment-editor="embedded || undefined"
       :inert="loading"
@@ -159,7 +163,7 @@
         :class="{ 'flex min-h-0 flex-1 flex-col': expanded }"
       >
         <div
-          class="grid min-w-0 grid-cols-1 bg-base-100"
+          class="grid min-w-0 grid-cols-1 rounded-box bg-base-100"
           :class="{
             'focus-within:border-primary': !preview,
             'min-h-0 flex-1 grid-rows-[minmax(0,1fr)]': expanded,
@@ -427,7 +431,7 @@ import {
   useId,
   watch,
 } from "vue";
-import { useMediaQuery, useStorage, useWindowSize } from "@vueuse/core";
+import { useElementSize, useStorage, useWindowSize } from "@vueuse/core";
 import LoginButton from "@/components/auth/LoginButton.vue";
 import Modal from "@/components/interaction/overlay/Modal.vue";
 import MarkdownToolbar from "./MarkdownToolbar.vue";
@@ -483,11 +487,14 @@ const shortBody = computed({
     body.value = value;
   },
 });
-const desktop = useMediaQuery("(min-width: 1024px)");
+const editorElement = ref(null);
+const { width: editorWidth } = useElementSize(editorElement);
+// The reader sidebar is 20–22rem wide; the toolbar already folds to fit its space.
+const canExpandInline = computed(() => editorWidth.value >= 320);
 const { height: visibleHeight } = useWindowSize({ type: "visual" });
-watch([desktop, () => props.compact], ([isDesktop, compact]) => {
-  if (isDesktop || !compact) editorModal.value?.close();
-  if (!isDesktop || !compact) inlineOpen.value = false;
+watch([canExpandInline, () => props.compact], ([canInline, compact]) => {
+  if (canInline || !compact) editorModal.value?.close();
+  if (!canInline || !compact) inlineOpen.value = false;
 });
 const preview = ref(false);
 watch(
@@ -633,7 +640,7 @@ function submitExpanded() {
 
 function openEditor() {
   if (!props.authenticated || props.loading || props.busy) return;
-  if (desktop.value) {
+  if (canExpandInline.value) {
     inlineOpen.value = true;
     preview.value = false;
     void nextTick(() => textarea.value?.focus());

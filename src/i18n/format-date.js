@@ -26,8 +26,13 @@ export function formatDate(date, locale, options) {
     language === "si" ? [locale, "en-GB"] : locale,
     options,
   );
-  const { locale: resolvedLocale, calendar, month, dateStyle, timeZone } =
-    formatter.resolvedOptions();
+  const {
+    locale: resolvedLocale,
+    calendar,
+    month,
+    dateStyle,
+    timeZone,
+  } = formatter.resolvedOptions();
 
   if (language === "zh") {
     return formatter
@@ -38,8 +43,10 @@ export function formatDate(date, locale, options) {
   if (
     language !== "si" ||
     calendar !== "gregory" ||
-    !(["long", "short", "narrow"].includes(month) ||
-      (dateStyle && dateStyle !== "short"))
+    !(
+      ["long", "short", "narrow"].includes(month) ||
+      (dateStyle && dateStyle !== "short")
+    )
   ) {
     return formatter.format(date);
   }
@@ -56,15 +63,24 @@ export function formatDate(date, locale, options) {
 
   const parts = formatter.formatToParts(date);
   if (resolvedLocale === "en-GB" && month === "long") {
-    const fields = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
-    const dateLabel = [fields.year, monthLabel, fields.day].filter(Boolean).join(" ");
+    const fields = Object.fromEntries(
+      parts.map(({ type, value }) => [type, value]),
+    );
+    const dateLabel = [fields.year, monthLabel, fields.day]
+      .filter(Boolean)
+      .join(" ");
     const timeStart = parts.findIndex(({ type }) => type === "hour");
     if (timeStart === -1) return dateLabel;
-    const timeLabel = parts.slice(timeStart).map(({ value }) => value).join("");
+    const timeLabel = parts
+      .slice(timeStart)
+      .map(({ value }) => value)
+      .join("");
     return `${dateLabel} ${timeLabel}`;
   }
 
-  return parts.map((part) => (part.type === "month" ? monthLabel : part.value)).join("");
+  return parts
+    .map((part) => (part.type === "month" ? monthLabel : part.value))
+    .join("");
 }
 
 const relativeDateUnits = [
@@ -80,9 +96,14 @@ export function formatRelativeDate(date, locale, now) {
   const elapsedMinutes = Math.trunc((now - new Date(date).getTime()) / 60_000);
   if (!Number.isFinite(elapsedMinutes)) return "";
   if (!relativeDateFormatters.has(locale))
-    relativeDateFormatters.set(locale, new Intl.RelativeTimeFormat([locale, "en-GB"], { numeric: "auto" }));
+    relativeDateFormatters.set(
+      locale,
+      new Intl.RelativeTimeFormat([locale, "en-GB"], { numeric: "auto" }),
+    );
   const formatter = relativeDateFormatters.get(locale);
-  const unit = relativeDateUnits.find(([, size]) => Math.abs(elapsedMinutes) >= size);
+  const unit = relativeDateUnits.find(
+    ([, size]) => Math.abs(elapsedMinutes) >= size,
+  );
   return unit
     ? formatter.format(-Math.trunc(elapsedMinutes / unit[1]), unit[0])
     : formatter.format(0, "second");

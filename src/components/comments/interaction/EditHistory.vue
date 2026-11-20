@@ -1,8 +1,8 @@
 <template>
   <Popover
     :label="t('comments.editHistory')"
-    align="end"
-    trigger-class="cursor-pointer text-xs text-base-content/60 hover:underline ms-auto"
+    align="center"
+    trigger-class="shrink-0 cursor-pointer whitespace-nowrap text-xs text-base-content/60 hover:underline ms-auto"
     panel-class="text-sm"
     @open="openHistory"
   >
