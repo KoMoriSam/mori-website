@@ -172,7 +172,7 @@
               <h1
                 :data-reader-heading-id="`article-title-${articleId}`"
                 data-pagefind-body
-                data-pagefind-meta="localizeText(title)"
+                data-pagefind-meta="title"
                 data-pagefind-weight="10"
                 class="max-w-4xl text-balance font-serif text-3xl leading-tight font-black tracking-tight sm:text-4xl lg:text-5xl"
                 :class="hasVisibleBanner ? 'drop-shadow-sm' : ''"
@@ -569,6 +569,7 @@ import { useContentReadTracking } from "@/composables/reader/useContentReadTrack
 import { normalizeArticleDate } from "@/composables/blog/useArticleFilter";
 import { sortArticleNavigation } from "@/utils/blog/article-navigation";
 import { getArticleTimelinessDays } from "@/utils/blog/article-timeliness";
+import { estimateReadingTime } from "@/utils/blog/reading-time";
 import {
   getArticleLocales,
   getArticlePath,
@@ -778,17 +779,6 @@ watch(
   },
   { flush: "post" },
 );
-
-const estimateReadingTime = (length) => {
-  const characterCount = Number(length);
-
-  if (!Number.isFinite(characterCount) || characterCount <= 0) {
-    return 1;
-  }
-
-  // 中文文章按照每分钟约 400 字估算
-  return Math.max(1, Math.ceil(characterCount / 400));
-};
 
 const aliasList = computed(() => {
   const aliases = props.article?.aliases;

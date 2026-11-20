@@ -724,6 +724,7 @@ import CatalogBadge from "@/components/interaction/navigation/CatalogBadge.vue";
 import CatalogCard from "@/components/interaction/navigation/CatalogCard.vue";
 import { getNavbarScrollOffset } from "@/utils/layout/navbar";
 import { getArticlePath } from "@/utils/blog/article-versions";
+import { estimateReadingTime } from "@/utils/blog/reading-time";
 import { useLocale } from "@/i18n";
 const {
   t: translate,
@@ -1269,10 +1270,6 @@ onMounted(() => {
 onBeforeUnmount(() => {
   document.removeEventListener("pointerdown", handleOutsidePointerDown);
 });
-
-const estimateReadingTime = (length = 0) => {
-  return Math.max(1, Math.ceil(Number(length || 0) / 300));
-};
 
 const resetFilter = () => {
   clearFilter();

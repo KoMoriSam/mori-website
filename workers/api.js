@@ -1031,6 +1031,17 @@ async function cleanupAnalyticsEvents(env) {
 }
 
 async function handleRandomHero(request, env, corsOrigin) {
+  if (request.method !== "GET") {
+    return jsonResponse(
+      {
+        error: "Method Not Allowed",
+        message: "该接口仅接受 GET 请求。",
+      },
+      405,
+      corsOrigin,
+    );
+  }
+
   const cacheResponse = await getHeroCache(request);
 
   if (cacheResponse) {
@@ -1050,17 +1061,6 @@ async function handleRandomHero(request, env, corsOrigin) {
       {
         "Retry-After": "60",
       },
-    );
-  }
-
-  if (request.method !== "GET") {
-    return jsonResponse(
-      {
-        error: "Method Not Allowed",
-        message: "该接口仅接受 GET 请求。",
-      },
-      405,
-      corsOrigin,
     );
   }
 

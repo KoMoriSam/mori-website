@@ -95,6 +95,7 @@ import {
   normalizeArticleDate,
 } from "@/composables/blog/useArticleFilter";
 import { getRelatedArticles } from "@/utils/blog/related-articles";
+import { estimateReadingTime } from "@/utils/blog/reading-time";
 
 const props = defineProps({
   article: { type: Object, required: true },
@@ -113,9 +114,7 @@ const related = computed(() =>
       ...article,
       publishedDate: normalizeArticleDate(article.date),
       readingTime:
-        Number(article.length) > 0
-          ? Math.max(1, Math.ceil(Number(article.length) / 300))
-          : null,
+        Number(article.length) > 0 ? estimateReadingTime(article.length) : null,
       displayTags: (article.tags || []).slice(0, 2).map(formatArticleTag),
     }),
   ),

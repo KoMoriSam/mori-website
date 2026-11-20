@@ -1474,10 +1474,12 @@ for (const [category, icons] of Object.entries(remixIconTags)) {
       keywords: keywords.toLocaleLowerCase(),
     });
 }
-const remixIconCategories = Object.keys(remixIconTags).map((value) => ({
-  value,
-  label: REMIX_ICON_CATEGORY_LABELS[value] || value,
-}));
+const remixIconCategories = computed(() =>
+  Object.keys(remixIconTags).map((value) => ({
+    value,
+    label: REMIX_ICON_CATEGORY_LABELS[value] || value,
+  })),
+);
 const toast = useToast();
 const queue = ref([]);
 const queueViewMode = ref("detailed");
@@ -2562,12 +2564,11 @@ async function convertItem(item) {
     item.outputWidth = result.width;
     item.outputHeight = result.height;
     item.outputFormat = jobSettings.format;
-    item.resultPreviewUrl = item.outputs.find((output) =>
+    const previewOutput = item.outputs.find((output) =>
       output.type.startsWith("image/"),
-    )
-      ? URL.createObjectURL(
-          item.outputs.find((output) => output.type.startsWith("image/")).blob,
-        )
+    );
+    item.resultPreviewUrl = previewOutput
+      ? URL.createObjectURL(previewOutput.blob)
       : null;
     item.status = "done";
     item.progress = 100;

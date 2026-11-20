@@ -2814,7 +2814,7 @@ async function convertUploadedDocument() {
     documentError.value = localeMessage(
       "sinhala.documentFailed",
     );
-    liveMessage.value = documentError.value;
+    liveMessage.value = localizeText(documentError.value);
   } finally {
     if (request === documentConversionRequest) documentConverting.value = false;
   }

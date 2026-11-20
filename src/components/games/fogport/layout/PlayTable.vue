@@ -133,7 +133,7 @@
       ><span>{{ t("fogport.errors.BOARD_VERSION") }}</span>
     </div>
     <div class="relative flex min-h-0 flex-1 flex-col gap-2 lg:flex-row">
-      <main class="relative flex min-h-0 min-w-0 flex-1 flex-col gap-2">
+      <section class="relative flex min-h-0 min-w-0 flex-1 flex-col gap-2">
         <Board
           v-if="game.boardVersion === BOARD_VERSION"
           :id="`${panelId}-board`"
@@ -301,7 +301,7 @@
           @choose="chooseMenu"
           @close="clearMode"
         />
-      </main>
+      </section>
       <Teleport :to="`#${inventoryTargetId}`" :disabled="!midDesktop" defer>
         <InventoryTray
           v-show="

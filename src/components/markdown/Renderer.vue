@@ -84,6 +84,7 @@ import { injectMarkdownSearchAnchors } from "@/utils/markdown/search-anchors";
 import { loadMathJaxPlugin } from "@/utils/markdown/mathjax-svg";
 import { projectMarkdownComponentProps } from "@/utils/markdown/markdown-component-props";
 import { sanitizeMarkdownResourceUrl } from "@/utils/markdown/sanitize-html";
+import { estimateReadingTime } from "@/utils/blog/reading-time";
 import { WIKI_LINK_RESOLVER } from "@/utils/markdown/markdown-it-wikilink";
 
 const props = defineProps({
@@ -548,7 +549,7 @@ const resolveMarkdownComponent = ({
     const length = Number(article.length);
     const hasLength =
       article.length != null && Number.isFinite(length) && length >= 0;
-    const readingTime = Math.max(1, Math.ceil(length / 300));
+    const readingTime = estimateReadingTime(length);
     return h(
       CatalogCard,
       {

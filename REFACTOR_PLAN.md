@@ -27,7 +27,7 @@
   - 移除 `src/router/index.js` 中冲突的 `document.title` 写入与模块级 `beforeEach`/`afterEach`；核对 `scripts/checks/i18n-loading.mjs:20`（唯一导入 `default: router` 的调用方），改为在测试脚本中用 `createRouter` 或保留无副作用的纯 `resolve` 辅助。
 - **验证**：`pnpm check i18n-loading`、`pnpm check blog`、`pnpm check site-perf`；本地访问 `/blog.html`、`/blog?article=<id>` 确认正确重定向且页面 `<title>` 正常。
 
-### - [ ] P0-2：修复 5 处已定位的运行时 / 语义 Bug
+### - [x] P0-2：修复 5 处已定位的运行时 / 语义 Bug
 - **涉及文件与修复点**：
   1. `src/views/blog/ArticleReader.vue:175`：修复 `data-pagefind-meta="localizeText(title)"` 误写，恢复为 `data-pagefind-meta="title"`。
   2. `src/views/tools/SinhalaFontConverter.vue:2814-2817`：改为 `liveMessage.value = localizeText(documentError.value)`，消除 `[object Object]` 播报。
