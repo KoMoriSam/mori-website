@@ -748,12 +748,12 @@ import { Translation as I18nT } from "vue-i18n";
 import ContentPage from "@/components/layout/ContentPage.vue";
 import Pagination from "@/components/interaction/navigation/Pagination.vue";
 import { BLOG_PAGE_SIZE } from "@/constants/blog-pagination";
+import { useArticleFilter } from "@/composables/blog/useArticleFilter";
 import {
   formatArticleTag,
   normalizeArticleTag,
   splitArticleHighlight,
-  useArticleFilter,
-} from "@/composables/blog/useArticleFilter";
+} from "@/utils/blog/article-fields";
 import { createSearchExcerpt } from "@/services/search-content";
 import { useAnalyticsStore } from "@/stores/analyticsStore";
 import { useCommentCountsStore } from "@/stores/commentCountsStore";

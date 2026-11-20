@@ -69,7 +69,7 @@ import ImagePreview from "@/components/interaction/overlay/ImagePreview.vue";
 import CatalogCard from "@/components/interaction/navigation/CatalogCard.vue";
 import CatalogMeta from "@/components/interaction/navigation/CatalogMeta.vue";
 import Tooltip from "@/components/display/Tooltip.vue";
-import { normalizeArticleDate } from "@/composables/blog/useArticleFilter";
+import { normalizeArticleDate } from "@/utils/blog/article-fields";
 import RenderedContent from "@/components/markdown/RenderedContent.vue";
 import ScrollableContainer from "@/components/layout/ScrollableContainer.vue";
 import {

@@ -68,7 +68,7 @@
   - 切换 `workers/api.js`、`scripts/release/{changelog-content,announcement}.mjs`、`src/services/api-{changelog,announcements}.js`、`src/utils/type-changelog.js` 全部复用 `shared/`；移除 `changelogStore.js:23` 重复归一化并决定 `fetchChangelog` 是否真正透传 `cache: force ? "reload" : "no-store"` 或移除无效参数。
 - **验证**：`pnpm check changelog`、`pnpm check announcements`、`pnpm check release-deploy`。
 
-### - [ ] P1-2：统一前端 HTTP 请求封装与 Manifest 加载器
+### - [x] P1-2：统一前端 HTTP 请求封装与 Manifest 加载器
 - **现状问题**：7 处手写 `AbortController` + `setTimeout` + `normalizeEndpoint` + JSON 错误解析；`avatar-manifests.js` 与 `responsive-images.js` 复制几乎相同的请求注册表；`search-content.js` 反向依赖 `composables/blog/useArticleFilter.js`。
 - **改造动作**：
   - 新建 `src/services/http.js`：提供 `normalizeEndpoint`、`fetchJson(url, { timeout, ... })`（统一采用原生 `AbortSignal.timeout` + 结构化 `HttpError`）。

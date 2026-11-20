@@ -497,7 +497,7 @@ import {
   getArticleSearchScore,
   normalizeArticleTag,
   splitArticleHighlight,
-} from "@/composables/blog/useArticleFilter";
+} from "@/utils/blog/article-fields";
 import {
   CONTENT_TYPES,
   createSearchExcerpt,

@@ -33,7 +33,7 @@ import { computed } from "vue";
 import { useLocale } from "@/i18n";
 import CatalogCard from "@/components/interaction/navigation/CatalogCard.vue";
 import CatalogMeta from "@/components/interaction/navigation/CatalogMeta.vue";
-import { formatArticleTag } from "@/composables/blog/useArticleFilter";
+import { formatArticleTag } from "@/utils/blog/article-fields";
 import { estimateReadingTime } from "@/utils/blog/reading-time";
 
 const props = defineProps({

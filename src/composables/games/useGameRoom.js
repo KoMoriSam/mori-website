@@ -1,12 +1,13 @@
 import { onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { fetchJson, normalizeEndpoint } from "@/services/http";
 
-const ENDPOINT = (
+const ENDPOINT = normalizeEndpoint(
   import.meta.env.VITE_GAMES_API ||
-  (import.meta.env.PROD
-    ? "https://api.komori.cc/games/rooms"
-    : "/api/games/rooms")
-).replace(/\/+$/, "");
+    (import.meta.env.PROD
+      ? "https://api.komori.cc/games/rooms"
+      : "/api/games/rooms"),
+);
 const VALID_CODE = /^[A-HJ-NP-Z2-9]{8}$/;
 const MAX_RECONNECT_ATTEMPTS = 3;
 const key = (code) => `mori:games:room:${code}`;
@@ -67,27 +68,27 @@ export function useGameRoom(gameType) {
     }
   }
   async function request(path, body, token) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10_000);
     try {
-      const response = await fetch(ENDPOINT + path, {
-        method: "POST",
-        signal: controller.signal,
-        headers: {
-          ...(body ? { "Content-Type": "application/json" } : {}),
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        ...(body ? { body: JSON.stringify(body) } : {}),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "SERVER");
-      return data;
+      return (
+        (await fetchJson(ENDPOINT + path, {
+          method: "POST",
+          timeout: 10_000,
+          headers: {
+            ...(body ? { "Content-Type": "application/json" } : {}),
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          ...(body ? { body: JSON.stringify(body) } : {}),
+          errorMessage: (_status, data) => data?.error || "SERVER",
+        })) || {}
+      );
     } catch (cause) {
-      if (cause instanceof TypeError || cause.name === "AbortError")
+      if (
+        cause instanceof TypeError ||
+        cause?.name === "AbortError" ||
+        cause?.name === "TimeoutError"
+      )
         throw new Error("NETWORK");
       throw cause;
-    } finally {
-      clearTimeout(timeout);
     }
   }
   function cleanupConnection() {

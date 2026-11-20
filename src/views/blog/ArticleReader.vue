@@ -566,7 +566,7 @@ import { useCommentCountsStore } from "@/stores/commentCountsStore";
 import { useScrollTo } from "@/composables/useScrollTo";
 import { useReaderTextContext } from "@/composables/reader/useReaderTextContext";
 import { useContentReadTracking } from "@/composables/reader/useContentReadTracking";
-import { normalizeArticleDate } from "@/composables/blog/useArticleFilter";
+import { normalizeArticleDate } from "@/utils/blog/article-fields";
 import { sortArticleNavigation } from "@/utils/blog/article-navigation";
 import { getArticleTimelinessDays } from "@/utils/blog/article-timeliness";
 import { estimateReadingTime } from "@/utils/blog/reading-time";

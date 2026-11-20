@@ -2,7 +2,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useLocale } from '@/i18n';
 import { generatedArticleList } from '@/router/ssg-data';
 import { resolveArticleVersion } from '@/utils/blog/article-versions';
-import { normalizeArticleDate } from '@/composables/blog/useArticleFilter';
+import { normalizeArticleDate } from '@/utils/blog/article-fields';
 
 export function useLatestArticles(limit = 3) {
   const { locale } = useLocale();

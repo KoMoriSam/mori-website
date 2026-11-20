@@ -93,7 +93,7 @@ import CatalogMeta from "@/components/interaction/navigation/CatalogMeta.vue";
 import {
   formatArticleTag,
   normalizeArticleDate,
-} from "@/composables/blog/useArticleFilter";
+} from "@/utils/blog/article-fields";
 import { getRelatedArticles } from "@/utils/blog/related-articles";
 import { estimateReadingTime } from "@/utils/blog/reading-time";
 

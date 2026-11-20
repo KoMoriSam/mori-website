@@ -4,7 +4,8 @@ import {
   formatArticleTag,
   normalizeArticleDate,
   normalizeArticleTag,
-} from "@/composables/blog/useArticleFilter";
+  normalizeArticleTags,
+} from "@/utils/blog/article-fields";
 import { useArticleApi } from "@/services/api-articles";
 import { resolveArticleVersion } from "@/utils/blog/article-versions";
 import { useChapterApi } from "@/services/api-chapters";
@@ -130,7 +131,6 @@ const createLocalMarkdownSearchBlocks = ({
   baseUrl,
   title,
 }) => {
-  // const pages = paginated ? splitMarkdown(content) : [content];
   const pages = [content];
 
   return pages.flatMap((pageContent) =>
@@ -344,7 +344,11 @@ export const fetchBlogSearchArticles = async (locale = "zh-CN") => {
             metadata,
             metadataText,
           };
-        } catch {
+        } catch (error) {
+          console.warn(
+            `加载文章搜索正文失败（${article?.id || article?.path || "unknown"}）：`,
+            error,
+          );
           const frontmatter = { ...article };
           const { metadata, metadataText } = createBlogMetadata(frontmatter);
 
@@ -375,9 +379,7 @@ const fetchBlogEntries = async (locale) => {
   return articles.map((article, catalogOrder) => {
     const id = String(article?.id || "").trim();
     const date = normalizeArticleDate(article?.date);
-    const tags = uniqueStrings(article?.tags)
-      .map(normalizeArticleTag)
-      .filter(Boolean);
+    const tags = normalizeArticleTags(article?.tags);
     const filterTags = tags
       .map((tag) => {
         const segments = tag.split("/").filter(Boolean);
@@ -388,10 +390,12 @@ const fetchBlogEntries = async (locale) => {
         });
       })
       .filter(Boolean);
-    const blogMetadata = createBlogMetadata(article);
-    const metadata = Array.isArray(article?.metadata)
-      ? article.metadata
-      : blogMetadata.metadata;
+    const { metadata, metadataText } = Array.isArray(article?.metadata)
+      ? {
+          metadata: article.metadata,
+          metadataText: String(article.metadataText || ""),
+        }
+      : createBlogMetadata(article);
 
     const url = article.routePath || "/blog";
     const title = String(article?.title || "未命名文章");
@@ -412,7 +416,7 @@ const fetchBlogEntries = async (locale) => {
         tags,
         filterTags,
         metadata,
-        metadataText: article?.metadataText ?? blogMetadata.metadataText,
+        metadataText,
         date,
         year: date.slice(0, 4),
         catalogOrder,
@@ -443,25 +447,20 @@ const fetchNovelEntries = async () => {
   );
 
   return chapters.map((chapter) => {
-      const frontmatter = chapter;
-      const uploadDate = normalizeArticleDate(
-        frontmatter?.uploadDate || chapter?.uploadDate,
-      );
-      const modifiedDate = normalizeArticleDate(
-        frontmatter?.modifiedDate || chapter?.modifiedDate,
-      );
-      const date = modifiedDate || uploadDate;
-      const uuid = String(chapter?.uuid || "").trim();
-      const volumeTitle = String(chapter?.volumeTitle || "").trim();
-      const volumeFacet = createFilterTag("novel", volumeTitle, {
-        label: volumeTitle,
-        order: chapter.volumeOrder,
-      });
-      const metadata = createMarkdownMetadata(frontmatter, [
-        "uploadDate",
-        "modifiedDate",
-        "length",
-      ]);
+    const uploadDate = normalizeArticleDate(chapter?.uploadDate);
+    const modifiedDate = normalizeArticleDate(chapter?.modifiedDate);
+    const date = modifiedDate || uploadDate;
+    const uuid = String(chapter?.uuid || "").trim();
+    const { volumeTitle } = chapter;
+    const volumeFacet = createFilterTag("novel", volumeTitle, {
+      label: volumeTitle,
+      order: chapter.volumeOrder,
+    });
+    const metadata = createMarkdownMetadata(chapter, [
+      "uploadDate",
+      "modifiedDate",
+      "length",
+    ]);
       const url = uuid ? `/novel/${encodeURIComponent(uuid)}` : "/novel";
       const title = String(chapter?.title || "未命名章节");
 

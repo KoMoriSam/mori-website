@@ -13,32 +13,22 @@ async function fetchCountsBatch({ body, identifiers = [] }) {
     return {};
   }
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => {
-    controller.abort();
-  }, TIMEOUT);
+  const payload = await fetchGithubDiscussionCounts(body(ids), {
+    timeout: TIMEOUT,
+    errorMessage: "评论批量接口请求失败",
+  });
+  const counts = payload?.counts;
 
-  try {
-    const response = await fetchGithubDiscussionCounts(body(ids), controller.signal);
+  if (!counts || typeof counts !== "object") {
+    return {};
+  }
 
-    if (!response.ok) {
-      throw new Error(`评论批量接口请求失败：${response.status}`);
-    }
-
-    const payload = await response.json();
-    const counts = payload?.counts;
-
-    if (!counts || typeof counts !== "object") {
-      return {};
-    }
-
-    return Object.fromEntries(ids.map((id) => {
+  return Object.fromEntries(
+    ids.map((id) => {
       const count = Number(Object.hasOwn(counts, id) ? counts[id] : 0);
       return [id, Number.isFinite(count) ? Math.max(0, count) : 0];
-    }));
-  } finally {
-    clearTimeout(timeout);
-  }
+    }),
+  );
 }
 
 export function fetchParagraphCountsBatch({
@@ -70,20 +60,12 @@ export function fetchContentCommentTotalsBatch({
   sourceType = "article",
   contents = [],
 }) {
-  const contentById = new Map();
-  for (const content of contents) {
-    const contentId = String(content?.contentId || "").trim();
-    const discussionTerm = String(content?.discussionTerm || "").trim();
-    if (!contentId || !discussionTerm || contentById.has(contentId)) continue;
-    contentById.set(contentId, { contentId, discussionTerm });
-  }
-
   return fetchCountsBatch({
-    identifiers: [...contentById.keys()],
-    body: (contentIds) => ({
+    identifiers: contents.map(({ contentId }) => contentId),
+    body: () => ({
       sourceType,
       scope: "content-total",
-      contents: contentIds.map((contentId) => contentById.get(contentId)),
+      contents,
     }),
   });
 }

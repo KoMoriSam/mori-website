@@ -19,7 +19,7 @@ export {
   trackImageReads,
   stopTrackingImageReads,
 } from "./utils/images/responsive-images";
-export { normalizeArticleDate } from "./composables/blog/useArticleFilter";
+export { normalizeArticleDate } from "./utils/blog/article-fields";
 import { installPageData } from "./utils/ssg/page-data";
 import { useNovelStore } from "./stores/novel";
 import { rememberBlogListScroll } from "./utils/blog/list-scroll";

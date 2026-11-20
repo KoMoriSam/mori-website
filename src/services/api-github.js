@@ -1,11 +1,12 @@
+import { fetchJson, normalizeEndpoint } from "./http.js";
+
 const env = import.meta.env;
 const apiBase = env?.DEV ? "/api/github" : "https://api.komori.cc/github";
-const endpoint = (value) => String(value).trim().replace(/\/+$/, "");
-const profileApi = endpoint(env?.VITE_GITHUB_PROFILE_API || `${apiBase}/users`);
-const repositoryApi = endpoint(env?.VITE_GITHUB_REPOSITORY_API || `${apiBase}/repos`);
+const profileApi = normalizeEndpoint(env?.VITE_GITHUB_PROFILE_API || `${apiBase}/users`);
+const repositoryApi = normalizeEndpoint(env?.VITE_GITHUB_REPOSITORY_API || `${apiBase}/repos`);
 const discussionCountsPath = "/github/discussions/counts";
 const defaultDiscussionCountsApi = `${apiBase}/discussions/counts`;
-const configuredDiscussionCountsApi = endpoint(env?.VITE_COMMENT_COUNTS_API ?? defaultDiscussionCountsApi);
+const configuredDiscussionCountsApi = normalizeEndpoint(env?.VITE_COMMENT_COUNTS_API ?? defaultDiscussionCountsApi);
 const discussionCountsApi = !configuredDiscussionCountsApi || configuredDiscussionCountsApi.endsWith(discussionCountsPath)
   ? configuredDiscussionCountsApi
   : defaultDiscussionCountsApi;
@@ -14,12 +15,13 @@ const requestGithubApi = (url, options) => fetch(url, { credentials: "omit", ...
 
 export const hasGithubDiscussionCountsApi = Boolean(discussionCountsApi);
 
-export function fetchGithubDiscussionCounts(body, signal) {
-  return requestGithubApi(discussionCountsApi, {
+export function fetchGithubDiscussionCounts(body, options) {
+  return fetchJson(discussionCountsApi, {
     method: "POST",
+    credentials: "omit",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-    signal,
+    ...options,
   });
 }
 

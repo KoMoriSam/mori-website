@@ -1,9 +1,5 @@
 import { normalizeChangelogPayload } from "../../shared/changelog.js";
-
-const normalizeEndpoint = (value = "") =>
-  String(value || "")
-    .trim()
-    .replace(/\/+$/, "");
+import { fetchJson, normalizeEndpoint } from "./http.js";
 
 const REMOTE_ENDPOINT = normalizeEndpoint(
   import.meta.env?.VITE_CHANGELOG_API || "/api/changelog",
@@ -12,26 +8,13 @@ const STATIC_ENDPOINT = "/changelog.json";
 const REQUEST_TIMEOUT_MS = 6000;
 
 const fetchPayload = async (endpoint, { force = false } = {}) => {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  try {
-    const response = await fetch(endpoint, {
-      cache: force ? "reload" : "no-store",
-      headers: { Accept: "application/json" },
-      signal: controller.signal,
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      const error = new Error(
-        String(payload?.message || `更新日志请求失败：${response.status}`),
-      );
-      error.status = response.status;
-      throw error;
-    }
-    return normalizeChangelogPayload(payload);
-  } finally {
-    clearTimeout(timeout);
-  }
+  const payload = await fetchJson(endpoint, {
+    cache: force ? "reload" : "no-store",
+    headers: { Accept: "application/json" },
+    timeout: REQUEST_TIMEOUT_MS,
+    errorMessage: "更新日志请求失败",
+  });
+  return normalizeChangelogPayload(payload);
 };
 
 export const fetchRemoteChangelog = (options) =>

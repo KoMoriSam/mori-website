@@ -121,27 +121,30 @@ export const useCommentCountsStore = defineStore("commentCounts", () => {
     return id ? statuses[getCountKey(sourceType, id)] || "idle" : "disabled";
   };
 
-  const getContentCollectionStatus = (sourceType, contentIds = []) => {
-    const ids = normalizeContentIds(contentIds);
+  const resolveCollectionStatus = (sourceType, ids) => {
     if (ids.length === 0) return "ready";
 
-    const collectionStatuses = ids.map((contentId) =>
-      getContentCommentStatus(sourceType, contentId),
-    );
-    if (collectionStatuses.some((status) => status === "error")) return "error";
-    if (collectionStatuses.every((status) => status === "ready")) return "ready";
-    return "loading";
+    let allReady = true;
+    for (const id of ids) {
+      const status = statuses[getCountKey(sourceType, id)] || "idle";
+      if (status === "error") return "error";
+      if (status !== "ready") allReady = false;
+    }
+    return allReady ? "ready" : "loading";
   };
+
+  const getContentCollectionStatus = (sourceType, contentIds = []) =>
+    resolveCollectionStatus(sourceType, normalizeContentIds(contentIds));
 
   const getContentCollectionTotal = (sourceType, contentIds = []) => {
     const ids = normalizeContentIds(contentIds);
-    if (getContentCollectionStatus(sourceType, ids) !== "ready") {
+    if (resolveCollectionStatus(sourceType, ids) !== "ready") {
       return null;
     }
 
     return ids.reduce(
       (total, contentId) =>
-        total + (getContentCommentTotal(sourceType, contentId) ?? 0),
+        total + (counts[getCountKey(sourceType, contentId)] ?? 0),
       0,
     );
   };
