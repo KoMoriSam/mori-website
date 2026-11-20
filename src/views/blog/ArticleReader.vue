@@ -101,9 +101,9 @@
               <div
                 class="flex min-h-8 min-w-0 flex-1 flex-wrap items-center gap-2"
               >
-                <nav
-                  class="tooltip tooltip-right"
-                  :data-tip="translate('blog.article.back')"
+                <Tooltip as="nav" trigger-class="" activation-class="tooltip"
+                  class="tooltip-right"
+                  :text="translate('blog.article.back')"
                 >
                   <RouterLink
                     class="btn btn-sm btn-circle shrink-0"
@@ -117,7 +117,7 @@
                   >
                     <i class="ri-arrow-left-line"></i>
                   </RouterLink>
-                </nav>
+                </Tooltip>
 
                 <span
                   v-for="tag in article.tags"
@@ -220,10 +220,10 @@
                 v-if="aliasList.length"
                 class="mt-3 flex max-w-3xl flex-wrap text-sm leading-relaxed sm:text-base"
               >
-                <span
+                <Tooltip as="span" trigger-class=""
                   v-for="alias in aliasList"
                   :key="alias"
-                  :title="alias"
+                  :text="alias" :aria-label="alias"
                   class="badge scrollbar-none mr-2 mb-2 inline-flex max-w-full items-center justify-start overflow-x-auto px-2 text-left font-bold whitespace-nowrap"
                   :class="
                     hasVisibleBanner
@@ -232,7 +232,7 @@
                   "
                 >
                   <span class="min-w-max">{{ alias }}</span>
-                </span>
+                </Tooltip>
               </p>
 
               <div
@@ -536,6 +536,8 @@
 </template>
 
 <script setup>
+import Tooltip from "@/components/display/Tooltip.vue";
+
 import { provideMarkdownAvatars } from "@/composables/markdown/useMarkdownAvatars";
 import ContentRights from "@/components/reader/display/ContentRights.vue";
 import RelatedArticles from "@/components/blog/RelatedArticles.vue";

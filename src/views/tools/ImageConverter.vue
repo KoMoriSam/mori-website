@@ -146,30 +146,30 @@
                 role="tablist"
                 :aria-label="translate('image.queueView')"
               >
-                <button
+                <Tooltip as="button" trigger-class="block"
                   class="tab"
                   :class="queueViewMode === 'detailed' ? 'tab-active' : ''"
                   type="button"
                   role="tab"
                   :aria-selected="queueViewMode === 'detailed'"
                   :aria-label="translate('image.detailedView')"
-                  :title="translate('image.detailedView')"
+                  :text="translate('image.detailedView')"
                   @click="queueViewMode = 'detailed'"
                 >
                   <i class="ri-list-check-3" aria-hidden="true"></i>
-                </button>
-                <button
+                </Tooltip>
+                <Tooltip as="button" trigger-class="block"
                   class="tab"
                   :class="queueViewMode === 'compact' ? 'tab-active' : ''"
                   type="button"
                   role="tab"
                   :aria-selected="queueViewMode === 'compact'"
                   :aria-label="translate('image.compactView')"
-                  :title="translate('image.compactView')"
+                  :text="translate('image.compactView')"
                   @click="queueViewMode = 'compact'"
                 >
                   <i class="ri-list-unordered" aria-hidden="true"></i>
-                </button>
+                </Tooltip>
               </div>
             </div>
           </header>
@@ -304,14 +304,14 @@
                       class="flex shrink-0 items-center"
                       :class="queueViewMode === 'compact' ? 'gap-0' : 'gap-1'"
                     >
-                      <span
-                        class="tooltip tooltip-left"
+                      <Tooltip as="span" trigger-class="" activation-class="tooltip"
+                        class="tooltip-left"
                         :class="
                           queueViewMode === 'compact'
                             ? 'inline-flex size-6 items-center justify-center'
                             : 'm-2'
                         "
-                        :data-tip="statusLabel(item.status)"
+                        :text="statusLabel(item.status)"
                         :aria-label="statusLabel(item.status)"
                         role="img"
                       >
@@ -319,7 +319,7 @@
                           :class="statusIcon(item.status)"
                           aria-hidden="true"
                         ></i>
-                      </span>
+                      </Tooltip>
                       <button
                         v-if="item.status === 'done'"
                         class="btn btn-square btn-ghost"
@@ -797,14 +797,14 @@
                       <span class="text-xs text-base-content/50">px</span>
                     </label>
                   </div>
-                  <label
-                    class="tooltip tooltip-top"
+                  <Tooltip as="label" trigger-class="" activation-class="tooltip"
+                    class="tooltip-top"
                     for="resize-lock-aspect-ratio"
-                    :data-tip="
-                      settings.resize.lockAspectRatio
-                        ? translate('image.aspectRatioLocked')
-                        : translate('image.aspectRatioUnlocked')
-                    "
+                    :text="
+                        settings.resize.lockAspectRatio
+                          ? translate('image.aspectRatioLocked')
+                          : translate('image.aspectRatioUnlocked')
+                      "
                   >
                     <button
                       class="btn btn-square btn-xs sm:btn-sm mb-1 sm:mb-1.25"
@@ -820,11 +820,7 @@
                           : translate('image.lockOriginalAspectRatio')
                       "
                       :aria-pressed="settings.resize.lockAspectRatio"
-                      :title="
-                        settings.resize.lockAspectRatio
-                          ? translate('image.aspectRatioLocked')
-                          : translate('image.aspectRatioUnlocked')
-                      "
+
                       :disabled="isRunning"
                       @click="toggleResizeAspectRatio"
                     >
@@ -837,7 +833,7 @@
                         aria-hidden="true"
                       ></i>
                     </button>
-                  </label>
+                  </Tooltip>
                   <div class="min-w-0">
                     <label class="label" for="resize-height">{{
                       translate("image.height")
@@ -1095,11 +1091,8 @@
                         class="dropdown dropdown-end z-40 mt-1 w-72 max-w-[calc(100vw-2rem)] rounded-box border border-base-300 bg-base-100 p-2 shadow-lg"
                         style="position-anchor: --watermark-icon-picker"
                         @keydown.esc="closeIconPicker"
-                        @toggle="
-                          !$event.currentTarget.matches(':popover-open') &&
-                          hideIconTooltip(true)
-                        "
-                        @pointerleave="hideIconTooltip()"
+
+
                       >
                         <div
                           class="mb-2 grid grid-cols-[minmax(0,1fr)_6rem] gap-2"
@@ -1133,11 +1126,18 @@
                             class="grid max-h-52 grid-cols-6 gap-1 overflow-x-hidden overflow-y-auto overscroll-contain"
                             role="listbox"
                             :aria-label="translate('image.icons')"
-                            @scroll.passive="hideIconTooltip(true)"
+
                           >
-                            <button
-                              v-for="icon in filteredRemixIcons"
+                            <Tooltip
+                              as="button"
+                              trigger-class="inline-flex"
+                              adaptive
+                              placement="top"
+                              content-class="max-w-48 sm:max-w-80"
+                              :text="icon"
+                              v-for="(icon, index) in filteredRemixIcons"
                               :key="icon"
+                              :align="index % 6 === 0 ? 'start' : index % 6 === 5 ? 'end' : 'center'"
                               class="btn btn-ghost btn-square btn-sm"
                               :class="
                                 watermark.icon === icon ? 'btn-active' : ''
@@ -1146,9 +1146,6 @@
                               role="option"
                               :aria-selected="watermark.icon === icon"
                               :aria-label="icon"
-                              @focus="showIconTooltip(icon, $event)"
-                              @blur="hideIconTooltip()"
-                              @pointerenter="showIconTooltip(icon, $event)"
                               @click="selectRemixIcon(icon)"
                             >
                               <i
@@ -1156,7 +1153,7 @@
                                 class="text-lg"
                                 aria-hidden="true"
                               ></i>
-                            </button>
+                            </Tooltip>
                           </div>
                         </ScrollableContainer>
                         <p
@@ -1166,23 +1163,7 @@
                           {{ translate("image.noMatchingIcons") }}
                         </p>
                       </div>
-                      <div
-                        ref="iconTooltip"
-                        popover="manual"
-                        class="watermark-icon-tooltip tooltip tooltip-top pointer-events-none z-50 size-0"
-                        style="
-                          position: fixed;
-                          inset: auto;
-                          margin: 0;
-                          overflow: visible;
-                          border: 0;
-                          padding: 0;
-                          background: transparent;
-                        "
-                        data-tip=""
-                        role="tooltip"
-                        aria-hidden="true"
-                      ></div>
+
                     </div>
                   </div>
                 </section>
@@ -1359,6 +1340,8 @@
 </template>
 
 <script setup>
+import Tooltip from "@/components/display/Tooltip.vue";
+
 import ScrollableContainer from "@/components/layout/ScrollableContainer.vue";
 import { useLocale } from "@/i18n";
 const { t: translate, text: localizeText } = useLocale();
@@ -1510,7 +1493,6 @@ const watermarkPreviewCanvas = ref(null);
 const defaultWatermarkFile = ref(null);
 const watermarkFontSelect = ref(null);
 const iconPicker = ref(null);
-const iconTooltip = ref(null);
 const iconSearch = ref("");
 const remixIconCategory = ref("all");
 const remixIcons = ref([...FEATURED_REMIX_ICONS]);
@@ -1523,9 +1505,6 @@ let watermarkIconBlob = null;
 let watermarkIconBlobKey = "";
 const svgWatermarkImagePromises = new WeakMap();
 const svgWatermarkRasterPromises = new WeakMap();
-let iconTooltipOpenFrame = 0;
-let iconTooltipHideFrame = 0;
-let iconTooltipCloseTimer = 0;
 let nextId = 1;
 let animationPreviewTimer = null;
 let resizeAspectAnchor = "width";
@@ -2840,77 +2819,9 @@ function selectRemixIcon(icon) {
   closeIconPicker();
 }
 function closeIconPicker() {
-  hideIconTooltip(true);
+
   if (iconPicker.value?.matches(":popover-open"))
     iconPicker.value.hidePopover();
-}
-function showIconTooltip(icon, event) {
-  const tooltip = iconTooltip.value;
-  if (!tooltip) return;
-  if (iconTooltipOpenFrame) {
-    cancelAnimationFrame(iconTooltipOpenFrame);
-    iconTooltipOpenFrame = 0;
-  }
-  if (iconTooltipHideFrame) {
-    cancelAnimationFrame(iconTooltipHideFrame);
-    iconTooltipHideFrame = 0;
-  }
-  if (iconTooltipCloseTimer) {
-    clearTimeout(iconTooltipCloseTimer);
-    iconTooltipCloseTimer = 0;
-  }
-  const rect = event.currentTarget.getBoundingClientRect();
-  tooltip.dataset.tip = icon;
-  tooltip.style.left = `${rect.left + rect.width / 2}px`;
-  tooltip.style.top = `${rect.top - 6}px`;
-  if (!tooltip.matches(":popover-open")) {
-    tooltip.classList.remove("tooltip-open");
-    tooltip.showPopover();
-    tooltip.setAttribute("aria-hidden", "false");
-    iconTooltipOpenFrame = requestAnimationFrame(() => {
-      iconTooltipOpenFrame = requestAnimationFrame(() => {
-        iconTooltipOpenFrame = 0;
-        if (tooltip.matches(":popover-open"))
-          tooltip.classList.add("tooltip-open");
-      });
-    });
-  } else tooltip.classList.add("tooltip-open");
-  const tooltipWidth =
-    Number.parseFloat(getComputedStyle(tooltip, "::before").width) || 0;
-  const left = Math.min(
-    window.innerWidth - tooltipWidth / 2 - 8,
-    Math.max(tooltipWidth / 2 + 8, rect.left + rect.width / 2),
-  );
-  tooltip.style.left = `${left}px`;
-}
-function hideIconTooltip(immediate = false) {
-  if (iconTooltipOpenFrame) {
-    cancelAnimationFrame(iconTooltipOpenFrame);
-    iconTooltipOpenFrame = 0;
-  }
-  if (iconTooltipHideFrame) {
-    cancelAnimationFrame(iconTooltipHideFrame);
-    iconTooltipHideFrame = 0;
-  }
-  if (iconTooltipCloseTimer) {
-    clearTimeout(iconTooltipCloseTimer);
-    iconTooltipCloseTimer = 0;
-  }
-  const hide = () => {
-    iconTooltipHideFrame = 0;
-    const tooltip = iconTooltip.value;
-    if (!tooltip?.matches(":popover-open")) return;
-    tooltip.classList.remove("tooltip-open");
-    const close = () => {
-      iconTooltipCloseTimer = 0;
-      if (tooltip.matches(":popover-open")) tooltip.hidePopover();
-      tooltip.setAttribute("aria-hidden", "true");
-    };
-    if (immediate) close();
-    else iconTooltipCloseTimer = window.setTimeout(close, 300);
-  };
-  if (immediate) hide();
-  else iconTooltipHideFrame = requestAnimationFrame(hide);
 }
 function toggleAnimation() {
   const item = selectedItem.value;
@@ -3063,10 +2974,6 @@ function countWebPFrames(bytes) {
 </script>
 
 <style scoped>
-.watermark-icon-tooltip:not(:popover-open) {
-  display: none;
-}
-
 .image-checker {
   background-color: var(--color-base-100);
   background-image:

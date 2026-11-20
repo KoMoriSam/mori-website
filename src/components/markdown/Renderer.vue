@@ -68,6 +68,7 @@ import Moment from "@/components/markdown/blocks/Moment.vue";
 import ImagePreview from "@/components/interaction/overlay/ImagePreview.vue";
 import CatalogCard from "@/components/interaction/navigation/CatalogCard.vue";
 import CatalogMeta from "@/components/interaction/navigation/CatalogMeta.vue";
+import Tooltip from "@/components/display/Tooltip.vue";
 import { normalizeArticleDate } from "@/composables/blog/useArticleFilter";
 import RenderedContent from "@/components/markdown/RenderedContent.vue";
 import ScrollableContainer from "@/components/layout/ScrollableContainer.vue";
@@ -572,16 +573,21 @@ const resolveMarkdownComponent = ({
             [
               publishedDate
                 ? h(
-                    CatalogMeta,
+                    Tooltip,
                     {
+                      text: formatDate(publishedDate),
+                      overflowOnly: true,
+                      placement: "bottom",
+                      align: "start",
+                      class:
+                        "col-span-2 @min-[30rem]/article-card:col-span-1",
+                    },
+                    { default: () => h(CatalogMeta, {
                       tag: "time",
                       datetime: publishedDate,
                       icon: "ri-calendar-line",
-                      class:
-                        "col-span-2 @min-[30rem]/article-card:col-span-1 [&>span]:truncate",
-                      title: formatDate(publishedDate),
-                    },
-                    { default: () => formatDate(publishedDate) },
+                      class: "[&>span]:truncate",
+                    }, { default: () => formatDate(publishedDate) }) },
                   )
                 : null,
               hasLength

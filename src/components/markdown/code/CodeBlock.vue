@@ -7,10 +7,10 @@
   >
     <CodeHeader type="code" :language="language" :title="title">
       <template #actions>
-        <aside
-          class="tooltip tooltip-left font-mono"
+        <Tooltip as="aside" trigger-class="" activation-class="tooltip"
+          class="tooltip-left font-mono"
           :class="copied ? 'tooltip-success' : ''"
-          :data-tip="copied ? translate('markdown.codeBlock.copied') : translate('markdown.codeBlock.copy')"
+          :text="copied ? translate('markdown.codeBlock.copied') : translate('markdown.codeBlock.copy')"
         >
           <button
             class="btn btn-sm btn-square markdown-control"
@@ -22,7 +22,7 @@
           >
             <i :class="copied ? 'ri-check-line' : 'ri-file-copy-line'"></i>
           </button>
-        </aside>
+        </Tooltip>
       </template>
     </CodeHeader>
 
@@ -31,6 +31,8 @@
 </template>
 
 <script setup>
+import Tooltip from "@/components/display/Tooltip.vue";
+
 import { useLocale } from '@/i18n';
 const { t: translate } = useLocale();
 

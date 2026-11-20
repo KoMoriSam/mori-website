@@ -50,9 +50,11 @@
               {{ translate("sinhala.sourceEncoding") }}
             </p>
           </hgroup>
-          <div
-            class="tooltip"
-            :data-tip="
+          <Tooltip
+            as="div"
+            trigger-class=""
+            activation-class="tooltip"
+            :text="
               translate(
                 'sinhala.swapShortcut',
               )
@@ -66,11 +68,7 @@
                   'sinhala.swap',
                 )
               "
-              :title="
-                translate(
-                  'sinhala.swapShortcut',
-                )
-              "
+
               :disabled="documentBusy"
               @click="swapPanels"
             >
@@ -79,7 +77,7 @@
                 aria-hidden="true"
               ></i>
             </button>
-          </div>
+          </Tooltip>
           <hgroup class="min-w-0 flex flex-col items-start justify-between">
             <h2 class="block font-serif text-lg font-bold">
               {{ isDirectionReversed ? "Unicode" : "Legacy" }}
@@ -397,9 +395,13 @@
                   @select="onUnicodeFontSelected"
                 />
               </label>
-              <div
-                class="tooltip"
-                :data-tip="translate('sinhala.bold')"
+              <Tooltip
+                as="div"
+                trigger-class=""
+                activation-class="tooltip"
+                :text="
+                  translate('sinhala.unicodeBold')
+                "
               >
                 <button
                   type="button"
@@ -409,9 +411,7 @@
                   :aria-label="
                     translate('sinhala.unicodeBold')
                   "
-                  :title="
-                    translate('sinhala.unicodeBold')
-                  "
+
                   @click="toggleUnicodeBold"
                 >
                   <i
@@ -420,7 +420,7 @@
                     aria-hidden="true"
                   ></i>
                 </button>
-              </div>
+              </Tooltip>
             </div>
           </div>
 
@@ -473,37 +473,37 @@
                 @compositionend="handleUnicodeCompositionEnd"
               ></div>
 
-              <label
+              <Tooltip as="label" trigger-class="" activation-class="tooltip"
                 v-if="hasText && !isDirectionReversed"
                 for="clear-text-1"
-                class="tooltip tooltip-left absolute right-2 top-2"
-                :data-tip="translate('sinhala.clearAll')"
+                class="tooltip-left absolute right-2 top-2"
+                :text="translate('sinhala.clearAll')"
               >
                 <button
                   type="button"
                   id="clear-text-1"
                   class="btn btn-ghost btn-circle btn-sm"
                   :aria-label="translate('sinhala.clearAll')"
-                  :title="translate('sinhala.clearAll')"
+
                   @click="clearText"
                 >
                   <i class="ri-close-line" aria-hidden="true"></i>
                 </button>
-              </label>
+              </Tooltip>
             </div>
 
             <div
               class="flex min-h-10 flex-wrap items-end justify-between gap-2 pt-0 p-2"
             >
               <section class="flex min-w-0 flex-wrap gap-2 items-center">
-                <label
+                <Tooltip as="label" trigger-class="" activation-class="tooltip"
                   for="unicode-field-action"
-                  class="tooltip tooltip-right"
-                  :data-tip="
-                    isDirectionReversed
-                      ? copyLabel('unicode')
-                      : pasteLabel('unicode')
-                  "
+                  class="tooltip-right"
+                  :text="
+                      isDirectionReversed
+                        ? copyLabel('unicode')
+                        : pasteLabel('unicode')
+                    "
                 >
                   <button
                     type="button"
@@ -515,11 +515,7 @@
                         ? copyLabel('unicode')
                         : pasteLabel('unicode')
                     "
-                    :title="
-                      isDirectionReversed
-                        ? copyLabel('unicode')
-                        : pasteLabel('unicode')
-                    "
+
                     @click="
                       isDirectionReversed
                         ? copyText('unicode')
@@ -535,14 +531,16 @@
                       aria-hidden="true"
                     ></i>
                   </button>
-                </label>
+                </Tooltip>
 
-                <div
+                <Tooltip as="div" trigger-class="" activation-class="tooltip"
                   v-if="isDirectionReversed"
-                  class="tooltip tooltip-right"
-                  :data-tip="
-                    translate('sinhala.unicodeDownload')
-                  "
+                  class="tooltip-right"
+                  :text="
+                      translate(
+                        'sinhala.unicodeDownload',
+                      )
+                    "
                 >
                   <button
                     type="button"
@@ -553,16 +551,12 @@
                         'sinhala.unicodeDownload',
                       )
                     "
-                    :title="
-                      translate(
-                        'sinhala.unicodeDownload',
-                      )
-                    "
+
                     @click="downloadDocument('unicode')"
                   >
                     <i class="ri-download-line" aria-hidden="true"></i>
                   </button>
-                </div>
+                </Tooltip>
 
                 <span
                   v-if="!isDirectionReversed && encodingSuggestion"
@@ -593,10 +587,14 @@
           </div>
         </section>
 
-        <label
+        <Tooltip
+          as="label"
+          trigger-class=""
+          activation-class="tooltip"
+          content-class="max-w-[calc(100vw-3rem)]"
           for="swap-direction"
-          class="tooltip before:max-w-[calc(100vw-3rem)] order-2 justify-self-center self-start md:mt-1.5"
-          :data-tip="
+          class="order-2 justify-self-center self-start md:mt-1.5"
+          :text="
             translate(
               'sinhala.swapShortcut',
             )
@@ -611,11 +609,7 @@
                 'sinhala.swap',
               )
             "
-            :title="
-              translate(
-                'sinhala.swapShortcut',
-              )
-            "
+
             @pointerdown.capture="captureControlViewport"
             @keydown.capture="captureControlViewport"
             @click="swapPanels"
@@ -625,7 +619,7 @@
               aria-hidden="true"
             ></i>
           </button>
-        </label>
+        </Tooltip>
 
         <section
           class="min-w-0 space-y-2"
@@ -670,9 +664,13 @@
                   @select="onLegacyFontSelected"
                 />
               </label>
-              <div
-                class="tooltip"
-                :data-tip="translate('sinhala.bold')"
+              <Tooltip
+                as="div"
+                trigger-class=""
+                activation-class="tooltip"
+                :text="
+                  translate('sinhala.legacyBold')
+                "
               >
                 <button
                   type="button"
@@ -682,9 +680,7 @@
                   :aria-label="
                     translate('sinhala.legacyBold')
                   "
-                  :title="
-                    translate('sinhala.legacyBold')
-                  "
+
                   :disabled="showLegacySource"
                   @click="toggleLegacyBold"
                 >
@@ -694,7 +690,7 @@
                     aria-hidden="true"
                   ></i>
                 </button>
-              </div>
+              </Tooltip>
             </div>
           </div>
 
@@ -770,35 +766,35 @@
                 @keydown="handleFmPreviewKeydown"
               ></div>
 
-              <label
+              <Tooltip as="label" trigger-class="" activation-class="tooltip"
                 v-if="hasText && isDirectionReversed"
                 for="clear-text-2"
-                class="tooltip tooltip-left absolute right-2 top-2"
-                :data-tip="translate('sinhala.clearAll')"
+                class="tooltip-left absolute right-2 top-2"
+                :text="translate('sinhala.clearAll')"
               >
                 <button
                   type="button"
                   id="clear-text-2"
                   class="btn btn-ghost btn-circle btn-sm"
                   :aria-label="translate('sinhala.clearAll')"
-                  :title="translate('sinhala.clearAll')"
+
                   @click="clearText"
                 >
                   <i class="ri-close-line" aria-hidden="true"></i>
                 </button>
-              </label>
+              </Tooltip>
             </div>
 
             <div
               class="flex min-h-10 flex-wrap items-end justify-between gap-2 pt-0 p-2"
             >
               <section class="flex min-w-0 flex-wrap gap-2 items-center">
-                <label
+                <Tooltip as="label" trigger-class="" activation-class="tooltip"
                   for="fm-field-action"
-                  class="tooltip tooltip-right"
-                  :data-tip="
-                    isDirectionReversed ? pasteLabel('fm') : copyLabel('fm')
-                  "
+                  class="tooltip-right"
+                  :text="
+                      isDirectionReversed ? pasteLabel('fm') : copyLabel('fm')
+                    "
                 >
                   <button
                     type="button"
@@ -808,9 +804,7 @@
                     :aria-label="
                       isDirectionReversed ? pasteLabel('fm') : copyLabel('fm')
                     "
-                    :title="
-                      isDirectionReversed ? pasteLabel('fm') : copyLabel('fm')
-                    "
+
                     @click="
                       isDirectionReversed ? pasteText('fm') : copyText('fm')
                     "
@@ -822,14 +816,14 @@
                       aria-hidden="true"
                     ></i>
                   </button>
-                </label>
+                </Tooltip>
 
-                <div
+                <Tooltip as="div" trigger-class="" activation-class="tooltip"
                   v-if="!isDirectionReversed"
-                  class="tooltip tooltip-right"
-                  :data-tip="
-                    translate('sinhala.legacyDownload')
-                  "
+                  class="tooltip-right"
+                  :text="
+                      translate('sinhala.legacyDownload')
+                    "
                 >
                   <button
                     type="button"
@@ -838,14 +832,12 @@
                     :aria-label="
                       translate('sinhala.legacyDownload')
                     "
-                    :title="
-                      translate('sinhala.legacyDownload')
-                    "
+
                     @click="downloadDocument('legacy')"
                   >
                     <i class="ri-download-line" aria-hidden="true"></i>
                   </button>
-                </div>
+                </Tooltip>
 
                 <label
                   class="label min-w-0 max-w-full whitespace-normal cursor-pointer gap-2 p-0"
@@ -1096,6 +1088,8 @@
 </template>
 
 <script setup>
+import Tooltip from "@/components/display/Tooltip.vue";
+
 import { Translation as I18nT } from "vue-i18n";
 import { useLocale } from "@/i18n";
 const {

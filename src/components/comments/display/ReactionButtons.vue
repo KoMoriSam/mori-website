@@ -26,7 +26,7 @@
         {{ reaction.emoji }}
       </button>
     </Popover>
-    <button
+    <Tooltip as="button" trigger-class="inline-flex"
       v-for="vote in votes"
       :key="vote.content"
       type="button"
@@ -37,12 +37,12 @@
       :disabled="disabled"
       :aria-pressed="Boolean(vote.viewerHasReacted)"
       :aria-label="vote.label"
-      :title="vote.label"
+      :text="vote.label"
       @click="$emit('react', vote)"
     >
       <i :class="vote.icon" aria-hidden="true"></i>
       {{ number(vote.count) }}
-    </button>
+    </Tooltip>
     <button
       v-for="reaction in activeReactions"
       :key="reaction.content"
@@ -60,6 +60,8 @@
 </template>
 
 <script setup>
+import Tooltip from "@/components/display/Tooltip.vue";
+
 import { computed, ref } from "vue";
 import { useLocale } from "@/i18n";
 import Popover from "@/components/display/menu/Popover.vue";

@@ -149,9 +149,9 @@
                 <i class="ri-delete-bin-line" aria-hidden="true"></i>
               </button>
             </div>
-            <div
-              class="max-sm:tooltip tooltip-end"
-              :data-tip="translate('home.rss')"
+            <Tooltip as="div" trigger-class="" activation-class="max-sm:tooltip"
+              class="tooltip-end"
+              :text="translate('home.rss')"
             >
               <a
                 id="rss-feed"
@@ -164,7 +164,7 @@
                   translate("home.rss")
                 }}</span>
               </a>
-            </div>
+            </Tooltip>
           </div>
           <div
             v-if="isFilterMenuOpen"
@@ -494,9 +494,9 @@
               </template>
 
               <template #meta>
-                <time
+                <Tooltip as="time" trigger-class="" activation-class="max-md:tooltip" placement="top" align="start"
                   class="flex min-w-0 items-center gap-1 md:gap-1.5"
-                  :title="formatLocalizedDate(item.date)"
+                  :text="formatLocalizedDate(item.date)" :aria-label="formatLocalizedDate(item.date)"
                 >
                   <i
                     class="ri-calendar-line hidden md:inline-block"
@@ -508,7 +508,7 @@
                   <span class="hidden md:inline">{{
                     formatLocalizedDate(item.date)
                   }}</span>
-                </time>
+                </Tooltip>
 
                 <span
                   class="flex shrink-0 items-center gap-1 whitespace-nowrap md:gap-1.5"
@@ -646,16 +646,17 @@
                   </span>
                 </client-only>
 
-                <span
+                <Tooltip as="span" trigger-class=""
+                  overflow-only placement="top" align="end"
                   v-for="meta in getAdditionalMetadata(item)"
                   :key="`${item.id}-${meta.key}`"
                   class="hidden min-w-0 max-w-full items-center gap-1.5 md:flex"
-                  :title="`${meta.label}：${meta.value}`"
+                  :text="`${meta.label}：${meta.value}`" :aria-label="`${meta.label}：${meta.value}`"
                 >
                   <i class="shrink-0" :class="meta.icon"></i>
                   <span class="shrink-0">{{ meta.label }}</span>
                   <span class="max-w-48 truncate">{{ meta.value }}</span>
-                </span>
+                </Tooltip>
               </template>
             </CatalogCard>
           </div>
@@ -716,6 +717,8 @@
 </template>
 
 <script setup>
+import Tooltip from "@/components/display/Tooltip.vue";
+
 import ScrollableContainer from "@/components/layout/ScrollableContainer.vue";
 import CatalogBadge from "@/components/interaction/navigation/CatalogBadge.vue";
 import CatalogCard from "@/components/interaction/navigation/CatalogCard.vue";

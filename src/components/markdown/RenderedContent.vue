@@ -2,6 +2,7 @@
 import { computed, Fragment, h, inject, onMounted, provide, useId, watch } from "vue";
 import { routerKey } from "vue-router";
 import { ensureMarkdownStyles } from "@/utils/markdown/load-markdown-styles";
+import Tooltip from "@/components/display/Tooltip.vue";
 
 import {
   MARKDOWN_COMPONENT_RESOLVER,
@@ -50,7 +51,7 @@ export default {
       h(
         Fragment,
         null,
-        renderHtmlFragment(fragment.value, activeResolver.value, router),
+        renderHtmlFragment(fragment.value, activeResolver.value, router, Tooltip),
       );
   },
 };

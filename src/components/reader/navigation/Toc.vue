@@ -22,9 +22,9 @@
         ]"
       >
         <li v-for="(heading, headingIndex) in headings" :key="heading.id">
-          <button
+          <Tooltip overflow-only placement="bottom" align="start" as="button" trigger-class=""
             type="button"
-            :title="heading.text"
+            :text="heading.text" :aria-label="heading.text"
             :aria-current="heading.id === activeId ? 'location' : undefined"
             :data-current="heading.id === activeId ? 'true' : undefined"
             class="block w-full rounded-lg py-1.5 pr-2 text-left text-sm leading-snug transition-[background-color,color,opacity] duration-150"
@@ -43,7 +43,7 @@
             @click="selectHeading(heading.id)"
           >
             {{ heading.text }}
-          </button>
+          </Tooltip>
         </li>
       </ol>
     </ScrollableContainer>
@@ -51,6 +51,8 @@
 </template>
 
 <script setup>
+import Tooltip from "@/components/display/Tooltip.vue";
+
 import ScrollableContainer from "@/components/layout/ScrollableContainer.vue";
 import { useLocale } from '@/i18n';
 const { t: translate, text: localizeText } = useLocale();

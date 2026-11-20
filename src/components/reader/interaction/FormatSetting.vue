@@ -83,9 +83,14 @@
             >
               <span class="label block text-xs md:text-sm">
                 {{ translate("reader.format.textFont") }}
-                <small :title="translate('reader.format.sessionFontHint')">
+                <Tooltip
+                  as="small"
+                  trigger-class="inline"
+                  :text="translate('reader.format.sessionFontHint')"
+                  :aria-label="translate('reader.format.sessionFontHint')"
+                >
                   {{ translate("reader.format.savedFontHint") }}
-                </small>
+                </Tooltip>
               </span>
               <FontSelect
                 ref="readerFontSelect"
@@ -258,7 +263,7 @@
               {{ translate("reader.format.siteTheme") }}
             </legend>
             <div class="mt-2 grid grid-cols-5 gap-2">
-              <button
+              <Tooltip as="button" trigger-class="inline-flex"
                 v-for="theme in siteThemeOptions"
                 :key="theme.value"
                 type="button"
@@ -270,7 +275,7 @@
                 :data-theme="
                   theme.value === 'default' ? systemTheme : theme.value
                 "
-                :title="localizeText(theme.description)"
+                :text="localizeText(theme.description)"
                 :aria-label="
                   translate('reader.format.switchTheme', {
                     p0: localizeText(theme.label),
@@ -284,7 +289,7 @@
                 <span class="max-w-full truncate text-[0.625rem]">
                   {{ localizeText(theme.label) }}
                 </span>
-              </button>
+              </Tooltip>
             </div>
           </fieldset>
         </div>
@@ -301,7 +306,7 @@
             class="flex gap-3 overflow-x-auto px-1 py-1.5 scrollbar-thin"
             :aria-label="translate('reader.format.presetsHint')"
           >
-            <button
+            <Tooltip as="button" trigger-class="inline-flex"
               v-for="{ preset, label } in systemPresets"
               :key="preset.id"
               type="button"
@@ -319,7 +324,7 @@
                 undefined
               "
               :style="presetSampleStyle(preset)"
-              :title="localizeText(preset.description)"
+              :text="localizeText(preset.description)"
               :aria-label="
                 translate('reader.format.applyDefaultPreset', {
                   p0: localizeText(preset.name),
@@ -333,15 +338,15 @@
               <span class="max-w-11 truncate text-[0.75rem]">
                 {{ localizeText(preset.name) }}
               </span>
-            </button>
+            </Tooltip>
             <div
               v-for="preset in readerLayoutPresets"
               :key="preset.id"
               class="relative shrink-0"
             >
-              <button
+              <Tooltip overflow-only as="button" trigger-class="inline-flex"
                 type="button"
-                class="btn btn-circle size-12 border-base-300 p-1 text-[0.625rem] leading-tight shadow-sm"
+                class="min-w-0 btn btn-circle size-12 border-base-300 p-1 text-[0.625rem] leading-tight shadow-sm"
                 :class="[
                   preset.styles.fontStyle,
                   mobile ? '' : presetSiteTheme(preset) ? 'bg-base-100' : '',
@@ -355,7 +360,7 @@
                   undefined
                 "
                 :style="presetSampleStyle(preset)"
-                :title="localizeText(preset.name)"
+                :text="localizeText(preset.name)"
                 :aria-label="
                   translate('reader.format.applySavedPreset', {
                     p0: localizeText(preset.name),
@@ -367,7 +372,7 @@
                 <span class="line-clamp-2 max-w-11 whitespace-normal break-all">
                   {{ localizeText(preset.name) }}
                 </span>
-              </button>
+              </Tooltip>
               <button
                 type="button"
                 class="btn btn-circle btn-xs absolute -right-1 -top-1 size-5 min-h-0 border-base-300 bg-base-100 p-0 shadow-sm"
@@ -402,6 +407,8 @@
 </template>
 
 <script setup>
+import Tooltip from "@/components/display/Tooltip.vue";
+
 import ScrollableContainer from "@/components/layout/ScrollableContainer.vue";
 import { useLocale } from "@/i18n";
 const { t: translate, text: localizeText } = useLocale();

@@ -18,39 +18,39 @@
             :aria-label="translate('markdown.mermaid.switchView')"
             class="tabs tabs-box tabs-xs shrink-0"
           >
-            <button
+            <Tooltip as="button" trigger-class="block"
               role="tab"
               class="tab markdown-diagram-tab"
               :class="viewMode === 'code' ? 'tab-active' : ''"
               :aria-label="translate('markdown.mermaid.sourceLabel')"
               :aria-pressed="viewMode === 'code'"
-              :title="translate('markdown.mermaid.code')"
+              :text="translate('markdown.mermaid.code')"
               @click="viewMode = 'code'"
             >
               <i
                 class="ri-code-s-slash-line markdown-toolbar-icon"
                 aria-hidden="true"
               ></i>
-            </button>
-            <button
+            </Tooltip>
+            <Tooltip as="button" trigger-class="block"
               role="tab"
               class="tab markdown-diagram-tab"
               :class="viewMode === 'preview' ? 'tab-active' : ''"
               :aria-label="translate('markdown.mermaid.previewLabel')"
               :aria-pressed="viewMode === 'preview'"
-              :title="translate('markdown.mermaid.preview')"
+              :text="translate('markdown.mermaid.preview')"
               @click="viewMode = 'preview'"
             >
               <i
                 class="ri-image-line markdown-toolbar-icon"
                 aria-hidden="true"
               ></i>
-            </button>
+            </Tooltip>
           </div>
-          <aside
-            class="tooltip tooltip-left font-mono"
+          <Tooltip as="aside" trigger-class="" activation-class="tooltip"
+            class="tooltip-left font-mono"
             :class="copied ? 'tooltip-success' : ''"
-            :data-tip="
+            :text="
               viewMode === 'preview'
                 ? isFullscreen
                   ? translate('markdown.mermaid.exitFullscreen')
@@ -70,11 +70,7 @@
                   : translate('markdown.mermaid.fullscreenLabel')
               "
               :aria-pressed="isFullscreen"
-              :title="
-                isFullscreen
-                  ? translate('markdown.mermaid.exitFullscreen')
-                  : translate('markdown.mermaid.fullscreen')
-              "
+
               :disabled="!canFullscreen"
               @click="toggleFullscreen"
             >
@@ -97,11 +93,7 @@
                   ? translate('markdown.mermaid.copied')
                   : translate('markdown.mermaid.copyLabel')
               "
-              :title="
-                copied
-                  ? translate('markdown.codeBlock.copied')
-                  : translate('markdown.mermaid.copyCode')
-              "
+
               @click="copy(source)"
             >
               <i
@@ -109,7 +101,7 @@
                 aria-hidden="true"
               ></i>
             </button>
-          </aside>
+          </Tooltip>
         </nav>
       </template>
     </CodeHeader>
@@ -190,32 +182,34 @@
         class="join join-vertical pointer-events-none absolute end-2 bottom-2 z-10 overflow-hidden rounded-full border border-base-300 bg-base-100 opacity-0 shadow-sm transition-opacity duration-200 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100"
         :aria-label="translate('markdown.mermaid.zoom')"
       >
-        <button
+        <Tooltip as="button" trigger-class="inline-flex"
           type="button"
           class="btn btn-sm btn-square markdown-control btn-ghost join-item"
           :aria-label="translate('markdown.mermaid.zoomInLabel')"
-          :title="translate('markdown.mermaid.zoomIn')"
+          :text="translate('markdown.mermaid.zoomIn')"
           :disabled="zoom >= MAX_ZOOM"
           @click="changeZoom(ZOOM_STEP)"
         >
           <i class="ri-add-line" aria-hidden="true"></i>
-        </button>
-        <button
+        </Tooltip>
+        <Tooltip as="button" trigger-class="inline-flex"
           type="button"
           class="btn btn-sm btn-square markdown-control btn-ghost join-item"
           :aria-label="translate('markdown.mermaid.zoomOutLabel')"
-          :title="translate('markdown.mermaid.zoomOut')"
+          :text="translate('markdown.mermaid.zoomOut')"
           :disabled="zoom <= MIN_ZOOM"
           @click="changeZoom(-ZOOM_STEP)"
         >
           <i class="ri-subtract-line" aria-hidden="true"></i>
-        </button>
+        </Tooltip>
       </div>
     </figure>
   </section>
 </template>
 
 <script setup>
+import Tooltip from "@/components/display/Tooltip.vue";
+
 import { useLocale } from "@/i18n";
 const { t: translate } = useLocale();
 

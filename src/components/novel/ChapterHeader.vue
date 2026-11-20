@@ -15,10 +15,10 @@
           class="hidden min-w-0 items-center gap-2 lg:flex mb-1"
         >
           <!-- 返回封面 -->
-          <nav
+          <Tooltip as="nav" trigger-class="" activation-class="tooltip"
             :aria-label="translate('reader.header.navigation')"
-            class="tooltip tooltip-right shrink-0"
-            :data-tip="translate('reader.header.backToCover')"
+            class="tooltip-right shrink-0"
+            :text="translate('reader.header.backToCover')"
           >
             <RouterLink
               to="/novel"
@@ -27,7 +27,7 @@
             >
               <i class="ri-arrow-left-line" aria-hidden="true"></i>
             </RouterLink>
-          </nav>
+          </Tooltip>
 
           <!-- 卷标 -->
           <p
@@ -87,6 +87,8 @@
 </template>
 
 <script setup>
+import Tooltip from "@/components/display/Tooltip.vue";
+
 import { useLocale } from "@/i18n";
 const { t: translate } = useLocale();
 

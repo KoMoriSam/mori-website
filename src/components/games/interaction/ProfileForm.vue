@@ -8,7 +8,16 @@
             :src="usingGithub ? profile.avatarUrl : ''"
             :name="displayName"
           />
-          <div data-entry-nickname class="min-w-0 flex-1">
+          <Tooltip
+            overflow-only
+            placement="bottom"
+            align="start"
+            as="div"
+            trigger-class="block"
+            data-entry-nickname
+            class="min-w-0 flex-1"
+            :text="displayName"
+          >
             <input
               :id="inputId"
               ref="input"
@@ -16,7 +25,6 @@
               class="input flex w-full"
               :class="{ 'input-error': checked && !validName }"
               :value="displayName"
-              :title="displayName"
               :disabled="disabled"
               maxlength="24"
               required
@@ -27,7 +35,7 @@
               @blur="emit('blur')"
               @change="emit('commit')"
             />
-          </div>
+          </Tooltip>
           <slot name="action"></slot>
         </div>
         <p :id="`${inputId}-hint`" class="mt-1 ml-11 grid text-xs leading-4 text-base-content/50" role="status">
@@ -65,6 +73,7 @@
   </div>
 </template>
 <script setup>
+import Tooltip from "@/components/display/Tooltip.vue";
 import { computed, ref, useId } from "vue";
 import Avatar from "@/components/auth/Avatar.vue";
 import { useMoriAuth } from "@/composables/auth/useMoriAuth";

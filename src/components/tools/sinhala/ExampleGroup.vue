@@ -20,9 +20,9 @@
           <th scope="col" class="px-2 py-1 text-left font-medium">
             <div class="flex flex-wrap items-center justify-between gap-1">
               <span class="min-w-0">FM Abhaya</span>
-              <button
+              <Tooltip as="button" trigger-class="" activation-class="tooltip"
                 type="button"
-                class="btn btn-ghost btn-xs btn-square ms-auto tooltip tooltip-left"
+                class="btn btn-ghost btn-xs btn-square ms-auto tooltip-left"
                 :class="{ 'btn-active': showEncodings }"
                 :aria-pressed="showEncodings"
                 aria-controls="sinhala-converter-example-grid"
@@ -33,14 +33,7 @@
                       : 'sinhala.info.showEncoding',
                   )
                 "
-                :title="
-                  translate(
-                    showEncodings
-                      ? 'sinhala.info.showGlyphs'
-                      : 'sinhala.info.showEncoding',
-                  )
-                "
-                :data-tip="
+                :text="
                   translate(
                     showEncodings
                       ? 'sinhala.info.showGlyphs'
@@ -55,7 +48,7 @@
                   aria-hidden="true"
                 ></i>
                 <i v-else class="ri-code-line text-sm" aria-hidden="true"></i>
-              </button>
+              </Tooltip>
             </div>
           </th>
           <th scope="col" class="p-0">
@@ -170,6 +163,8 @@
 </template>
 
 <script setup>
+import Tooltip from "@/components/display/Tooltip.vue";
+
 import { useLocale } from "@/i18n";
 import ExampleTitle from "./ExampleTitle.vue";
 

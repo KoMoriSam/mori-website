@@ -405,11 +405,11 @@
                                 <template v-else>{{ part.text }}</template>
                               </template>
                             </span>
-                            <span
+                            <Tooltip as="span" trigger-class="" overflow-only adaptive placement="top" align="end" content-class="max-w-56 sm:max-w-80"
                               v-for="meta in result.metadata"
                               :key="`${result.url}-${meta.key}`"
                               class="inline-flex min-w-0 max-w-full items-center gap-1"
-                              :title="`${localizeText(meta.label)}: ${metadataValue(meta)}`"
+                              :text="`${localizeText(meta.label)}: ${metadataValue(meta)}`" :aria-label="`${localizeText(meta.label)}: ${metadataValue(meta)}`"
                             >
                               <i
                                 class="shrink-0"
@@ -420,7 +420,7 @@
                               <span class="max-w-48 truncate">
                                 {{ metadataValue(meta) }}
                               </span>
-                            </span>
+                            </Tooltip>
                           </span>
                         </span>
                         <i
@@ -465,6 +465,8 @@
 </template>
 
 <script setup>
+import Tooltip from "@/components/display/Tooltip.vue";
+
 import ScrollableContainer from "@/components/layout/ScrollableContainer.vue";
 import { useLocale } from '@/i18n';
 import { FULL_DATE_OPTIONS } from '@/i18n/format-date.js';

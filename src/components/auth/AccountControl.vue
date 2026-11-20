@@ -8,18 +8,16 @@
       :aria-label="t('auth.account')"
       :aria-expanded="open"
     >
-      <span
+      <Tooltip overflow-only placement="bottom" align="end" as="span" trigger-class="inline"
         v-if="state.authenticated"
-        class="max-w-16 truncate text-sm sm:max-w-32"
-        :title="state.profile?.name"
-        >{{ state.profile?.name || t("auth.loadingProfile") }}</span
-      >
-      <span
+        class="min-w-0 max-w-16 text-sm sm:max-w-32"
+        :text="state.profile?.name" :aria-label="state.profile?.name"
+        ><span class="block min-w-0 truncate">{{ state.profile?.name || t("auth.loadingProfile") }}</span></Tooltip>
+      <Tooltip overflow-only placement="bottom" align="end" as="span" trigger-class="inline"
         v-else-if="!state.checking"
-        class="max-w-16 truncate text-sm sm:max-w-32"
-        :title="state.profile?.name"
-        >{{ t("auth.guest") }}</span
-      >
+        class="min-w-0 max-w-16 text-sm sm:max-w-32"
+        :text="state.profile?.name" :aria-label="state.profile?.name"
+        ><span class="block min-w-0 truncate">{{ t("auth.guest") }}</span></Tooltip>
       <span class="indicator shrink-0">
         <span
           v-if="unreadCount"
@@ -70,9 +68,9 @@
                 <hgroup
                   class="flex min-h-9 min-w-0 flex-1 flex-col justify-center"
                 >
-                  <h2
+                  <Tooltip overflow-only placement="bottom" align="end" as="h2" trigger-class="block"
                     class="wrap-anywhere font-serif font-semibold"
-                    :title="panelState.profile?.name"
+                    :text="panelState.profile?.name" :aria-label="panelState.profile?.name"
                   >
                     {{
                       panelState.authenticated
@@ -83,7 +81,7 @@
                           ? t("auth.account")
                           : t("auth.guest")
                     }}
-                  </h2>
+                  </Tooltip>
                   <p
                     v-if="panelState.profile"
                     class="wrap-anywhere text-xs leading-4 text-base-content/55"
@@ -239,11 +237,10 @@
                     @keydown.stop
                   />
                 </label>
-                <span
-                  class="ml-auto max-w-20 truncate text-xs text-base-content/55"
-                  :title="currentTheme.name"
-                  >{{ currentTheme.name }}</span
-                >
+                <Tooltip overflow-only placement="bottom" align="end" as="span" trigger-class="inline"
+                  class="min-w-0 ml-auto max-w-20 text-xs text-base-content/55"
+                  :text="currentTheme.name" :aria-label="currentTheme.name"
+                  ><span class="block min-w-0 truncate">{{ currentTheme.name }}</span></Tooltip>
               </summary>
               <div
                 class="collapse-content flex min-h-0 flex-col overflow-hidden px-3 pb-2"
@@ -268,6 +265,8 @@
   </div>
 </template>
 <script setup>
+import Tooltip from "@/components/display/Tooltip.vue";
+
 import { computed, ref, shallowRef, watch } from "vue";
 import Avatar from "./Avatar.vue";
 import LoginButton from "./LoginButton.vue";

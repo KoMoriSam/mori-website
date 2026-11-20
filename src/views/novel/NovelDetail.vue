@@ -83,9 +83,9 @@
               :aria-label="translate('novel.detail.aboutBook')"
               class="tabs tabs-box tabs-sm shrink-0 flex-nowrap [--tabs-direction:column] sm:hidden"
             >
-              <label
+              <Tooltip as="label" trigger-class="inline-flex" placement="right" align="center"
                 class="tab size-10 p-0"
-                :title="translate('novel.detail.introduction')"
+                :text="translate('novel.detail.introduction')" :aria-label="translate('novel.detail.introduction')"
               >
                 <input
                   id="novel-introduction-tab"
@@ -99,10 +99,10 @@
                   aria-controls="novel-introduction-panel"
                 />
                 <i class="ri-book-open-line text-lg" aria-hidden="true"></i>
-              </label>
-              <label
+              </Tooltip>
+              <Tooltip as="label" trigger-class="inline-flex" placement="right" align="center"
                 class="tab size-10 p-0"
-                :title="translate('novel.detail.authorNote')"
+                :text="translate('novel.detail.authorNote')" :aria-label="translate('novel.detail.authorNote')"
               >
                 <input
                   id="novel-author-tab"
@@ -116,26 +116,26 @@
                   aria-controls="novel-author-panel"
                 />
                 <i class="ri-chat-3-line text-lg" aria-hidden="true"></i>
-              </label>
+              </Tooltip>
             </div>
           </div>
           <div
             class="relative z-20 col-span-full row-start-3 mt-6 flex min-w-0 flex-wrap items-center gap-2"
           >
-            <button
+            <Tooltip as="button" trigger-class="inline-flex"
               type="button"
               class="btn btn-primary"
-              :title="primaryChapterTitle"
+              :text="primaryChapterTitle" :aria-label="primaryChapterTitle"
               :disabled="primaryChapterDisabled"
               @click="handlePrimaryChapter"
             >
               {{ primaryActionLabel }}
               <i class="ri-arrow-right-line shrink-0" aria-hidden="true"></i>
-            </button>
-            <button
+            </Tooltip>
+            <Tooltip as="button" trigger-class="inline-flex"
               type="button"
               class="btn"
-              :title="getChapterDisplayTitle(latestChapter) || undefined"
+              :text="getChapterDisplayTitle(latestChapter) || undefined" :aria-label="getChapterDisplayTitle(latestChapter) || undefined"
               :disabled="!latestChapter?.uuid"
               @click="
                 latestChapter?.uuid && handleAnyChapter(latestChapter.uuid)
@@ -143,11 +143,11 @@
             >
               {{ translate("novel.detail.readLatest") }}
               <i class="ri-sparkling-2-line shrink-0" aria-hidden="true"></i>
-            </button>
-            <button
+            </Tooltip>
+            <Tooltip as="button" trigger-class="inline-flex"
               type="button"
               class="btn btn-ghost"
-              :title="translate('novel.detail.chapters')"
+              :text="translate('novel.detail.chapters')" :aria-label="translate('novel.detail.chapters')"
               @click="scrollToSection('novel-chapters')"
             >
               {{ translate("novel.detail.chapters") }}
@@ -155,7 +155,7 @@
                 class="ri-arrow-down-s-line animate-arrow-bounce motion-reduce:animate-none translate-y-0.25"
                 aria-hidden="true"
               ></i>
-            </button>
+            </Tooltip>
           </div>
         </div>
 
@@ -306,6 +306,8 @@
   <Footer />
 </template>
 <script setup>
+import Tooltip from "@/components/display/Tooltip.vue";
+
 import { bookTerm } from "@/../shared/discussions.js";
 import { getImageAttrs } from "@/utils/images/responsive-images";
 import { useLocale } from "@/i18n";

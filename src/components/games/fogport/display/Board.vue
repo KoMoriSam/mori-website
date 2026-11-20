@@ -18,14 +18,14 @@
       >
         <i class="ri-add-line" aria-hidden="true"></i>
       </button>
-      <button
+      <Tooltip placement="bottom" align="end" as="button" trigger-class="inline-flex"
         class="btn btn-square btn-xs"
         :aria-label="t('fogport.reset')"
-        :title="t('fogport.reset')"
+        :text="t('fogport.reset')"
         @click="reset"
       >
         <i class="ri-focus-3-line" aria-hidden="true"></i>
-      </button>
+      </Tooltip>
     </div>
     <span
       v-if="!mapArt"
@@ -612,6 +612,8 @@
   </div>
 </template>
 <script setup>
+import Tooltip from "@/components/display/Tooltip.vue";
+
 import { computed, ref, useId } from "vue";
 import ArtIcon from "./ArtIcon.vue";
 import { companyArtName } from "@/games/fogport/art-assets";

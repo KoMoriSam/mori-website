@@ -2,26 +2,28 @@
   <span v-if="showLatest" class="badge badge-warning badge-xs shrink-0">
     {{ localizeText(latestLabel) }}
   </span>
-  <span
+  <Tooltip placement="bottom" align="end" as="span" trigger-class="inline-flex"
     v-if="chapter.modifiedDate"
     class="badge badge-info badge-xs shrink-0"
-    :title="translate('reader.badges.revisedHint')"
+    :text="translate('reader.badges.revisedHint')" :aria-label="translate('reader.badges.revisedHint')"
   >
     {{ localizeText(revisionLabel) }}
-  </span>
-  <span
+  </Tooltip>
+  <Tooltip placement="bottom" align="end" as="span" trigger-class="inline-flex"
     v-else
     class="badge badge-ghost badge-xs shrink-0"
-    :title="translate('reader.badges.originalHint')"
+    :text="translate('reader.badges.originalHint')" :aria-label="translate('reader.badges.originalHint')"
   >
     {{ translate('reader.badges.original') }}
-  </span>
+  </Tooltip>
   <span v-if="showRecent" class="badge badge-warning badge-xs shrink-0">
     {{ recentLabel }}
   </span>
 </template>
 
 <script setup>
+import Tooltip from "@/components/display/Tooltip.vue";
+
 import { useLocale } from '@/i18n';
 const { t: translate, text: localizeText } = useLocale();
 

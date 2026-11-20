@@ -15,28 +15,33 @@
         aria-hidden="true"
         class="self-stretch border-s border-base-300 px-1"
       ></div>
-      <button
+      <Tooltip
+        adaptive
         v-for="[action, icon] in group"
         :key="action"
+        :text="label(action)"
+        :disabled="disabled"
+      >
+      <button
         type="button"
-        class="btn btn-ghost btn-xs btn-square tooltip"
+        class="btn btn-ghost btn-xs btn-square"
         :class="{ 'btn-active': action === 'monospace' && monospace }"
         :aria-pressed="action === 'monospace' ? monospace : undefined"
         :aria-label="label(action)"
-        :data-tip="label(action)"
         :disabled="disabled"
         @mousedown.prevent
         @click="choose(action)"
       >
         <i :class="icon" aria-hidden="true"></i>
       </button>
+      </Tooltip>
     </div>
 
     <ActionMenu
       :label="label('more')"
       :disabled="disabled"
       :groups="overflowGroups"
-      trigger-class="btn btn-ghost btn-xs btn-square rounded-inner ms-auto @xl:ms-0"
+      trigger-class="btn btn-ghost btn-xs btn-square rounded-inner ms-auto"
       @select="choose"
     >
       <template #trigger>
@@ -58,6 +63,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useLocale } from "@/i18n";
 import ActionMenu from "@/components/display/menu/ActionMenu.vue";
+import Tooltip from "@/components/display/Tooltip.vue";
 
 const monospace = defineModel({ type: Boolean, required: true });
 const props = defineProps({ disabled: Boolean });

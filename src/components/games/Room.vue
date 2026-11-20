@@ -97,7 +97,7 @@
             <div
               v-if="room.status !== 'lobby'"
               class="inline-flex min-w-min max-w-full flex-1 items-center gap-2 sm:basis-0 max-sm:min-w-0 max-sm:w-full max-sm:basis-full"
-              :title="avatarSummary.label"
+              :aria-label="avatarSummary.label"
             >
               <PlayerAvatars
                 :room="room"
@@ -106,7 +106,12 @@
                 :label="avatarSummary.label"
                 compact
               />
-              <span
+              <Tooltip
+                as="span"
+                trigger-class="inline-flex"
+                placement="bottom"
+                align="end"
+                :text="avatarSummary.label"
                 class="inline-flex shrink-0 items-center gap-1 whitespace-nowrap"
                 role="status"
                 aria-live="polite"
@@ -125,7 +130,7 @@
                   >{{ avatarSummary.count }}/{{ avatarSummary.total }}</span
                 >
                 <span class="sr-only">{{ avatarSummary.label }}</span>
-              </span>
+              </Tooltip>
             </div>
           </template>
         </template>
@@ -163,9 +168,9 @@
             v-else
             class="flex items-center justify-end gap-1 max-sm:has-[>:nth-child(5_of_:not(dialog))]:w-20 max-sm:has-[>:nth-child(5_of_:not(dialog))]:flex-wrap max-sm:has-[>:nth-child(7_of_:not(dialog))]:w-27"
           >
-            <div
-              class="tooltip tooltip-bottom"
-              :data-tip="
+            <Tooltip as="div" trigger-class="" activation-class="tooltip"
+              class="tooltip-bottom"
+              :text="
                 t(audioEnabled ? 'games.audio.disable' : 'games.audio.enable')
               "
             >
@@ -185,13 +190,13 @@
                   aria-hidden="true"
                 ></i>
               </button>
-            </div>
+            </Tooltip>
             <slot name="page-actions" :room="room"></slot>
-            <div
+            <Tooltip as="div" trigger-class="" activation-class="tooltip"
               v-for="action in roomActions"
               :key="action.key"
-              class="tooltip tooltip-bottom"
-              :data-tip="action.label"
+              class="tooltip-bottom"
+              :text="action.label"
             >
               <button
                 type="button"
@@ -202,7 +207,7 @@
               >
                 <i :class="action.icon" aria-hidden="true"></i>
               </button>
-            </div>
+            </Tooltip>
           </div>
         </template>
         <div
@@ -431,8 +436,8 @@
                     index + 1
                   }}</span>
                   <template v-if="player">
-                    <component
-                      :is="player.id === room.selfId ? 'button' : 'div'"
+                    <Tooltip trigger-class="block"
+                      :as="player.id === room.selfId ? 'button' : 'div'"
                       :type="player.id === room.selfId ? 'button' : undefined"
                       class="shrink-0 rounded-full border-0 bg-transparent p-0"
                       :class="
@@ -445,7 +450,7 @@
                           ? t('auth.editProfile')
                           : undefined
                       "
-                      :title="
+                      :text="
                         player.id === room.selfId
                           ? t('auth.editProfile')
                           : undefined
@@ -476,20 +481,20 @@
                           player.online ? 'avatar-online' : 'avatar-offline'
                         "
                       />
-                    </component>
+                    </Tooltip>
                     <div class="min-w-0 flex-1">
                       <div class="flex min-w-0 items-center gap-1">
-                        <p
-                          class="min-w-0 truncate text-sm font-medium"
-                          :title="player.nickname"
-                        >
+                        <Tooltip overflow-only placement="bottom" align="start" as="p" trigger-class="block"
+                          class="min-w-0 text-sm font-medium"
+                          :text="player.nickname" :aria-label="player.nickname"
+                        ><span class="block min-w-0 truncate">
                           {{ player.nickname }}
                           <span
                             v-if="player.id === room.selfId"
                             class="text-base-content/50"
                             >{{ t("games.you") }}</span
                           >
-                        </p>
+                        </span></Tooltip>
                       </div>
                       <div
                         class="mt-1 flex min-w-0 gap-2 overflow-hidden whitespace-nowrap text-xs text-base-content/60"
@@ -514,7 +519,7 @@
                         player.ready ? t("games.unready") : t("games.prepare")
                       }}
                     </button>
-                    <button
+                    <Tooltip as="button" trigger-class="inline-flex"
                       v-else-if="isHost"
                       type="button"
                       class="btn btn-ghost btn-xs shrink-0"
@@ -522,11 +527,11 @@
                       :aria-label="
                         t('games.kickPlayer', { name: player.nickname })
                       "
-                      :title="t('games.kickPlayer', { name: player.nickname })"
+                      :text="t('games.kickPlayer', { name: player.nickname })"
                       @click="kickPlayer(player)"
                     >
                       {{ t("games.kickPlayer") }}
-                    </button>
+                    </Tooltip>
                   </template>
                   <button
                     v-else
@@ -584,9 +589,9 @@
         <div
           class="relative flex h-full min-h-0 flex-col px-4 py-2 lg:is-drawer-close:px-1"
         >
-          <button
+          <Tooltip as="button" trigger-class="" activation-class="lg:is-drawer-close:tooltip"
             type="button"
-            class="btn btn-ghost btn-sm btn-square text-base mb-2 hidden shrink-0 self-end lg:inline-flex lg:is-drawer-open:absolute lg:is-drawer-open:right-4 lg:is-drawer-open:top-2 lg:is-drawer-open:z-10 lg:is-drawer-open:mb-0 lg:is-drawer-close:self-center lg:is-drawer-close:tooltip lg:is-drawer-close:tooltip-left"
+            class="btn btn-ghost btn-sm btn-square text-base mb-2 hidden shrink-0 self-end lg:inline-flex lg:is-drawer-open:absolute lg:is-drawer-open:right-4 lg:is-drawer-open:top-2 lg:is-drawer-open:z-10 lg:is-drawer-open:mb-0 lg:is-drawer-close:self-center lg:is-drawer-close:tooltip-left"
             :aria-label="
               t(
                 sidebarExpanded
@@ -594,7 +599,7 @@
                   : 'common.sidebar.open',
               )
             "
-            :data-tip="
+            :text="
               t(
                 sidebarExpanded
                   ? 'common.sidebar.close'
@@ -611,7 +616,7 @@
               "
               aria-hidden="true"
             ></i>
-          </button>
+          </Tooltip>
           <div class="min-h-0 flex-1">
             <slot
               name="sidebar"
@@ -628,6 +633,8 @@
   <Footer v-if="showSidebar" class="hidden lg:grid" />
 </template>
 <script setup>
+import Tooltip from "@/components/display/Tooltip.vue";
+
 import { Translation as I18nT } from "vue-i18n";
 import {
   computed,

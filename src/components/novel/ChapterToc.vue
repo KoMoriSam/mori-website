@@ -32,9 +32,18 @@
         <span class="block text-xs font-semibold text-base-content/45">
           {{ translate('reader.toc.latest') }}
         </span>
-        <span class="block truncate text-sm" :title="latestChapterTitle">
+        <Tooltip
+          overflow-only
+          placement="bottom"
+          align="start"
+          as="span"
+          trigger-class=""
+          class="min-w-0 block text-sm"
+          :text="latestChapterTitle"
+          :aria-label="latestChapterTitle"
+        ><span class="block min-w-0 truncate">
           {{ latestChapterTitle }}
-        </span>
+        </span></Tooltip>
       </span>
       <i
         class="ri-arrow-right-line shrink-0 text-base-content/45"
@@ -83,12 +92,20 @@
               :class="{ '-rotate-90': !isVolumeExpanded(volume) }"
               aria-hidden="true"
             ></i>
-            <span class="truncate" :title="volume.volumeInfo.title">
+            <Tooltip
+              overflow-only
+              placement="bottom"
+              align="start"
+              as="span"
+              trigger-class="inline"
+              class="min-w-0 "
+              :text="volume.volumeInfo.title"
+              :aria-label="volume.volumeInfo.title"
+            ><span class="block min-w-0 truncate">
               {{ volume.volumeInfo.title }}
-            </span>
+            </span></Tooltip>
             <small
               class="ml-auto shrink-0 whitespace-nowrap tabular-nums text-base-content/35"
-              :title="translate('reader.toc.readCount', { p0: volume.chapters?.length || 0, p1: getVolumeReadCount(volume) })"
             >
               {{ translate('reader.toc.readCount', { p0: volume.chapters?.length || 0, p1: getVolumeReadCount(volume) }) }}
             </small>
@@ -103,7 +120,7 @@
               :key="chapter.uuid"
               class="min-w-0"
             >
-              <button
+              <Tooltip overflow-only placement="bottom" align="start" as="button" trigger-class=""
                 type="button"
                 class="flex w-full min-w-0 items-center gap-1.5 rounded-lg py-1.5 pr-2 pl-4 text-left text-sm leading-snug transition-[background-color,color,opacity] duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                 :class="[
@@ -115,7 +132,7 @@
                       isRead(chapter.uuid) && chapter.uuid !== currentChapterUuid,
                   },
                 ]"
-                :title="chapter.title"
+                :text="chapter.title" :aria-label="chapter.title"
                 :aria-current="
                   chapter.uuid === currentChapterUuid ? 'page' : undefined
                 "
@@ -134,7 +151,7 @@
                   :read="isRead(chapter.uuid)"
                   latest-label="NEW!"
                 />
-              </button>
+              </Tooltip>
             </li>
           </ol>
         </li>
@@ -154,6 +171,8 @@
 </template>
 
 <script setup>
+import Tooltip from "@/components/display/Tooltip.vue";
+
 import ScrollableContainer from "@/components/layout/ScrollableContainer.vue";
 import { useLocale } from '@/i18n';
 const { t: translate } = useLocale();

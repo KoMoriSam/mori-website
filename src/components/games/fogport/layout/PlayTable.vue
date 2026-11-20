@@ -46,12 +46,12 @@
             {{ t("fogport.round", { n: game.eraRound }) }}
           </p>
           <div class="flex min-w-0 items-center gap-2 lg:mt-1">
-            <h2
-              class="truncate font-serif text-xs font-bold lg:text-base"
-              :title="turnLabel"
-            >
+            <Tooltip overflow-only placement="bottom" align="start" as="h2" trigger-class="block"
+              class="min-w-0 font-serif text-xs font-bold lg:text-base"
+              :text="turnLabel" :aria-label="turnLabel"
+            ><span class="block min-w-0 truncate">
               {{ turnLabel }}
-            </h2>
+            </span></Tooltip>
             <span
               v-if="headerActions && core.includes(activeKind)"
               class="badge badge-sm shrink-0"
@@ -65,28 +65,46 @@
         ref="assetSummary"
         class="flex shrink-0 items-center gap-2 whitespace-nowrap text-xs lg:gap-3 lg:text-sm"
       >
-        <span class="text-[10px] text-base-content/60" :title="self.nickname">{{
+        <Tooltip
+          placement="bottom"
+          align="start"
+          as="span"
+          trigger-class="inline"
+          class="text-[10px] text-base-content/60"
+          :text="self.nickname"
+          :aria-label="self.nickname"
+        >{{
           t("fogport.info.you")
-        }}</span
-        ><span :title="t('fogport.cash')"
-          ><i class="ri-coins-line text-warning" aria-hidden="true"></i>
-          <b>{{ self.money }}</b></span
-        ><span
-          :title="
+        }}</Tooltip><Tooltip
+          placement="bottom"
+          align="start"
+          as="span"
+          trigger-class="inline"
+          :text="t('fogport.cash')"
+          :aria-label="t('fogport.cash')"
+        ><i class="ri-coins-line text-warning" aria-hidden="true"></i>
+          <b>{{ self.money }}</b></Tooltip><Tooltip placement="bottom" align="start" as="span" trigger-class="inline"
+          :text="
+            t('fogport.info.roundIncome') + ' · ' + t('fogport.info.incomeHint')
+          " :aria-label="
             t('fogport.info.roundIncome') + ' · ' + t('fogport.info.incomeHint')
           "
           ><i
             class="ri-arrow-up-circle-line text-success"
             aria-hidden="true"
           ></i>
-          <b>{{ incomeLevel(self.income) }}</b></span
-        ><span :title="t('fogport.info.scored')"
+          <b>{{ incomeLevel(self.income) }}</b></Tooltip><Tooltip
+            placement="bottom"
+            align="start"
+            as="span"
+            trigger-class="inline"
+            :text="t('fogport.info.scored')"
+            :aria-label="t('fogport.info.scored')"
           ><i class="ri-star-line text-primary" aria-hidden="true"></i>
-          <b>{{ self.vp }}</b></span
-        ><span
+          <b>{{ self.vp }}</b></Tooltip><Tooltip align="start" as="span" trigger-class="" activation-class="tooltip"
           v-if="game.phase === 'turn'"
-          class="tooltip tooltip-bottom flex items-center gap-1 border-l border-base-300 pl-2"
-          :data-tip="t('fogport.actionPointsHint')"
+          class="tooltip-bottom flex items-center gap-1 border-l border-base-300 pl-2"
+          :text="t('fogport.actionPointsHint')"
           :aria-label="
             t('fogport.actionPointsCount', {
               name: acting?.nickname,
@@ -97,8 +115,7 @@
           ><b class="tabular-nums">{{ game.actionsLeft }}</b
           ><span class="text-[10px] text-base-content/60">{{
             t("fogport.actionPoints")
-          }}</span></span
-        >
+          }}</span></Tooltip>
       </div>
       <div
         :id="toolbarTargetId"
@@ -335,6 +352,8 @@
   </div>
 </template>
 <script setup>
+import Tooltip from "@/components/display/Tooltip.vue";
+
 import ScrollableContainer from "@/components/layout/ScrollableContainer.vue";
 import { computed, ref, watch, useId, onMounted, onBeforeUnmount } from "vue";
 import { useMediaQuery, useElementSize } from "@vueuse/core";

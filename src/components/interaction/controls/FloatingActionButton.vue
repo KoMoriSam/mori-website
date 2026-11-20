@@ -9,7 +9,13 @@
         mainVisible ? 'opacity-100' : 'opacity-0 pointer-events-none',
       ]"
     >
-      <div class="tooltip tooltip-left" :data-tip="localizeText(mainLabel)">
+      <Tooltip
+        as="div"
+        trigger-class=""
+        activation-class="tooltip"
+        class="tooltip-left"
+        :text="localizeText(mainLabel)"
+      >
         <button
           type="button"
           :class="['btn btn-lg', mainShapeClass, mainButtonClass]"
@@ -19,7 +25,7 @@
         >
           <i :class="[mainIcon, 'text-xl']"></i>
         </button>
-      </div>
+      </Tooltip>
     </div>
 
     <div v-else :class="['fab', !mobileFloating && 'max-lg:hidden', fabClass]">
@@ -42,7 +48,13 @@
         v-for="(action, index) in actions"
         :key="action.key ?? `${action.label}-${index}`"
       >
-        <div class="tooltip tooltip-left" :data-tip="action.label">
+        <Tooltip
+          as="div"
+          trigger-class=""
+          activation-class="tooltip"
+          class="tooltip-left"
+          :text="action.label"
+        >
           <label
             v-if="action.for"
             :for="action.disabled ? undefined : action.for"
@@ -69,17 +81,17 @@
           >
             <i :class="[action.icon, 'text-xl']"></i>
           </button>
-        </div>
+        </Tooltip>
       </template>
     </div>
 
-    <label
+    <Tooltip as="label" trigger-class="" activation-class="tooltip"
       v-if="!mobileFloating && !actions.length && mainOnClick"
-      class="lg:hidden tooltip tooltip-left fixed right-6 bottom-18 z-1 transition-opacity duration-500"
+      class="lg:hidden tooltip-left fixed right-6 bottom-18 z-1 transition-opacity duration-500"
       :class="mainVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'"
       :aria-label="localizeText(mainLabel)"
       :aria-hidden="!mainVisible"
-      :data-tip="localizeText(mainLabel)"
+      :text="localizeText(mainLabel)"
       @click="mainVisible && mainOnClick?.()"
     >
       <div
@@ -94,7 +106,7 @@
       >
         <i :class="['m-4', mainIcon]"></i>
       </div>
-    </label>
+    </Tooltip>
 
     <template v-if="!mobileFloating">
       <template
@@ -108,7 +120,13 @@
           :aria-disabled="action.disabled || undefined"
           @click="!action.disabled && action.onClick?.()"
         >
-          <div class="lg:tooltip lg:tooltip-left" :data-tip="action.label">
+          <Tooltip
+            as="div"
+            trigger-class=""
+            activation-class="lg:tooltip"
+            class="lg:tooltip-left"
+            :text="action.label"
+          >
             <div
               :tabindex="action.disabled ? -1 : 0"
               role="button"
@@ -116,7 +134,7 @@
             >
               <i :class="['m-4', action.icon]"></i>
             </div>
-          </div>
+          </Tooltip>
           <span class="dock-label lg:hidden">{{ action.label }}</span>
         </label>
       </template>
@@ -125,6 +143,8 @@
 </template>
 
 <script setup>
+import Tooltip from "@/components/display/Tooltip.vue";
+
 import { useLocale } from '@/i18n';
 const { text: localizeText } = useLocale();
 defineProps({

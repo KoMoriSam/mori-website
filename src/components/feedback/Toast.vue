@@ -41,18 +41,18 @@
       </span>
       <span data-toast-message class="min-w-0 flex-1 wrap-anywhere leading-6">{{ toast.message }}</span>
       <div v-if="toast.actions?.length" class="flex shrink-0 flex-wrap items-center gap-1">
-        <component
-          :is="action.href ? 'a' : 'button'"
+        <Tooltip trigger-class="inline-flex"
+          :as="action.href ? 'a' : 'button'"
           v-for="(action, index) in toast.actions"
           :key="index"
           :href="action.href || undefined"
-          :title="action.description"
+          :text="action.description" :aria-label="action.description"
           :type="action.href ? undefined : 'button'"
           class="btn btn-ghost btn-xs shrink-0"
           @click="action.onClick?.()"
         >
           {{ action.label }}
-        </component>
+        </Tooltip>
       </div>
       <button
         v-if="toast.closable"
@@ -68,6 +68,8 @@
 </template>
 
 <script setup>
+import Tooltip from "@/components/display/Tooltip.vue";
+
 import { useLocale } from "@/i18n";
 const { text: localizeText } = useLocale();
 import { DEFAULT_POSITION } from "@/constants/toast";

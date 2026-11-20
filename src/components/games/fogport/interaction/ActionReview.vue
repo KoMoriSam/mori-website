@@ -20,16 +20,18 @@
           <span
             ><i class="ri-coins-line text-warning" aria-hidden="true"></i>
             {{ signed(preview.delta?.money ?? 0) }}</span
-          ><span :title="t('fogport.incomeSpaces')"
-            ><i
+          ><Tooltip
+            as="span"
+            trigger-class="inline"
+            :text="t('fogport.incomeSpaces')"
+            :aria-label="t('fogport.incomeSpaces')"
+          ><i
               class="ri-arrow-up-circle-line text-success"
               aria-hidden="true"
             ></i>
-            {{ signed(preview.delta?.income ?? 0) }}</span
-          ><span :title="t('fogport.vp')"
+            {{ signed(preview.delta?.income ?? 0) }}</Tooltip><Tooltip as="span" trigger-class="inline" :text="t('fogport.vp')" :aria-label="t('fogport.vp')"
             ><i class="ri-star-line text-primary" aria-hidden="true"></i>
-            {{ signed(preview.delta?.vp ?? 0) }}</span
-          ><span class="text-xs text-base-content/60"
+            {{ signed(preview.delta?.vp ?? 0) }}</Tooltip><span class="text-xs text-base-content/60"
             >{{ t("fogport.mode.payCard") }}:
             {{
               cardName(
@@ -150,6 +152,8 @@
   </section>
 </template>
 <script setup>
+import Tooltip from "@/components/display/Tooltip.vue";
+
 import ScrollableContainer from "@/components/layout/ScrollableContainer.vue";
 import { computed, ref } from "vue";
 import { previewAction } from "../../../../../shared/games/fogport/engine.js";
