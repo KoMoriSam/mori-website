@@ -664,7 +664,6 @@ const alignPageFlowBlocksToGrid = async (article, token) => {
     // 强制拆开，就不能把多个 fragment 的高度相加后补到其中一栏。
     if (
       rects.length !== 1 ||
-      rects.length === 0 ||
       style.display === "none" ||
       style.position === "absolute" ||
       style.position === "fixed"
@@ -1690,7 +1689,7 @@ watch(
     }
     scheduleFreshMeasure();
   },
-  { deep: true, flush: "post" },
+  { flush: "post" },
 );
 
 watch(

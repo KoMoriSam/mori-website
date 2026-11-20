@@ -12,8 +12,6 @@ import { fetchChangelogWithFallback } from "@/services/api-changelog";
 import { typeText } from "@/utils/type-changelog";
 import { createLicenseAnchor } from "@/utils/create-license-anchor";
 import { createMarkdownSearchBlocks } from "@/utils/markdown/search-anchors";
-// 小说正文和搜索锚点都按完整 Markdown 处理，不再预分页。
-// import { splitMarkdown } from "@/utils/markdown/split-markdown";
 
 export const CONTENT_TYPES = [
   {

@@ -40,6 +40,14 @@ function createSourcePatterns(sourceKeys) {
 
 const frenchPluralRules = new Intl.PluralRules("fr");
 
+function getBrowserStorage() {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
 export function createLocaleService({ loaders = messageLoaders } = {}) {
   const i18n = createI18n({
     legacy: false,
@@ -155,11 +163,8 @@ export function createLocaleService({ loaders = messageLoaders } = {}) {
         }
         return;
       }
-      try {
-        writeLocalePreference(window.localStorage, code);
-      } catch {
-        /* Storage may be inaccessible. */
-      }
+      const storage = getBrowserStorage();
+      if (storage) writeLocalePreference(storage, code);
     },
   });
   const text = (value) => {
@@ -211,12 +216,8 @@ export function createLocaleService({ loaders = messageLoaders } = {}) {
     message: (key, params = {}) => ({ key, params }),
     async restoreLocale(info = null) {
       globalInfo = info;
-      let saved = null;
-      try {
-        saved = readLocalePreference(window.localStorage);
-      } catch {
-        /* Browser preference is still available. */
-      }
+      const storage = getBrowserStorage();
+      const saved = storage ? readLocalePreference(storage) : null;
       const detected = detectLocale(
         navigator.languages?.length
           ? navigator.languages

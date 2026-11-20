@@ -263,7 +263,7 @@ export function useSearchResultHighlight() {
   };
 
   const scheduleHighlight = async () => {
-    if (!isMounted || typeof document === "undefined") return;
+    if (!isMounted) return;
 
     const runId = ++highlightRunId;
     stopWaiting();

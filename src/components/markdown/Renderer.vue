@@ -154,12 +154,6 @@ const props = defineProps({
     default: true,
   },
 
-  // 是否显示刷新按钮
-  showRefresh: {
-    type: Boolean,
-    default: false,
-  },
-
   manageRouteAnchor: {
     type: Boolean,
     default: true,
@@ -176,7 +170,7 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(["refresh", "render-ready"]);
+const emit = defineEmits(["render-ready"]);
 const wikiLinkResolver = inject(WIKI_LINK_RESOLVER, null);
 const readingLayout = computed(() => props.layout === "reading");
 const extensions = computed(() =>
@@ -1041,10 +1035,6 @@ watch(
         loadBatchCounts(paragraphIds, token),
         loadHeaderDiscussionCount(token),
       ]);
-
-      if (token !== latestBatchToken.value) {
-        return;
-      }
     });
   },
   { immediate: true },

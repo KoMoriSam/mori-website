@@ -69,7 +69,6 @@ import { useLocale } from "@/i18n";
 const props = defineProps({
   room: { type: Object, required: true },
   inventoryTargetId: { type: String, required: true },
-  canAct: Boolean,
   panel: { type: String, default: "players" },
 });
 const emit = defineEmits(["select-panel"]);

@@ -6,15 +6,13 @@ import { useToast } from "@/composables/useToast";
 
 import { useChapterApi } from "@/services/api-chapters";
 
-// 章节正文不再按固定字数预分页。
-// import { splitMarkdown } from "@/utils/markdown/split-markdown";
 import { getChapterContextTitle } from "@/utils/novel/format-label";
 
 import CONFIG from "@/constants/config.js";
 import fm from "front-matter";
 
 export const useNovelActions = (state, getters) => {
-  const CACHE_EXPIRATION = CONFIG.getDynamicCacheExpiration();
+  const CACHE_EXPIRATION = CONFIG.CACHE_EXPIRATION;
   const { fetchChapters, fetchContent } = useChapterApi();
 
   const toast = useToast({ position: "center-top", closable: false });

@@ -37,7 +37,7 @@
   6. 统一阅读时长计算除数（`ArticleReader.vue:790` 的 `400` 与 `ArticleList.vue:1274` / `Renderer.vue:551` 的 `300` 统一收口为一个共享常量/函数，待执行时确认采用 `300` 还是 `400`）。
 - **验证**：`pnpm check image-converter`、`pnpm check sinhala`、`pnpm check fogport`、`pnpm check blog-build`；人工检查图片转换切换语言、僧伽罗文档报错提示、博客详情与列表阅读时长一致。
 
-### - [ ] P0-3：清理零引用死文件、死配置与低风险无效防御代码
+### - [x] P0-3：清理零引用死文件、死配置与低风险无效防御代码
 - **涉及文件与清理项**：
   - 删除确认无任何引用的死文件：`src/services/api-quotes.js`、`src/utils/markdown/split-markdown.js`（同步删两处注释掉的 import）、`src/utils/novel/normalize-route.js`、`src/composables/games/avalon/useAvalonAudio.js`。
   - 清理 `wrangler.api.jsonc:46-51` 未使用的重复 D1 绑定 `komorisam_analytics`（同步检查 `scripts/release/environment.mjs:52-53`）。

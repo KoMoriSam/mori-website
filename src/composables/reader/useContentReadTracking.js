@@ -52,7 +52,6 @@ export function useContentReadTracking({ contentType, contentId, ready }) {
       !active ||
       recorded ||
       recording ||
-      typeof document === "undefined" ||
       document.visibilityState !== "visible"
     ) {
       return;
@@ -89,12 +88,7 @@ export function useContentReadTracking({ contentType, contentId, ready }) {
 
     const requestGeneration = generation;
     recording = true;
-    let success = false;
-    try {
-      success = await analyticsStore.recordRead(content.type, content.id);
-    } catch (error) {
-      console.warn("记录阅读统计失败：", error);
-    }
+    const success = await analyticsStore.recordRead(content.type, content.id);
 
     if (requestGeneration !== generation) return;
 
@@ -119,13 +113,7 @@ export function useContentReadTracking({ contentType, contentId, ready }) {
     trackedKey =
       content.type && content.id ? `${content.type}:${content.id}` : "";
 
-    if (
-      mounted &&
-      content.ready &&
-      content.type &&
-      content.id &&
-      typeof window !== "undefined"
-    ) {
+    if (mounted && content.ready && content.type && content.id) {
       void analyticsStore.loadStats(content.type, content.id);
       schedule();
     }

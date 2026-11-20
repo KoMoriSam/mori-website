@@ -440,9 +440,7 @@ const prepareDialogNavigation = () => {
   return { replaceDialogHistory };
 };
 const handleProgressInput = (event) => {
-  const value = Number(event.target.value);
-  if (isPagedMode.value) emit("change-page", value);
-  else emit("change-page", value);
+  emit("change-page", Number(event.target.value));
 };
 const goToCover = () => {
   closeAll();

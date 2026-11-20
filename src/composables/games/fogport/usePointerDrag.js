@@ -51,6 +51,6 @@ export function usePointerDrag(onDrop, onStart = () => {}, onMove = () => {}, on
   function cancel(event) {if(event && event.pointerId!==gesture?.id) return;blockedUntil=Date.now()+350;if(gesture?.active) returnHome();else cleanup();}
   function escape(event) {if(event.key==='Escape') cancel();}
   const clickAllowed=()=>!gesture?.active && !ghost.value && Date.now()>=blockedUntil;
-  onBeforeUnmount(()=>{if(typeof window!=='undefined') {const active=gesture?.active;cleanup();if(active) onEnd(false);}});
+  onBeforeUnmount(()=>{const active=gesture?.active;cleanup();if(active) onEnd(false);});
   return {ghost,start,cancel,clickAllowed};
 }

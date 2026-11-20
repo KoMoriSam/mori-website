@@ -43,12 +43,6 @@
 			"migrations_dir": "./migrations/analytics",
 			"database_id": "12e811c2-6fa8-44e1-a5f2-1fc525e3d672",
 		},
-		{
-			"binding": "komorisam_analytics",
-			"database_name": "komorisam-analytics",
-			"database_id": "12e811c2-6fa8-44e1-a5f2-1fc525e3d672",
-			"remote": true,
-		},
 	],
 	"triggers": {
 		"crons": [

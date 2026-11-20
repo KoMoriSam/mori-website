@@ -42,7 +42,7 @@ export function useNovelChapters() {
   onMounted(() => {
     const cached = novelStore.storedChapters;
     if (cached && Object.keys(cached).length) {
-      const fresh = Date.now() - novelStore.lastUpdated < CONFIG.getDynamicCacheExpiration();
+      const fresh = Date.now() - novelStore.lastUpdated < CONFIG.CACHE_EXPIRATION;
       if (!chapters.value.length || fresh) novelStore.hydrateChapters(cached);
       if (fresh) {
         loading.value = false;

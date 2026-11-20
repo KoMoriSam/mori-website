@@ -391,21 +391,6 @@ const modal = {
       close: () => requestClose(),
     };
   },
-
-  info(title, description, options = {}) {
-    return this.show({ title, description, ...options });
-  },
-
-  confirm(title, description, options = {}) {
-    return this.show({
-      title,
-      description,
-      ...options,
-      variant: "confirm",
-      buttonText: options.buttonText || "确认",
-      cancelText: options.cancelText || "取消",
-    });
-  },
 };
 
 export function useModal() {

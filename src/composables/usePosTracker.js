@@ -148,11 +148,7 @@ export function usePosTracker(router, onRestoreTitle, options = {}) {
       }
     }
 
-    try {
-      return decoded;
-    } catch {
-      return decoded;
-    }
+    return decoded;
   }
 
   function isNumericAnchor(token) {

@@ -158,11 +158,7 @@ const toCanvasColor = (value, fallback) => {
 
   context.clearRect(0, 0, 1, 1);
   context.fillStyle = fallback;
-  try {
-    context.fillStyle = String(value || fallback).trim();
-  } catch {
-    context.fillStyle = fallback;
-  }
+  context.fillStyle = String(value || fallback).trim();
   context.fillRect(0, 0, 1, 1);
 
   const [red, green, blue, alpha] = context.getImageData(0, 0, 1, 1).data;

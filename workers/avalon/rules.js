@@ -140,7 +140,7 @@ function tick(source, _players, now = Date.now()) {
   if (source.discussion && now < source.discussion.endsAt) return null;
   const state = structuredClone(source);
   if (state.phase === "evil_discussion")
-    beginAssassination(state, state.discussion?.endsAt ?? now);
+    beginAssassination(state, state.discussion.endsAt);
   else if (!state.discussion) startDiscussion(state, now);
   else if (state.discussion.mode === "fast" && !state.discussion.partnerId) {
     invitePartner(
@@ -766,7 +766,7 @@ function view(state, _players, playerId) {
     questCount: Object.keys(state.questCards).length,
     quests: state.quests,
     rejected: state.rejected,
-    history: state.history.filter((entry) => entry.type !== "lancelot_draw"),
+    history: state.history,
     result: state.result,
     discussion: ["discussion", "evil_discussion"].includes(state.phase)
       ? (state.discussion ?? null)

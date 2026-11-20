@@ -5,13 +5,9 @@ import { storeToRefs } from "pinia";
 import { useNovelStore } from "@/stores/novel";
 import { moriSession } from '@/composables/auth/useMoriAuth';
 
-import { useToast } from "@/composables/useToast";
-
 export function useChapterSetup() {
   const route = useRoute();
   const router = useRouter();
-
-  const toast = useToast({ closable: false, position: "center" });
 
   const novelStore = useNovelStore();
 

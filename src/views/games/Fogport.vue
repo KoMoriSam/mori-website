@@ -57,10 +57,9 @@
         :inventory-target-id="inventoryTargetId"
         @request-sidebar-panel="sidebarPanel = $event"
     /></template>
-    <template #sidebar="{ room, canAct, expandSidebar }"
+    <template #sidebar="{ room, expandSidebar }"
       ><Sidebar
         :room="room"
-        :can-act="canAct"
         :panel="sidebarPanel"
         :inventory-target-id="inventoryTargetId"
         @select-panel="

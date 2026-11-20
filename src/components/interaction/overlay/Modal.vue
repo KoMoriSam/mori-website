@@ -106,7 +106,7 @@ import ScrollableContainer from "@/components/layout/ScrollableContainer.vue";
 import { useLocale } from '@/i18n';
 const { t: translate, text: localizeText } = useLocale();
 
-import { computed, ref, h, nextTick, watch } from "vue";
+import { computed, ref, nextTick, watch } from "vue";
 import { onClickOutside } from "@vueuse/core";
 import { useModalClose } from "@/composables/useModal";
 

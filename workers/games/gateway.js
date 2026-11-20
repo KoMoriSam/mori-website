@@ -3,7 +3,6 @@ import { getGame } from './registry.js';
 import { hashToken } from './room.js';
 
 const PREFIX = '/games/rooms';
-const CODE = /^[A-HJ-NP-Z2-9]{8}$/;
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const DEFAULT_ORIGINS = 'https://komori.cc,https://www.komori.cc,http://localhost:5173,http://127.0.0.1:5173';
 async function readBody(request) {
@@ -59,7 +58,7 @@ export async function handleGames(request, env) {
         catch (error) { if (error?.message !== 'CONFLICT' || attempt === 2) throw error; }
       }
     }
-    const code = match[1]; ensure(CODE.test(code), 'NOT_FOUND', 404);
+    const code = match[1];
     const room = env.GAME_ROOMS.getByName(`room:${code}`);
     if (operation === 'socket') return await room.fetch(request);
     if (operation === 'join') { const body = await readBody(request); return json(await room.join(body?.nickname, body?.gameType, body?.profile), 201); }

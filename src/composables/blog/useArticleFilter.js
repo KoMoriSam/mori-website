@@ -570,9 +570,7 @@ export function useArticleFilter(
   );
 
   onBeforeUnmount(() => {
-    if (typeof window !== "undefined") {
-      window.clearTimeout(urlSyncTimer);
-    }
+    window.clearTimeout(urlSyncTimer);
   });
 
   return {
