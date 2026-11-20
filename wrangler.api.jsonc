@@ -6,6 +6,9 @@
 	"compatibility_flags": [
 		"nodejs_compat"
 	],
+	"vars": {
+		"MORI_ATTACHMENT_PAID_VIDEO_REPOS": "KoMoriSam/mori-blog-discussions,KoMoriSam/mori-novel-discussions,KoMoriSam/mori-test-discussions"
+	},
 	"services": [
 		{ "binding": "MORI_COMMENT_AUTH", "service": "mori-auth", "entrypoint": "CommentAuth" }
 	],

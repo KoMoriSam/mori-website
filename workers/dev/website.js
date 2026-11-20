@@ -1,5 +1,5 @@
 import site from "../website.js";
-import { json } from "../auth/http.js";
+import { COOKIE, json, readCookie } from "../auth/http.js";
 import fixtures from "../../.tmp/mori-dev/novel.json";
 
 let seed;
@@ -10,6 +10,11 @@ export default {
     if (url.pathname === "/auth/local/login" || url.pathname === "/auth/local/logout") {
       url.pathname = url.pathname.endsWith("/login") ? "/login/github" : "/logout";
       return env.LOCAL_AUTH.fetch(new Request(url, request));
+    }
+    if (url.pathname.startsWith("/api/comments/attachments/local/")) {
+      if (!await env.MORI_AUTH.verify(readCookie(request, COOKIE.site))) return json({ error: "LOGIN_REQUIRED" }, 401);
+      url.pathname = url.pathname.slice(4);
+      return env.LOCAL_API.fetch(new Request(url, request));
     }
     if (url.pathname.startsWith("/api/novel/")) {
       if (!url.pathname.startsWith(`/api/novel/${fixtures.version}/`)) return json({}, 404);

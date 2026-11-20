@@ -5,6 +5,8 @@ import { json } from "../auth/http.js";
 import { commentPageSize, editPageSize, handleComments, replyPageSize } from "../github/comments.js";
 import { handleDiscussionCounts } from "../github/discussions.js";
 import { discussionScopes, initialReplyCount } from "../../shared/discussions.js";
+import { handleCommentAttachment } from "../github/comment-attachments.js";
+import { localAttachment, storeLocalAttachment } from "./comment-attachments.js";
 
 export { GameRoom } from "../api.js";
 
@@ -241,6 +243,11 @@ function localGithub(env, repository, target, viewer) {
 
 export class CommentsInternal extends WorkerEntrypoint {
   async handle(request, token, target) {
+    if (new URL(request.url).pathname === "/api/comments/attachments") {
+      return handleCommentAttachment(request, this.env, token, target, {
+        upload: (attachment) => storeLocalAttachment(this.env, new URL(request.url).origin, attachment),
+      });
+    }
     return handleComments(request, this.env, token, target, {
       createClient: (env, repository) => localGithub(env, repository, target),
       userGraphql: (viewer, query, variables) =>
@@ -252,6 +259,7 @@ export class CommentsInternal extends WorkerEntrypoint {
 export default {
   fetch(request, env, ctx) {
     const pathname = new URL(request.url).pathname.replace(/\/+$/, "");
+    if (pathname.startsWith("/comments/attachments/local/")) return localAttachment(request, env);
     if (pathname === "/github/discussions/counts") return handleDiscussionCounts(request, env, {}, localGithub);
     if (pathname.startsWith("/github/") || pathname === "/random-hero") return json({}, 404);
     return api.fetch(request, env, ctx);

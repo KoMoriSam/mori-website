@@ -24,7 +24,7 @@ export const descriptions = {
   },
   check: {
     env: "检查 Cloudflare Worker 绑定与构建凭证",
-    dev: "本地认证、评论与小说访问",
+    dev: "本地认证、评论附件与小说访问",
     announcements: "公告内容与发布流程",
     avalon: "阿瓦隆规则与角色能力",
     "avalon-extensions": "阿瓦隆扩展角色",
@@ -41,7 +41,7 @@ export const descriptions = {
     "game-room-client": "游戏房间连接与音效",
     games: "多人房间与服务端对局",
     github: "GitHub 登录与资料读取",
-    "github-access": "GitHub 登录与账号恢复",
+    "github-access": "GitHub 登录、原生评论与媒体附件",
     "github-profile": "GitHub 公开资料读取",
     i18n: "多语言界面与文案",
     "i18n-loading": "语言切换与英文回退",

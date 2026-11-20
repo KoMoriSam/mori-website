@@ -1,5 +1,20 @@
 <template>
-  <div class="min-w-0" :class="{ 'flex min-h-0 flex-1 flex-col': expanded }">
+  <div
+    class="min-w-0"
+    :class="{ '@container/comments flex min-h-0 flex-1 flex-col': expanded }"
+    @paste="pasteAttachments"
+    @dragover="dragAttachments"
+    @drop="dropAttachments"
+    @focusin="attachments.focusField($event.target)"
+  >
+    <input
+      ref="fileInput"
+      type="file"
+      class="hidden"
+      multiple
+      :accept="mediaAttachmentAccept"
+      @change="selectAttachments"
+    />
     <form
       v-if="compact && !expanded && !inlineOpen"
       class="flex min-w-0 items-center gap-2 text-sm"
@@ -27,25 +42,44 @@
           @click="multiline && openEditor()"
           @keydown.enter="openMultilineDraft"
         />
-        <button
-          ref="expandButton"
-          type="button"
-          class="btn btn-ghost btn-xs btn-square shrink-0 tooltip tooltip-left"
-          :aria-label="t('comments.expandEditor')"
-          :data-tip="t('comments.expandEditor')"
-          :disabled="!authenticated || loading || busy"
-          @click="openEditor"
-        >
-          <i class="ri-fullscreen-line" aria-hidden="true"></i>
-        </button>
+        <Tooltip :text="t('comments.attachments')" class="shrink-0">
+          <ActionMenu
+            v-if="attachmentTarget"
+            :label="t('comments.attachments')"
+            :groups="attachmentMenu"
+            :disabled="!authenticated || loading || busy"
+            preserve-selection
+            trigger-class="btn btn-ghost btn-xs btn-square shrink-0"
+            @select="chooseAttachment"
+            @link-error="attachmentLinkError"
+          >
+            <template #trigger
+              ><i class="ri-attachment-2" aria-hidden="true"></i
+            ></template>
+          </ActionMenu>
+        </Tooltip>
+        <Tooltip :text="t('comments.expandEditor')" class="shrink-0">
+          <button
+            ref="expandButton"
+            type="button"
+            class="btn btn-ghost btn-xs btn-square shrink-0"
+            :aria-label="t('comments.expandEditor')"
+            :disabled="!authenticated || loading || busy"
+            @click="openEditor"
+          >
+            <i class="ri-fullscreen-line" aria-hidden="true"></i>
+          </button>
+        </Tooltip>
       </label>
       <button
         v-if="authenticated"
         type="submit"
         class="btn btn-primary btn-sm shrink-0"
-        :disabled="loading || busy || !body.trim()"
+        :disabled="loading || busy || attachments.pending || !body.trim()"
       >
-        <span :class="{ 'skeleton skeleton-text': loading }">{{ submitLabel }}</span>
+        <span :class="{ 'skeleton skeleton-text': loading }">{{
+          submitLabel
+        }}</span>
       </button>
       <LoginButton
         v-else
@@ -71,9 +105,7 @@
       v-if="expanded || !compact || inlineOpen"
       class="min-w-0 text-sm"
       :class="[
-        expanded
-          ? 'flex min-h-0 flex-1 flex-col'
-          : 'flex flex-col',
+        expanded ? 'flex min-h-0 flex-1 flex-col' : 'flex flex-col',
         !embedded &&
           !expanded &&
           'comment-surface card card-border border-base-300 bg-base-100',
@@ -184,29 +216,63 @@
       <footer
         class="m-(--comment-inset) flex flex-wrap items-center justify-between gap-2"
       >
-        <a
-          href="https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="btn btn-ghost btn-sm font-normal text-base-content/65"
+        <Tooltip
+          adaptive
+          content-class="max-w-[min(20rem,calc(100cqw-2rem))]"
+          :text="t('comments.markdownHelp')"
+          align="start"
+          activation-class="@max-[22rem]/comments:tooltip"
         >
-          <i class="ri-markdown-line text-base" aria-hidden="true"></i>
-          <span :class="{ 'skeleton skeleton-text': loading }">{{
-            t("comments.markdownHelp")
-          }}</span>
-        </a>
-        <div class="ms-auto flex flex-wrap items-center justify-end gap-2">
-          <button
-            v-if="inlineOpen"
-            type="button"
-            class="btn btn-ghost btn-sm btn-square tooltip tooltip-left"
-            :aria-label="t('comments.collapseEditor')"
-            :data-tip="t('comments.collapseEditor')"
-            :disabled="busy"
-            @click="collapseEditor"
+          <a
+            href="https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax"
+            target="_blank"
+            rel="noopener noreferrer"
+            :aria-label="t('comments.markdownHelp')"
+            class="btn btn-ghost btn-sm inline-flex font-normal text-base-content/65 @max-[22rem]/comments:btn-square"
           >
-            <i class="ri-fullscreen-exit-line" aria-hidden="true"></i>
-          </button>
+            <i class="ri-markdown-line text-base" aria-hidden="true"></i>
+            <span
+              class="@max-[22rem]/comments:hidden"
+              :class="{ 'skeleton skeleton-text': loading }"
+              >{{ t("comments.markdownHelp") }}</span
+            >
+          </a>
+        </Tooltip>
+        <Tooltip
+          v-if="attachmentTarget && !loading"
+          :text="t('comments.attachments')"
+          activation-class="@max-[25rem]/comments:tooltip"
+        >
+          <ActionMenu
+            :label="t('comments.attachments')"
+            :groups="attachmentMenu"
+            :disabled="!authenticated || busy"
+            align="center"
+            preserve-selection
+            trigger-class="btn btn-ghost btn-sm inline-flex font-normal text-base-content/65 @max-[25rem]/comments:btn-square"
+            @select="chooseAttachment"
+            @link-error="attachmentLinkError"
+          >
+            <template #trigger>
+              <i class="ri-attachment-2 text-base" aria-hidden="true"></i>
+              <span class="@max-[25rem]/comments:hidden">{{
+                t("comments.attachments")
+              }}</span>
+            </template>
+          </ActionMenu>
+        </Tooltip>
+        <div class="ms-auto flex flex-wrap items-center justify-end gap-2">
+          <Tooltip v-if="inlineOpen" :text="t('comments.collapseEditor')">
+            <button
+              type="button"
+              class="btn btn-ghost btn-sm btn-square"
+              :aria-label="t('comments.collapseEditor')"
+              :disabled="busy"
+              @click="collapseEditor"
+            >
+              <i class="ri-fullscreen-exit-line" aria-hidden="true"></i>
+            </button>
+          </Tooltip>
           <button
             v-if="cancelable"
             type="button"
@@ -220,7 +286,7 @@
             v-if="authenticated"
             type="submit"
             class="btn btn-primary btn-sm"
-            :disabled="loading || busy || !body.trim()"
+            :disabled="loading || busy || attachments.pending || !body.trim()"
           >
             <span :class="{ 'skeleton skeleton-text': loading }">{{
               submitLabel
@@ -238,6 +304,85 @@
         </div>
       </footer>
     </form>
+    <div
+      v-if="attachments.items.length || attachmentNotice"
+      class="max-h-48 shrink-0 overflow-y-auto px-(--comment-inset) pb-2 text-xs"
+      aria-live="polite"
+    >
+      <p
+        v-if="attachmentNotice"
+        role="status"
+        class="py-1 text-base-content/70"
+      >
+        {{ attachmentNotice }}
+        <button
+          v-if="otherAttachments"
+          type="button"
+          class="link ms-1"
+          @click="openAttachmentDiscussion"
+        >
+          {{ t("comments.attachmentOther") }}
+        </button>
+      </p>
+      <ul class="space-y-2">
+        <li
+          v-for="item in attachments.items"
+          :key="item.id"
+          class="flex min-w-0 items-center gap-2"
+        >
+          <div class="min-w-0 flex-1">
+            <Tooltip
+              adaptive
+              content-class="max-w-[min(20rem,calc(100cqw-2rem))]"
+              overflow-only
+              placement="bottom"
+              align="start"
+              as="span"
+              trigger-class=""
+              class="min-w-0 block"
+              :text="item.name"
+              :aria-label="item.name"
+            ><span class="block min-w-0 truncate">{{
+              item.name
+            }}</span></Tooltip>
+            <span
+              :class="
+                item.status === 'failed' ? 'text-error' : 'text-base-content/60'
+              "
+            >
+              {{
+                item.status === "failed"
+                  ? attachmentFailure(item.error, item.maximum)
+                  : t("comments.attachmentStatus." + item.status)
+              }}
+            </span>
+            <progress
+              v-if="item.status === 'uploading'"
+              class="progress progress-primary block h-1 w-full"
+              :value="item.progress"
+              max="100"
+              :aria-label="item.name"
+            ></progress>
+          </div>
+          <button
+            v-if="['queued', 'uploading'].includes(item.status)"
+            type="button"
+            class="btn btn-ghost btn-xs"
+            @click="attachments.cancel(item)"
+          >
+            {{ t("comments.cancel") }}
+          </button>
+          <button
+            v-else-if="['failed', 'cancelled'].includes(item.status)"
+            type="button"
+            class="btn btn-ghost btn-xs"
+            @click="attachments.retry(item)"
+          >
+            {{ t("common.navigationStatus.retry") }}
+          </button>
+        </li>
+      </ul>
+    </div>
     <Teleport v-if="editorOpen" to="body">
       <Modal
         ref="editorModal"
@@ -257,8 +402,12 @@
             :authenticated="authenticated"
             :busy="busy"
             :action="action"
+            :github-attachment-url="githubAttachmentUrl"
+            :attachment-target="attachmentTarget"
+            :attachment-session="attachments"
+            :prepare-discussion="prepareDiscussion"
             :error="error"
-            @submit="$emit('submit', () => editorModal?.close())"
+            @submit="submitExpanded"
           />
         </template>
       </Modal>
@@ -271,7 +420,9 @@ import { COMMENT_MARKDOWN } from "@/utils/comments/comment-markdown";
 import {
   computed,
   defineAsyncComponent,
+  inject,
   nextTick,
+  provide,
   ref,
   useId,
   watch,
@@ -280,6 +431,12 @@ import { useMediaQuery, useStorage, useWindowSize } from "@vueuse/core";
 import LoginButton from "@/components/auth/LoginButton.vue";
 import Modal from "@/components/interaction/overlay/Modal.vue";
 import MarkdownToolbar from "./MarkdownToolbar.vue";
+import ActionMenu from "@/components/display/menu/ActionMenu.vue";
+import Tooltip from "@/components/display/Tooltip.vue";
+import { useCommentAttachments } from "@/composables/useCommentAttachments";
+import { mediaAttachmentAccept } from "@/../shared/comment-attachments.js";
+import { githubDiscussionUrl } from "@/utils/github-discussion-url";
+import { MARKDOWN_RESOURCE_OVERRIDES } from "@/constants/markdown";
 import { useLocale } from "@/i18n";
 import { editMarkdown } from "@/utils/markdown/edit-markdown";
 const Renderer = defineAsyncComponent(
@@ -290,6 +447,10 @@ const props = defineProps({
   action: { type: String, default: "post" },
   returnHash: String,
   loginAction: Function,
+  githubAttachmentUrl: String,
+  attachmentTarget: Object,
+  attachmentSession: Object,
+  prepareDiscussion: Function,
   busy: Boolean,
   authenticated: Boolean,
   loading: Boolean,
@@ -300,6 +461,17 @@ const props = defineProps({
   error: String,
 });
 const emit = defineEmits(["submit", "cancel"]);
+const attachments =
+  props.attachmentSession ??
+  useCommentAttachments(body, () => props.attachmentTarget);
+const inheritedPreviews = inject(MARKDOWN_RESOURCE_OVERRIDES, null);
+provide(MARKDOWN_RESOURCE_OVERRIDES, {
+  get: (url) => attachments.previews.get(url) || inheritedPreviews?.get(url),
+  refresh: () => inheritedPreviews?.refresh?.(),
+});
+const fileInput = ref(null);
+const attachmentNotice = ref("");
+const otherAttachments = ref(false);
 const editorOpen = ref(false);
 const editorModal = ref(null);
 const inlineOpen = ref(false);
@@ -331,9 +503,133 @@ const monospace = useStorage("mori:comments:monospace", false, undefined, {
 const tabGroup = useId();
 const { t } = useLocale();
 const fieldLabel = computed(() => t(`comments.editor.${props.action}.label`));
-const placeholder = computed(() => t(`comments.editor.${props.action}.placeholder`));
+const placeholder = computed(() =>
+  t(`comments.editor.${props.action}.placeholder`),
+);
 const submitLabel = computed(() => t(`comments.editor.${props.action}.submit`));
 const shortcuts = { b: "bold", i: "italic", e: "code", k: "link" };
+
+const attachmentMenu = computed(() => [
+  {
+    items: [
+      {
+        id: "media",
+        label: t("comments.attachmentMedia"),
+        icon: "ri-image-add-line",
+      },
+      {
+        id: "github",
+        label: t("comments.attachmentOther"),
+        icon: "ri-github-fill",
+        href:
+          githubDiscussionUrl(props.githubAttachmentUrl) ||
+          resolveAttachmentDiscussionUrl,
+      },
+    ],
+  },
+]);
+
+function attachmentFailure(code, maximum) {
+  const messages = {
+    LOGIN_REQUIRED: "comments.loginToComment",
+    ATTACHMENT_TOO_LARGE: "comments.attachmentTooLarge",
+    ATTACHMENT_INVALID_FILE: "comments.attachmentInvalid",
+    ATTACHMENT_REJECTED: "comments.attachmentRejected",
+    ATTACHMENT_RATE_LIMITED: "comments.rateLimited",
+    ATTACHMENT_NOT_CONFIGURED: "comments.attachmentUnavailable",
+    ATTACHMENT_AUTHORIZATION_FAILED: "comments.attachmentUnavailable",
+    ATTACHMENT_BODY_TOO_LONG: "comments.attachmentBodyTooLong",
+  };
+  const label = t(messages[code] || "comments.attachmentFailed");
+  return code === "ATTACHMENT_TOO_LARGE" && maximum
+    ? `${label} (${maximum / 1024 / 1024} MB)`
+    : label;
+}
+
+function chooseAttachment(action) {
+  if (action === "media") fileInput.value?.click();
+}
+
+async function resolveAttachmentDiscussionUrl() {
+  const url =
+    githubDiscussionUrl(props.githubAttachmentUrl) ||
+    githubDiscussionUrl(await props.prepareDiscussion?.());
+  if (!url) throw new Error("ATTACHMENT_DISCUSSION_UNAVAILABLE");
+  return url;
+}
+
+function attachmentLinkError(error) {
+  attachmentNotice.value = attachmentFailure(error.message);
+}
+
+async function openAttachmentDiscussion() {
+  if (!props.authenticated || props.loading || props.busy) return;
+  const tab = window.open("about:blank", "_blank");
+  if (tab) tab.opener = null;
+  try {
+    const url = await resolveAttachmentDiscussionUrl();
+    if (!url || !tab) throw new Error("ATTACHMENT_DISCUSSION_UNAVAILABLE");
+    tab.location.replace(url);
+  } catch (error) {
+    tab?.close();
+    attachmentLinkError(error);
+  }
+}
+
+function addAttachments(files, field) {
+  if (
+    !props.authenticated ||
+    props.loading ||
+    props.busy ||
+    !props.attachmentTarget
+  )
+    return;
+  const other = attachments.add(
+    files,
+    field?.selectionStart ??
+      textarea.value?.selectionStart ??
+      body.value.length,
+  );
+  otherAttachments.value = other.length > 0;
+  attachmentNotice.value = other.length
+    ? t("comments.attachmentUseGithub", { files: other.join(", ") })
+    : "";
+  if (props.compact && !props.expanded && !inlineOpen.value) openEditor();
+}
+
+function selectAttachments(event) {
+  addAttachments(Array.from(event.target.files || []));
+  event.target.value = "";
+}
+
+function pasteAttachments(event) {
+  const files = Array.from(event.clipboardData?.files || []);
+  if (!files.length || !props.attachmentTarget) return;
+  event.preventDefault();
+  addAttachments(files, event.target);
+}
+
+function dragAttachments(event) {
+  if (!event.dataTransfer?.types.includes("Files") || !props.attachmentTarget)
+    return;
+  event.preventDefault();
+  event.dataTransfer.dropEffect =
+    props.authenticated && !props.busy ? "copy" : "none";
+}
+
+function dropAttachments(event) {
+  if (!event.dataTransfer?.files.length || !props.attachmentTarget) return;
+  event.preventDefault();
+  addAttachments(Array.from(event.dataTransfer.files), event.target);
+}
+
+function submitExpanded() {
+  if (!attachments.pending)
+    emit("submit", () => {
+      attachments.reset();
+      editorModal.value?.close();
+    });
+}
 
 function openEditor() {
   if (!props.authenticated || props.loading || props.busy) return;
@@ -358,8 +654,17 @@ function openMultilineDraft(event) {
 }
 
 function submit() {
-  if (props.authenticated && !props.loading && !props.busy && body.value.trim())
-    emit("submit", inlineOpen.value ? collapseEditor : undefined);
+  if (
+    props.authenticated &&
+    !props.loading &&
+    !props.busy &&
+    !attachments.pending &&
+    body.value.trim()
+  )
+    emit("submit", () => {
+      attachments.reset();
+      if (inlineOpen.value) collapseEditor();
+    });
 }
 
 function format(action) {
@@ -394,7 +699,8 @@ function handleShortcut(event) {
     if (!preview.value) void nextTick(() => textarea.value?.focus());
   } else if (key === "enter") {
     event.preventDefault();
-    if (!props.busy && body.value.trim()) event.currentTarget.requestSubmit();
+    if (!props.busy && !attachments.pending && body.value.trim())
+      event.currentTarget.requestSubmit();
   } else if (
     event.target === textarea.value &&
     !event.shiftKey &&

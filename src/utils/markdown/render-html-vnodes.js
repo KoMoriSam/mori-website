@@ -1,6 +1,7 @@
 import { cloneVNode, h } from "vue";
 import { RouterLink } from "vue-router";
 import { parseSanitizedMarkdownHtml } from "./sanitize-html.js";
+import { githubAttachmentPreview, isGithubAttachmentAsset, isLocalCommentAttachment } from "../../../shared/comment-attachments.js";
 import {
   getImageAttrs,
   restoreOriginalImage,
@@ -313,7 +314,7 @@ export const parseHtmlFragment = (html = "", anchorPrefix = "") => {
   return fragment;
 };
 
-const renderNode = (node, resolver, key, parent, router, Tooltip) => {
+const renderNode = (node, resolver, key, parent, router, resourceOverrides, Tooltip) => {
   if (node.nodeName === "#text") {
     let value = node.value || "";
     if (/[\u00a0\u202f]/u.test(value)) {
@@ -334,6 +335,36 @@ const renderNode = (node, resolver, key, parent, router, Tooltip) => {
   if (!node.tagName) return null;
 
   const props = getVNodeProps(node);
+  const imagePreview = node.tagName === "img" ? resourceOverrides?.get(props.src) : undefined;
+  if (typeof imagePreview === "string" && (imagePreview.startsWith("blob:") || githubAttachmentPreview(imagePreview)?.assetUrl === props.src)) {
+    props.src = imagePreview;
+    delete props.srcset;
+    if (!imagePreview.startsWith("blob:")) props.onError = () => resourceOverrides.refresh?.();
+  }
+  // GitHub inserts uploaded videos as a bare assets URL in its own paragraph.
+  // Named links and image elements continue through the existing rendering path.
+  if (node.tagName === "p" && getChildNodes(node).length === 1) {
+    const link = getChildNodes(node)[0];
+    const src = link.tagName === "a" && link.attrs?.find(({ name }) => name === "href")?.value;
+    const text = getChildNodes(link).filter((child) => child.nodeName === "#text").map((child) => child.value).join("");
+    const video = isGithubAttachmentAsset(src) || (import.meta.env?.DEV && isLocalCommentAttachment(src) && /\.(?:mp4|mov|webm)$/u.test(src));
+    if (video && text === src) {
+      const preview = resourceOverrides?.get(src);
+      const validPreview = typeof preview === "string" &&
+        (preview.startsWith("blob:") || githubAttachmentPreview(preview)?.assetUrl === src);
+      return h("video", {
+        key,
+        src: validPreview ? preview : src,
+        onError: () => resourceOverrides?.refresh?.(),
+        controls: true,
+        playsinline: true,
+        preload: "metadata",
+        class: "my-4 max-h-[70vh] w-full rounded-box",
+      }, [
+        h("a", { href: src, target: "_blank", rel: "noopener noreferrer" }, src),
+      ]);
+    }
+  }
   if (node.tagName === "ol") {
     props.style = [props.style, { "--md-ordered-marker-space": orderedMarkerSpace(node, props) }];
   }
@@ -361,7 +392,7 @@ const renderNode = (node, resolver, key, parent, router, Tooltip) => {
   );
   const triggerChildren = getChildNodes(node).filter((child) => child !== tooltipContent);
   let children = triggerChildren
-    .map((child, index) => renderNode(child, resolver, `${key}-${index}`, node, router, Tooltip))
+    .map((child, index) => renderNode(child, resolver, `${key}-${index}`, node, router, resourceOverrides, Tooltip))
     .filter((child) => child !== null);
   const firstChild = triggerChildren[0];
   const favicon = linkType && (
@@ -413,7 +444,7 @@ const renderNode = (node, resolver, key, parent, router, Tooltip) => {
       default: () => children,
       ...(tooltipContent ? {
         "tooltip-content": () => getChildNodes(tooltipContent).map((child, index) =>
-          renderNode(child, resolver, `${key}-content-${index}`, tooltipContent, router, Tooltip),
+          renderNode(child, resolver, `${key}-content-${index}`, tooltipContent, router, resourceOverrides, Tooltip),
         ),
       } : {}),
     });
@@ -452,7 +483,7 @@ const renderNode = (node, resolver, key, parent, router, Tooltip) => {
   return renderElement(node.tagName, props);
 };
 
-export const renderHtmlFragment = (fragment, resolver, router, Tooltip) =>
+export const renderHtmlFragment = (fragment, resolver, router, resourceOverrides, Tooltip) =>
   (fragment?.childNodes || [])
-    .map((node, index) => renderNode(node, resolver, `markdown-node-${index}`, fragment, router, Tooltip))
+    .map((node, index) => renderNode(node, resolver, `markdown-node-${index}`, fragment, router, resourceOverrides, Tooltip))
     .filter((node) => node !== null);

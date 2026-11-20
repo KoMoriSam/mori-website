@@ -64,7 +64,10 @@ export async function deploymentConfigs(root) {
   }
   auth.routes = [{ pattern: new URL(authTestOrigin).hostname, custom_domain: true }];
   api.routes = [{ pattern: new URL(apiTestOrigin).hostname, custom_domain: true }];
-  api.vars = { ...vars, GAMES_ALLOWED_ORIGINS: testOrigin, GITHUB_APP_ID: "5721939", GITHUB_INSTALLATION_ID: "181096518" };
+  api.vars = {
+    ...vars, GAMES_ALLOWED_ORIGINS: testOrigin, GITHUB_APP_ID: "5721939", GITHUB_INSTALLATION_ID: "181096518",
+    MORI_ATTACHMENT_PAID_VIDEO_REPOS: api.vars?.MORI_ATTACHMENT_PAID_VIDEO_REPOS || "",
+  };
   auth.vars = { ...vars, MORI_TEST_READER_IDS: readers };
   auth.secrets = { required: ["GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET", "TOKEN_ENCRYPTION_KEY"] };
   api.secrets = { required: ["GITHUB_APP_PRIVATE_KEY"] };

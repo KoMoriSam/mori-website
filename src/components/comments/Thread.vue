@@ -1,7 +1,7 @@
 <template>
   <section
     ref="threadElement"
-    class="comment-thread flex min-h-0 w-full min-w-0 flex-col gap-4 font-sans"
+    class="comment-thread @container/comments flex min-h-0 w-full min-w-0 flex-col gap-4 font-sans"
     :class="{
       'flex-1 [--comment-editor-max-height:40dvh]': scrollMode === 'dialog',
       'lg:flex-1 lg:[--comment-editor-max-height:40dvh]':
@@ -51,11 +51,7 @@
             }}</span>
             <span aria-hidden="true">·</span>
             <span>{{
-              t(
-                "comments.replies",
-                { count: number(replyCount) },
-                replyCount,
-              )
+              t("comments.replies", { count: number(replyCount) }, replyCount)
             }}</span>
             <span
               v-if="discussion?.locked"
@@ -174,6 +170,11 @@
                 >
                   <CommentEditor
                     v-model="editor.body"
+                    :attachment-target="attachmentTarget"
+                    :prepare-discussion="prepareAttachmentDiscussion"
+                    :github-attachment-url="
+                      githubDiscussionUrl(comment.url) || discussionUrl
+                    "
                     :return-hash="returnHash"
                     :login-action="auth.login"
                     embedded
@@ -222,6 +223,11 @@
                       <template v-if="editor.id === reply.id" #editor>
                         <CommentEditor
                           v-model="editor.body"
+                          :attachment-target="attachmentTarget"
+                          :prepare-discussion="prepareAttachmentDiscussion"
+                          :github-attachment-url="
+                            githubDiscussionUrl(reply.url) || discussionUrl
+                          "
                           :return-hash="returnHash"
                           :login-action="auth.login"
                           embedded
@@ -301,6 +307,9 @@
           (loaded && !discussion?.locked && editor.action === 'post')
         "
         v-model="editor.body"
+        :attachment-target="attachmentTarget"
+        :prepare-discussion="prepareAttachmentDiscussion"
+        :github-attachment-url="discussionUrl"
         class="shrink-0"
         :compact="compactEditor"
         :return-hash="returnHash"
@@ -321,6 +330,7 @@ import {
   nextTick,
   onBeforeUnmount,
   onMounted,
+  provide,
   reactive,
   ref,
   useId,
@@ -339,6 +349,7 @@ import { useLocale } from "@/i18n";
 import { useToast } from "@/composables/useToast";
 import { useCommentCountsStore } from "@/stores/commentCountsStore";
 import { githubDiscussionUrl } from "@/utils/github-discussion-url";
+import { MARKDOWN_RESOURCE_OVERRIDES } from "@/constants/markdown";
 import CommentEntry from "./display/CommentEntry.vue";
 import ReactionButtons from "./display/ReactionButtons.vue";
 import CommentEditor from "./interaction/CommentEditor.vue";
@@ -392,6 +403,24 @@ const replyLimits = reactive(new Map());
 const postedReplies = reactive(new Map());
 const replyRequests = reactive(new Map());
 const replyErrors = reactive(new Set());
+const privateAttachmentPreviews = computed(() => {
+  const previews = new Map();
+  const collect = (comment) => {
+    for (const [url, preview] of Object.entries(comment.attachmentPreviews || {})) previews.set(url, preview);
+    for (const reply of comment.replies?.nodes || []) collect(reply);
+  };
+  for (const comment of comments.value) collect(comment);
+  for (const replies of postedReplies.values()) for (const reply of replies) collect(reply);
+  return previews;
+});
+let refreshingAttachmentPreviews;
+provide(MARKDOWN_RESOURCE_OVERRIDES, {
+  get: (url) => privateAttachmentPreviews.value.get(url),
+  refresh() {
+    refreshingAttachmentPreviews ??= load().finally(() => { refreshingAttachmentPreviews = null; });
+    return refreshingAttachmentPreviews;
+  },
+});
 const count = ref(0);
 const commentCount = ref(0);
 const replyCount = ref(0);
@@ -400,6 +429,10 @@ const permissions = ref(false);
 const emptyEditor = () => ({ id: null, action: "post", body: "" });
 const editor = ref(emptyEditor());
 const draftKey = computed(() => `mori:comments:${props.scope}:${props.target}`);
+const attachmentTarget = computed(() => ({
+  scope: props.scope, target: props.target, editor: editor.value.id || editor.value.action,
+  account: moriSession.profile?.id || moriSession.profile?.login || "",
+}));
 const threadReactions = computed(() =>
   discussion.value?.reactionGroups?.map((group) => ({
     ...group,
@@ -481,6 +514,19 @@ async function request(parameters, options) {
     throw Object.assign(new Error(result.error), { status: response.status });
   }
   return result;
+}
+
+async function prepareAttachmentDiscussion() {
+  if (discussionUrl.value) return discussionUrl.value;
+  const result = await request({}, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "discussion", requestId: crypto.randomUUID() }),
+  });
+  const url = githubDiscussionUrl(result.discussionUrl);
+  if (!url) throw new Error("ATTACHMENT_DISCUSSION_UNAVAILABLE");
+  void load();
+  return url;
 }
 
 function loadEditHistory(id, cursor, signal) {
@@ -696,7 +742,9 @@ function focusInlineEditor() {
       "[data-inline-comment-editor]:not([inert]) :is(input[type=text], textarea)",
     );
     if (fields)
-      Array.from(fields).find((field) => field.getClientRects().length)?.focus();
+      Array.from(fields)
+        .find((field) => field.getClientRects().length)
+        ?.focus();
   });
 }
 

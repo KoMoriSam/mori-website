@@ -1,6 +1,6 @@
-// Comments and their previews share the same untrusted content policy.
+// Published comments and previews both use the shared HTML sanitizer.
 export const COMMENT_MARKDOWN = Object.freeze({
-  parserOptions: Object.freeze({ html: false, linkify: true, breaks: true }),
+  parserOptions: Object.freeze({ html: true, linkify: true, breaks: true }),
   allowedAttributes: Object.freeze(["data-tip"]),
   extensions: Object.freeze([
     "abbreviations", "attributes", "code", "headingAnchors", "alerts",

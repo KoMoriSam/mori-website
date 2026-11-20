@@ -1,5 +1,6 @@
 import { WorkerEntrypoint } from "cloudflare:workers";
 import { handleComments } from "./github/comments.js";
+import { handleCommentAttachment } from "./github/comment-attachments.js";
 
 import api from "./api.js";
 import { discussionGithub } from "./github/installation.js";
@@ -65,10 +66,11 @@ export class CommentsInternal extends WorkerEntrypoint {
   async handle(request, token, target) {
     try {
       const env = await discussionEnvironment(this.env);
-      if (env.MORI_ENV !== "test") return handleComments(request, env, token, target);
+      const handler = new URL(request.url).pathname === "/api/comments/attachments" ? handleCommentAttachment : handleComments;
+      if (env.MORI_ENV !== "test") return handler(request, env, token, target);
       const scope = configuredDiscussionScopes(env)[target.scope];
       if (!scope) return { status: 404, body: { error: "DISCUSSION_NOT_FOUND" } };
-      return handleComments(request, env, token, { ...target, ...scope, privateRepository: true });
+      return handler(request, env, token, { ...target, ...scope, privateRepository: true });
     } catch {
       return { status: 503, body: { error: "DISCUSSIONS_UNAVAILABLE" } };
     }

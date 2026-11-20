@@ -1,3 +1,5 @@
+export const MARKDOWN_RESOURCE_OVERRIDES = Symbol("markdown-resource-overrides");
+
 export const DEFAULT_AVATAR = "/assets/images/avatar/default.webp";
 
 export const SELF_NAMES = new Set([

@@ -18,6 +18,7 @@ import { decrypt, hash, randomToken } from "../../workers/auth/crypto.js";
 import { findSession } from "../../workers/auth/session.js";
 import website from "../../workers/website.js";
 import raw from "../../workers/content.js";
+import { sanitizeMarkdownHtml } from "../../src/utils/markdown/sanitize-html.js";
 import { COMMENT_MARKDOWN } from "../../src/utils/comments/comment-markdown.js";
 import { MARKDOWN_MODE_CUSTOM, renderMarkdown } from "../../src/utils/markdown/render-markdown.js";
 
@@ -350,6 +351,9 @@ test("legacy discussion mapping, user permissions, reply counts and idempotent m
       return Response.json({ data: { createDiscussion: { discussion: { ...node, id: "D_124", title: "124" } } } });
     }
     assert.equal(options.headers.Authorization, "Bearer test-installation-read");
+    if (query.includes("query DiscussionById")) return Response.json({ data: {
+      node: variables.id === "D_124" ? { ...node, id: "D_124", title: "124" } : node,
+    } });
     if (query.includes("discussions(first: 100")) {
       assert.equal(variables.category, target.category.id);
       return Response.json({ data: { repository: { discussions: { nodes: [], pageInfo: { hasNextPage: false } } } } });
@@ -404,6 +408,14 @@ test("legacy discussion mapping, user permissions, reply counts and idempotent m
     assert.deepEqual(actions, ["reply", "edit", "addReaction", "removeReaction", "delete:DC_2", "delete:DC_1"]);
     assert.equal(writes, 1);
     assert.equal(installations, 1);
+    const prepared = await website.fetch(new Request(start + "/api/comments?scope=article&target=124", {
+      method: "POST", headers: { Origin: start, Cookie: COOKIE.site + "=" + randomToken() },
+      body: JSON.stringify({ action: "discussion", requestId: crypto.randomUUID() }),
+    }), env);
+    assert.equal(prepared.status, 200);
+    assert.equal((await prepared.json()).discussionUrl, node.url);
+    assert.equal(creations, 1);
+    assert.equal(newPosts, 0);
     const creationRequest = new Request(start + "/api/comments?scope=article&target=124", {
       method: "POST", headers: { Origin: start, Cookie: COOKIE.site + "=" + randomToken() },
       body: JSON.stringify({ action: "post", body: "first comment", requestId: crypto.randomUUID() }),
@@ -415,11 +427,11 @@ test("legacy discussion mapping, user permissions, reply counts and idempotent m
     assert.deepEqual([...links.values()], ["D_124"]);
     categoryMismatch = true;
     assert.equal((await website.fetch(new Request(url), env)).status, 502);
-    const safe = renderMarkdown(
+    const safe = sanitizeMarkdownHtml(renderMarkdown(
       "<img src=x onerror=alert(1)> [x](javascript:alert%281%29) **bold**",
       { mode: MARKDOWN_MODE_CUSTOM, parserOptions: COMMENT_MARKDOWN.parserOptions },
-    );
-    assert.ok(!safe.includes("<img"));
+    ));
+    assert.ok(!safe.includes("onerror"));
     assert.ok(!safe.includes('href="javascript:'));
     assert.ok(safe.includes("<strong>bold</strong>"));
   } finally {
@@ -596,4 +608,221 @@ test("native website version previews only serve public assets", async () => {
       assert.equal((await website.fetch(new Request(origin + path, { headers }), env)).status, 404);
     assert.equal((await website.fetch(new Request(origin + "/api/comments", { method: "POST", headers }), env)).status, 404);
   }
+});
+
+test("comment attachments enforce media types, signatures, targets, identity and GitHub limits", async () => {
+  const { handleCommentAttachment } = await import("../../workers/github/comment-attachments.js");
+  const { attachmentLimits, mediaAttachmentTypes } = await import("../../shared/comment-attachments.js");
+  const target = { ...discussionScopes.article, scope: "article" };
+  const signatures = {
+    png: "\x89PNG\r\n\x1a\n", jpg: "\xff\xd8\xff", jpeg: "\xff\xd8\xff", gif: "GIF89a",
+    svg: '<svg xmlns="http://www.w3.org/2000/svg"></svg>', webp: "RIFF0000WEBP",
+    mp4: "0000ftypisom", mov: "0000ftypqt  ", webm: "\x1aE\xdf\xa3",
+  };
+  const bytesFor = (extension) => Uint8Array.from(signatures[extension], (character) => character.charCodeAt(0));
+  const env = {
+    MORI_SITE_ORIGIN: start,
+    MORI_COMMENT_AUTH: { user: async () => ({ id: "visitor", login: "visitor" }) },
+    COMMENT_WRITE_LIMIT: { limit: async () => ({ success: true }) },
+    COMMENT_READ_LIMIT: { limit: async () => ({ success: true }) },
+  };
+  const url = "https://github.com/user-attachments/assets/12345678-1234-1234-1234-123456789012";
+  let uploads = 0;
+  const mock = { upload: async ({ body, size }) => {
+    let received = 0;
+    for await (const chunk of body) received += chunk.length;
+    assert.equal(received, size);
+    uploads++;
+    return { url };
+  } };
+  const request = (name, bytes, extra = {}) => new Request(start + "/api/comments/attachments", {
+    method: "POST", headers: {
+      Origin: start, "X-Attachment-Name": encodeURIComponent(name), "X-Attachment-Size": String(bytes.length),
+      "Content-Type": mediaAttachmentTypes[name.split(".").at(-1)]?.mime || "application/octet-stream", ...extra,
+    }, body: bytes,
+  });
+  const send = (name, bytes, extra = {}, overrides = {}) =>
+    handleCommentAttachment(request(name, bytes, extra), { ...env, ...overrides }, "session", target, mock);
+  for (const extension of Object.keys(mediaAttachmentTypes)) {
+    const result = await send("附件." + extension, bytesFor(extension));
+    assert.equal(result.status, 201, extension);
+    assert.equal(result.body.url, url);
+    assert.equal(result.body.kind, mediaAttachmentTypes[extension].kind);
+  }
+  const originalUploads = uploads;
+  assert.equal((await send("file.pdf", new Uint8Array([1]))).status, 415);
+  assert.equal((await send("file.png", new TextEncoder().encode("<script>bad</script>"))).status, 400);
+  assert.equal((await send("file.png", bytesFor("png"), { "Content-Type": "text/html" })).status, 415);
+  assert.equal((await send("../file.png", bytesFor("png"))).status, 400);
+  assert.equal((await send("file.png", bytesFor("png"), { "X-Attachment-Name": "%FF" })).status, 400);
+  assert.equal((await send("file.png", bytesFor("png"), { Origin: "https://other.example" })).status, 403);
+  assert.equal((await send("file.png", bytesFor("png"), {}, { MORI_COMMENT_AUTH: { user: async () => null } })).status, 401);
+  assert.equal((await send("file.png", bytesFor("png"), {}, { COMMENT_WRITE_LIMIT: { limit: async () => ({ success: false }) } })).status, 429);
+  const png = bytesFor("png");
+  assert.equal((await send("file.png", png, { "X-Attachment-Size": String(png.length + 1) })).status, 400);
+  assert.equal((await send("file.png", png, { "X-Attachment-Size": "1" })).status, 413);
+  assert.equal((await handleCommentAttachment(request("file.png", png), env, "session", {
+    ...target, repo: { ...target.repo, name: "someone/else" },
+  }, mock)).status, 404);
+  assert.equal(uploads, originalUploads);
+
+  for (const [extension, maximum, settings] of [
+    ["png", attachmentLimits.image, {}],
+    ["mp4", attachmentLimits.video, {}],
+    ["mp4", attachmentLimits.paidVideo, { MORI_ATTACHMENT_PAID_VIDEO_REPOS: target.repo.name }],
+  ]) {
+    const chunk = new Uint8Array(64 * 1024);
+    chunk.set(bytesFor(extension));
+    let sent = 0;
+    const body = new ReadableStream({ pull(controller) {
+      if (sent === maximum) { controller.close(); return; }
+      const length = Math.min(chunk.length, maximum - sent);
+      controller.enqueue(chunk.subarray(0, length));
+      sent += length;
+    } });
+    const big = new Request(start + "/api/comments/attachments", {
+      method: "POST", duplex: "half", body, headers: {
+        Origin: start, "X-Attachment-Name": "max." + extension, "X-Attachment-Size": String(maximum),
+        "Content-Type": mediaAttachmentTypes[extension].mime,
+      },
+    });
+    assert.equal((await handleCommentAttachment(big, { ...env, ...settings }, "session", target, mock)).status, 201);
+    assert.equal((await send("max." + extension, bytesFor(extension), { "X-Attachment-Size": String(maximum + 1) }, settings)).status, 413);
+  }
+});
+
+test("GitHub upload uses the dedicated credential, verified repository id and validated final URL", async () => {
+  const { handleCommentAttachment } = await import("../../workers/github/comment-attachments.js");
+  const target = { ...discussionScopes.article, scope: "article" };
+  const env = {
+    GITHUB_ATTACHMENTS_TOKEN: "github_pat_test-only", MORI_SITE_ORIGIN: start,
+    MORI_COMMENT_AUTH: { user: async () => ({ id: "visitor", login: "visitor" }) },
+    COMMENT_WRITE_LIMIT: { limit: async () => ({ success: true }) },
+  };
+  const bytes = new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg"></svg>');
+  const request = () => new Request(start + "/api/comments/attachments", {
+    method: "POST", headers: { Origin: start, "X-Attachment-Name": "test.svg", "X-Attachment-Size": String(bytes.length), "Content-Type": "image/svg+xml" }, body: bytes,
+  });
+  let finalUrl = "https://github.com/user-attachments/assets/12345678-1234-1234-1234-123456789012";
+  let uploadStatus = 201;
+  const fetchGithub = async (input, options) => {
+    assert.equal(options.headers.Authorization, "Bearer " + env.GITHUB_ATTACHMENTS_TOKEN);
+    assert.equal(options.redirect, "manual");
+    const url = new URL(input);
+    if (url.hostname === "api.github.com") return Response.json({ id: 123, node_id: target.repo.id, full_name: target.repo.name, private: false, permissions: { push: true } });
+    assert.equal(url.origin, "https://uploads.github.com");
+    assert.equal(url.pathname, "/user-attachments/assets");
+    assert.equal(url.searchParams.get("repository_id"), "123");
+    assert.equal(url.searchParams.get("content_type"), "image/svg+xml");
+    assert.equal(await new Response(options.body).text(), new TextDecoder().decode(bytes));
+    return Response.json({ url: finalUrl }, { status: uploadStatus });
+  };
+  const options = { fetchGithub, fixedLength: () => new TransformStream() };
+  assert.equal((await handleCommentAttachment(request(), env, "session", target, options)).status, 201);
+  finalUrl = "https://example.com/file.svg";
+  assert.equal((await handleCommentAttachment(request(), env, "session", target, options)).body.error, "ATTACHMENT_INVALID_RESPONSE");
+  uploadStatus = 404;
+  assert.equal((await handleCommentAttachment(request(), env, "session", target, options)).body.error, "ATTACHMENT_AUTHORIZATION_FAILED");
+  uploadStatus = 422;
+  assert.equal((await handleCommentAttachment(request(), env, "session", target, options)).body.error, "ATTACHMENT_REJECTED");
+  uploadStatus = 429;
+  assert.equal((await handleCommentAttachment(request(), env, "session", target, options)).status, 429);
+});
+
+test("attachment queue preserves batch order, draft position, cancellation and already uploaded retries", async () => {
+  const { createRenderer, ref, nextTick } = await import("vue");
+  const { useCommentAttachments } = await import("../../src/composables/useCommentAttachments.js");
+  const body = ref("before after");
+  let queue;
+  let requests = 0;
+  let firstUpload;
+  const renderer = createRenderer({ createComment: () => ({}), insert() {}, remove() {}, parentNode() {}, nextSibling() {} });
+  const app = renderer.createApp({ setup() {
+    queue = useCommentAttachments(body, () => ({ scope: "article", target: "example" }), {
+      capabilities: async () => ({ available: true, imageMaxBytes: 10 * 1024 * 1024 }),
+      upload: async (file) => {
+        requests++;
+        if (requests === 1) await new Promise((resolve) => { firstUpload = resolve; });
+        return { name: file.name, kind: "image", url: `https://github.com/user-attachments/assets/12345678-1234-1234-1234-${String(requests).padStart(12, "0")}` };
+      },
+    });
+    return () => null;
+  } });
+  app.mount({});
+  const wait = async (condition) => {
+    for (let attempt = 0; attempt < 100 && !condition(); attempt++) await new Promise((resolve) => setTimeout(resolve, 1));
+    assert.ok(condition());
+  };
+  queue.add([new File(["a"], "one.png"), new File(["b"], "two.png")], 7);
+  await wait(() => firstUpload);
+  assert.equal(queue.pending, true);
+  body.value = "prefix " + body.value;
+  firstUpload();
+  await wait(() => !queue.pending);
+  assert.ok(body.value.startsWith("prefix before "));
+  assert.ok(body.value.indexOf("one.png") < body.value.indexOf("two.png"));
+  assert.ok(body.value.endsWith("after"));
+  assert.equal(queue.previews.size, 2);
+  assert.ok(!body.value.includes("blob:"));
+  assert.equal(requests, 2);
+  body.value = "x".repeat(9990);
+  queue.add([new File(["a"], "three.png")], body.value.length);
+  await wait(() => !queue.pending);
+  const uploaded = queue.items.at(-1);
+  assert.equal(uploaded.error, "ATTACHMENT_BODY_TOO_LONG");
+  assert.ok(uploaded.attachment);
+  body.value = "short";
+  queue.retry(uploaded);
+  await wait(() => !queue.pending);
+  assert.equal(requests, 3);
+  assert.ok(body.value.includes("three.png"));
+  queue.add([new File(["a"], "four.png"), new File(["b"], "cancel.png")]);
+  const cancelled = queue.items.at(-1);
+  queue.cancel(cancelled);
+  await wait(() => !queue.pending);
+  assert.equal(cancelled.status, "cancelled");
+  assert.ok(!body.value.includes("cancel.png"));
+  assert.deepEqual(queue.add([new File(["a"], "document.pdf")]), ["document.pdf"]);
+  await nextTick();
+  app.unmount();
+  assert.equal(queue.previews.size, 0);
+});
+
+test("private comment attachments use signed GitHub resources and minimized comments hide them", async () => {
+  const { handleComments } = await import("../../workers/github/comments.js");
+  const { mediaAttachmentTypes } = await import("../../shared/comment-attachments.js");
+  const target = { ...discussionScopes.article, scope: "article", term: "private attachment fixture", privateRepository: true };
+  const discussion = { id: "D_private", title: target.term, repository: { id: target.repo.id, isPrivate: true }, category: target.category };
+  let minimized = false;
+  const references = Object.keys(mediaAttachmentTypes).map((extension, index) => ({
+    extension, uuid: "12345678-1234-1234-1234-" + String(index).padStart(12, "0"),
+  }));
+  const body = references.map(({ uuid }) => "https://github.com/user-attachments/assets/" + uuid).join("\n\n");
+  const html = references.map(({ extension, uuid }) => `<img src="https://private-user-images.githubusercontent.com/123/456-${uuid}.${extension}?jwt=fixture">`).join("");
+  const graphql = async (query) => {
+    if (query.includes("query DiscussionById")) return { node: discussion };
+    assert.ok(query.includes("query DiscussionReplies"));
+    assert.ok(query.includes("bodyHTML"));
+    return { node: { discussion: { id: discussion.id }, replyTo: null, replies: {
+      totalCount: 1, nodes: [{ id: "DC_reply", body, bodyHTML: html, isMinimized: minimized }],
+    } } };
+  };
+  const env = {
+    MORI_COMMENT_AUTH: { user: async () => ({ id: "viewer", login: "viewer" }), discussion: async () => discussion.id },
+    COMMENT_READ_LIMIT: { limit: async () => ({ success: true }) },
+  };
+  const request = () => handleComments(new Request("https://komori.cc/api/comments?parent=DC_parent"), env, "session", target, {
+    createClient: async () => ({ graphql }), userGraphql: (_viewer, query) => graphql(query),
+  });
+  const read = await request();
+  assert.equal(read.status, 200);
+  const reply = read.body.replies.nodes[0];
+  assert.equal(reply.body, body);
+  assert.equal(Object.keys(reply.attachmentPreviews).length, references.length);
+  assert.ok(!Object.hasOwn(reply, "bodyHTML"));
+  minimized = true;
+  const hidden = (await request()).body.replies.nodes[0];
+  assert.equal(hidden.body, "");
+  assert.ok(!Object.hasOwn(hidden, "bodyHTML"));
+  assert.ok(!Object.hasOwn(hidden, "attachmentPreviews"));
 });

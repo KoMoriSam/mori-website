@@ -3,7 +3,7 @@ const publicVite = /^VITE_(?:BLOG_RAW|NOVEL_RAW|COMMENT_COUNTS_API|GISCUS_CSS_RA
 
 export const workerSecrets = {
   auth: ["GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET", "TOKEN_ENCRYPTION_KEY"],
-  api: ["GITHUB_APP_PRIVATE_KEY", "GITHUB_TOKEN", "PIXABAY_API_KEY"],
+  api: ["GITHUB_APP_PRIVATE_KEY", "GITHUB_TOKEN", "GITHUB_ATTACHMENTS_TOKEN", "PIXABAY_API_KEY"],
 };
 
 const runtimeOnly = new Set([...Object.values(workerSecrets).flat(), "GITHUB_APP_ID", "GITHUB_INSTALLATION_ID"]);

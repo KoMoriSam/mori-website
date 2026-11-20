@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { readWorkerConfig } from "../lib/worker-config.mjs";
 
 export const directory = ".tmp/mori-dev";
 export const persist = resolve(directory, "isolated-state");
@@ -10,6 +11,7 @@ export const workerPort = 8789;
 
 export async function configure(port) {
   await mkdir(resolve(directory, "assets"), { recursive: true });
+  const api = await readWorkerConfig("wrangler.api.jsonc");
   const origin = `http://localhost:${port}`;
   const common = { compatibility_date: "2026-08-23", workers_dev: false, preview_urls: false };
   const service = (binding, name, entrypoint) => ({
@@ -28,7 +30,10 @@ export async function configure(port) {
     [apiConfig, {
       name: "api-local", main: resolve("workers/dev/api.js"),
       compatibility_flags: ["nodejs_compat"],
-      vars: { GAMES_ALLOWED_ORIGINS: origin },
+      vars: {
+        GAMES_ALLOWED_ORIGINS: origin, MORI_SITE_ORIGIN: origin,
+        MORI_ATTACHMENT_PAID_VIDEO_REPOS: api.vars?.MORI_ATTACHMENT_PAID_VIDEO_REPOS || "",
+      },
       services: [service("MORI_COMMENT_AUTH", "mori-auth-local", "CommentAuth")],
       ratelimits: [
         { name: "COMMENT_READ_LIMIT", namespace_id: "1101", simple: { limit: 90, period: 60 } },
