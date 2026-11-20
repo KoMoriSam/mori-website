@@ -18,7 +18,7 @@
 
 > **目标**：修复检视中已确认的 6 处真实 Bug，清除确定无引用的死代码与最刺眼的无效防御性写法，零架构风险、立竿见影。
 
-### - [ ] P0-1：修复 `src/router/index.js` 死路由实例与重复标题钩子
+### - [x] P0-1：修复 `src/router/index.js` 死路由实例与重复标题钩子
 - **问题定位**：
   - `src/main.js` 仅导入 `{ routes, scrollBehavior }` 交给 `ViteSSG` 自建 router，导致 `src/router/index.js:203-316` 创建的默认 `router` 及其 `beforeEach`（旧 `.html` 重定向、旧 `?article=` 参数重定向）与 `afterEach` 在线上从未生效。
   - `router/index.js` 内的 `document.title = ...` 与 `src/App.vue` 的 `useHead` 语义冲突。

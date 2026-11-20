@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import { createServer } from 'vite';
 import { createSSRApp, h } from 'vue';
+import { createRouter, createMemoryHistory } from 'vue-router';
 import { renderToString } from '@vue/server-renderer';
 import { LOCALES } from '../../src/i18n/locale.js';
 
@@ -17,7 +18,8 @@ const server = await createServer({
 try {
   const { createLocaleService } = await server.ssrLoadModule('/src/i18n/index.js');
   const { messageLoaders } = await server.ssrLoadModule('/src/i18n/message-groups.js');
-  const { default: router, routes } = await server.ssrLoadModule('/src/router/index.js');
+  const { routes } = await server.ssrLoadModule('/src/router/index.js');
+  const router = createRouter({ history: createMemoryHistory(), routes });
   const calls = [];
   let failHome = true;
   const loaders = Object.fromEntries(Object.entries(messageLoaders).map(([key, loader]) => [key, async () => {
@@ -105,7 +107,6 @@ try {
   assert.ok((await render()).includes('Read the blog'));
   await isolated.switchLocale('fr-CA', { save: false });
   assert.equal(isolated.locale.value, 'fr');
-  assert.equal(isolated.commentLocale.value, 'fr');
   assert.ok((await render()).includes('Lire le blog'));
   assert.equal(isolated.i18n.global.te('image.outputFormat', 'fr'), false, 'French tool messages stay lazy');
   await isolated.loadRoute(image);

@@ -5,6 +5,7 @@ import { ViteSSG } from "vite-ssg";
 import { createPinia } from "pinia";
 import App from "./App.vue";
 import { routes, scrollBehavior } from "./router";
+import { installLegacyRedirects } from "./router/legacy-redirects";
 import {
   generatedBlogPagePaths,
   installArticleMetadata,
@@ -39,6 +40,7 @@ function configureApp(articles, snapshot) {
       scrollBehavior,
     },
     async ({ app, router, initialState }) => {
+      installLegacyRedirects(router);
       installPageData(router, initialState, {
         snapshot,
         isServer: import.meta.env.SSR,
