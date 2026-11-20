@@ -60,7 +60,7 @@
 
 > **目标**：把跨端重复校验、平行 HTTP/Storage 实现和巨型 `workers/api.js` 彻底收口，为后续组件重构打好稳定底座。
 
-### - [ ] P1-1：收拢 Changelog 与 Announcement 契约到 `shared/`
+### - [x] P1-1：收拢 Changelog 与 Announcement 契约到 `shared/`
 - **现状问题**：类型表、日期校验 `isValidDate`、版本比较 `compareVersions` 与完整 schema 校验在 `workers/api.js`、`scripts/release/*`、`src/services/api-{changelog,announcements}.js`、`src/utils/type-changelog.js` 重复 3~5 份；Changelog 单次拉取在 `api-changelog.js` 与 `changelogStore.js` 重复校验排序 2 次，且 `{ force }` 参数被静默忽略。
 - **改造动作**：
   - 扩充 `shared/changelog.js`：统一导出 `CHANGELOG_TYPES`、`isValidDate`、`compareVersions`、`normalizeRelease`、`normalizeChangelogPayload`、`sameChangelog`。

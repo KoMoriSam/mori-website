@@ -54,7 +54,7 @@ mori-website/
 ├── changelog/releases/         # 版本更新日志 Markdown 源（推送有效草稿至 main 自动触发发版）
 ├── mock/article/               # 本地开发用博客 Mock 文章与多语言样本
 ├── shared/                     # 跨前端(src/)、Workers(workers/)、脚本(scripts/)共享契约与游戏纯引擎
-│   ├── changelog.js / comment-attachments.js / discussions.js / novel-release.js / test-preview.js
+│   ├── announcements.js / changelog.js / comment-attachments.js / discussions.js / novel-release.js / test-preview.js
 │   └── games/{messages.js, avalon/*, fogport/*}
 ├── workers/                    # Cloudflare Workers 边缘后端
 │   ├── website.js / novel.js   # 站点主网关与 R2 小说内容分发

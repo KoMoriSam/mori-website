@@ -8,6 +8,13 @@ import { createInterface } from "node:readline/promises";
 import frontMatter from "front-matter";
 import yaml from "js-yaml";
 
+import {
+  ANNOUNCEMENT_PRIORITIES,
+  ANNOUNCEMENT_TEXT_LIMITS,
+  ANNOUNCEMENT_TONES,
+  ANNOUNCEMENTS_SCHEMA_VERSION,
+} from "../../shared/announcements.js";
+
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = resolve(SCRIPT_DIR, "../..");
 const ANNOUNCEMENTS_DIR = join(PROJECT_ROOT, "announcements");
@@ -24,15 +31,7 @@ const WRANGLER_BIN = join(
 );
 const BACKUP_DIR = join(PROJECT_ROOT, ".tmp", "announcement-backups");
 const TEMP_DIR = join(PROJECT_ROOT, ".tmp", "announcements");
-const VALID_TONES = new Set(["info", "warning", "error"]);
-const VALID_PRIORITIES = new Set(["normal", "important"]);
 const BODY_PLACEHOLDER = "请在这里填写公告正文。";
-const TEXT_LIMITS = {
-  id: 128,
-  title: 160,
-  summary: 320,
-  body: 20000,
-};
 
 const helpText = `撰写网站公告，安排展示时间，并将公告发布到网站。
 
@@ -102,18 +101,18 @@ export const validateAnnouncement = (announcement, source = "公告") => {
     }
   };
 
-  requireText("id", TEXT_LIMITS.id);
-  requireText("title", TEXT_LIMITS.title);
-  requireText("summary", TEXT_LIMITS.summary);
-  requireText("body", TEXT_LIMITS.body);
+  requireText("id", ANNOUNCEMENT_TEXT_LIMITS.id);
+  requireText("title", ANNOUNCEMENT_TEXT_LIMITS.title);
+  requireText("summary", ANNOUNCEMENT_TEXT_LIMITS.summary);
+  requireText("body", ANNOUNCEMENT_TEXT_LIMITS.body);
 
   if (!Number.isSafeInteger(announcement.revision) || announcement.revision < 1) {
     errors.push("revision 必须是大于等于 1 的整数");
   }
-  if (!VALID_TONES.has(announcement.tone)) {
+  if (!ANNOUNCEMENT_TONES.has(announcement.tone)) {
     errors.push("tone 必须是 info、warning 或 error");
   }
-  if (!VALID_PRIORITIES.has(announcement.priority)) {
+  if (!ANNOUNCEMENT_PRIORITIES.has(announcement.priority)) {
     errors.push("priority 必须是 normal 或 important");
   }
   if (typeof announcement.pinned !== "boolean") {
@@ -483,7 +482,7 @@ const validatePayload = (payload, source) => {
   if (
     !payload ||
     typeof payload !== "object" ||
-    payload.schemaVersion !== 1 ||
+    payload.schemaVersion !== ANNOUNCEMENTS_SCHEMA_VERSION ||
     typeof payload.updatedAt !== "string" ||
     !Number.isFinite(Date.parse(payload.updatedAt)) ||
     !Array.isArray(payload.items)
@@ -588,7 +587,7 @@ const verifyPublicEndpoint = async (expectedUpdatedAt) => {
     if (!response.ok) return false;
     const payload = await response.json();
     return (
-      payload.schemaVersion === 1 &&
+      payload.schemaVersion === ANNOUNCEMENTS_SCHEMA_VERSION &&
       Date.parse(payload.updatedAt) === Date.parse(expectedUpdatedAt)
     );
   } catch {
@@ -632,7 +631,11 @@ export const publishAnnouncements = async ({ dryRun = false, yes = false } = {})
   }
 
   const updatedAt = formatLocalIso();
-  const payload = { schemaVersion: 1, updatedAt, items: localItems };
+  const payload = {
+    schemaVersion: ANNOUNCEMENTS_SCHEMA_VERSION,
+    updatedAt,
+    items: localItems,
+  };
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   const backupPath = join(BACKUP_DIR, `${timestamp}.json`);
   const publishPath = join(TEMP_DIR, `publish-${process.pid}.json`);

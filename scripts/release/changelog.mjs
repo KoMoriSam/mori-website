@@ -2,7 +2,11 @@ import { spawn } from "node:child_process";
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
-import { sameChangelog } from "../../shared/changelog.js";
+import {
+  compareVersions,
+  normalizeChangelogPayload,
+  sameChangelog,
+} from "../../shared/changelog.js";
 import { readWorkerConfig } from "../lib/worker-config.mjs";
 import { run } from "../lib/commands.mjs";
 import { waitForPublishedContent } from "./verify-published.mjs";
@@ -11,7 +15,6 @@ import {
   CHANGELOG_DIR,
   PROJECT_ROOT,
   SEMVER_BUMPS,
-  compareVersions,
   createChangelogPayload,
   formatLocalDate,
   nextVersion,
@@ -19,7 +22,6 @@ import {
   readReleaseFiles,
   releasePath,
   renderReleaseMarkdown,
-  validateChangelogPayload,
   validateReleaseChain,
   writeStaticChangelog,
 } from "./changelog-content.mjs";
@@ -120,7 +122,10 @@ async function getRemotePayload(request = fetch) {
   if (!response.ok) throw new Error(`读取更新日志 KV 失败（HTTP ${response.status}）。`);
   const raw = await response.text();
   try {
-    return validateChangelogPayload(JSON.parse(raw), { source: "远端 KV" });
+    return normalizeChangelogPayload(JSON.parse(raw), {
+      requireServerTime: false,
+      strictItems: true,
+    });
   } catch {
     console.warn("远端更新日志格式无效，将以已部署网站的 Markdown 数据为准。");
     return null;
@@ -160,8 +165,9 @@ const verifyPublicEndpoint = async (expected, request) => {
       headers: { Accept: "application/json" },
       signal: AbortSignal.timeout(6000),
     });
-    return response.ok && sameChangelog(expected, validateChangelogPayload(await response.json(), {
-      requireServerTime: true, source: "公开接口",
+    return response.ok && sameChangelog(expected, normalizeChangelogPayload(await response.json(), {
+      requireServerTime: true,
+      strictItems: true,
     }));
   } catch {
     return false;

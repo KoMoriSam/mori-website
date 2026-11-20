@@ -9,7 +9,7 @@ import {
   renderAnnouncementMarkdown as renderAnnouncementSource,
   validateAnnouncement as validateAnnouncementSource,
 } from "../release/announcement.mjs";
-import { normalizeAnnouncementsPayload } from "../../src/services/api-announcements.js";
+import { normalizeAnnouncementsPayload } from "../../shared/announcements.js";
 import {
   announcementKey,
   getPrioritizedActiveAnnouncements,

@@ -1,10 +1,7 @@
 import { computed, ref } from "vue";
 import { defineStore } from "pinia";
 
-import {
-  fetchChangelogWithFallback,
-  normalizeChangelogPayload,
-} from "@/services/api-changelog";
+import { fetchChangelogWithFallback } from "@/services/api-changelog";
 
 export const useChangelogStore = defineStore("changelog", () => {
   const items = ref([]);
@@ -20,20 +17,16 @@ export const useChangelogStore = defineStore("changelog", () => {
   const totalVersions = computed(() => items.value.length);
 
   const applyPayload = (payload, payloadSource) => {
-    const normalized = normalizeChangelogPayload(payload);
-    items.value = normalized.items;
-    updatedAt.value = normalized.updatedAt;
+    items.value = payload.items;
+    updatedAt.value = payload.updatedAt;
     source.value = payloadSource;
     loaded.value = true;
   };
 
   const hydrateChangelog = (payload) => {
-    try {
-      applyPayload(payload, "static");
-      error.value = null;
-    } catch (hydrateError) {
-      console.error("Error hydrating changelog:", hydrateError);
-    }
+    if (!payload) return;
+    applyPayload(payload, "static");
+    error.value = null;
   };
 
   const fetchChangelog = ({ force = false } = {}) => {
