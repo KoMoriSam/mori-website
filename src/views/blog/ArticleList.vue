@@ -126,16 +126,16 @@
                     ? `article-filter-option-${activeFilterIndex}`
                     : null
                 "
-                @input="handleSearchInput"
-                @focus="updateFilterQuery"
-                @click="updateFilterQuery"
-                @keydown.down="handleFilterArrow($event, 1)"
-                @keydown.up="handleFilterArrow($event, -1)"
-                @keydown.enter="handleFilterEnter"
-                @keydown.tab="handleFilterTab"
-                @keydown.backspace="handleSearchBackspace"
-                @keydown.esc.prevent="handleSearchEscape"
-                @compositionstart="isComposing = true"
+                @input="handleInput"
+                @focus="updateFilterQuery()"
+                @click="updateFilterQuery()"
+                @keydown.down="handleArrow($event, 1)"
+                @keydown.up="handleArrow($event, -1)"
+                @keydown.enter="handleEnter"
+                @keydown.tab="handleTab"
+                @keydown.backspace="handleBackspace"
+                @keydown.esc.prevent="handleEscape"
+                @compositionstart="handleCompositionStart"
                 @compositionend="handleCompositionEnd"
               />
 
@@ -166,153 +166,17 @@
               </a>
             </Tooltip>
           </div>
-          <div
+          <FilterTokenSuggestions
             v-if="isFilterMenuOpen"
-            id="article-filter-suggestions"
-            class="absolute inset-x-0 top-full z-30 mt-2 overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-xl"
-            role="listbox"
-            :aria-label="
-              activeFilterQuery.type === 'tag'
-                ? translate('common.search.tagSuggestions')
-                : translate('common.search.yearSuggestions')
-            "
-          >
-            <div
-              class="flex items-center justify-between gap-3 border-b border-base-300 bg-base-200/45 px-3 py-2 text-xs text-base-content/55"
-            >
-              <span class="flex items-center gap-1.5">
-                <i
-                  :class="
-                    activeFilterQuery.type === 'tag'
-                      ? 'ri-price-tag-3-line'
-                      : 'ri-calendar-line'
-                  "
-                  aria-hidden="true"
-                ></i>
-                {{
-                  activeFilterQuery.type === "tag"
-                    ? translate("blog.list.chooseTags")
-                    : translate("common.search.chooseYear")
-                }}
-              </span>
-              <span class="hidden sm:inline">
-                <kbd class="kbd kbd-xs">↑</kbd><kbd class="kbd kbd-xs">↓</kbd>
-                {{ translate("common.search.selectHint") }}
-                <kbd class="kbd kbd-xs">Enter</kbd>
-                {{ translate("common.search.confirmHint") }}
-                <kbd class="kbd kbd-xs">Esc</kbd>
-                {{ translate("common.modal.close") }}
-              </span>
-            </div>
-
-            <ScrollableContainer v-if="filteredFilterOptions.length">
-              <ul
-                class="max-h-72 space-y-1 overflow-y-auto overscroll-contain p-1.5"
-              >
-                <li
-                  v-for="group in filterOptionGroups"
-                  :key="group.key"
-                  role="presentation"
-                >
-                  <div
-                    v-if="group.label"
-                    class="flex items-center gap-2 px-3 pb-1 pt-2 text-xs font-semibold text-base-content/45"
-                  >
-                    <i class="ri-folder-3-line" aria-hidden="true"></i>
-                    <span class="min-w-0 flex-1 truncate">
-                      {{ group.label }}
-                    </span>
-                    <span class="shrink-0 font-normal text-base-content/40">
-                      {{
-                        translate(
-                          "common.counts.articles",
-                          { count: group.count },
-                          group.count,
-                        )
-                      }}
-                    </span>
-                  </div>
-                  <ul
-                    class="space-y-0.5"
-                    :role="group.label ? 'group' : 'presentation'"
-                    :aria-label="group.label || null"
-                  >
-                    <li
-                      v-for="option in group.options"
-                      :key="`${option.type}-${option.value}`"
-                      role="presentation"
-                    >
-                      <button
-                        :id="`article-filter-option-${option.index}`"
-                        type="button"
-                        role="option"
-                        :aria-label="
-                          option.type === 'tag'
-                            ? translate('blog.list.tag', {
-                                p0: option.fullLabel,
-                              })
-                            : translate('common.search.year', {
-                                p0: option.label,
-                              })
-                        "
-                        :aria-selected="activeFilterIndex === option.index"
-                        class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors"
-                        :class="[
-                          activeFilterIndex === option.index
-                            ? 'bg-primary/10 text-primary'
-                            : 'hover:bg-base-200',
-                          group.label ? 'pl-5' : '',
-                        ]"
-                        @mouseenter="activeFilterIndex = option.index"
-                        @mousedown.prevent="selectFilterOption(option)"
-                      >
-                        <span
-                          class="flex size-7 shrink-0 items-center justify-center text-sm text-base-content/40"
-                          :class="
-                            group.label
-                              ? ''
-                              : 'rounded-md bg-base-200 font-mono text-base-content/55'
-                          "
-                          aria-hidden="true"
-                        >
-                          <i
-                            v-if="group.label"
-                            class="ri-corner-down-right-line"
-                          ></i>
-                          <template v-else>{{ option.prefix }}</template>
-                        </span>
-                        <span class="min-w-0 flex-1 truncate font-medium">
-                          {{ option.label }}
-                        </span>
-                        <span class="text-xs text-base-content/40">
-                          {{
-                            translate(
-                              "common.counts.articles",
-                              { count: option.count },
-                              option.count,
-                            )
-                          }}
-                        </span>
-                      </button>
-                    </li>
-                  </ul>
-                </li>
-              </ul>
-            </ScrollableContainer>
-
-            <p
-              v-else
-              class="px-4 py-8 text-center text-sm text-base-content/50"
-            >
-              {{
-                activeFilterQuery.query
-                  ? translate("common.search.noOptions", {
-                      p0: activeFilterQuery.query,
-                    })
-                  : translate("common.search.noFilters")
-              }}
-            </p>
-          </div>
+            class="z-30 mt-2"
+            id-prefix="article-filter"
+            :header="suggestionHeader"
+            :groups="suggestionGroups"
+            :active-index="activeFilterIndex"
+            :empty-text="suggestionEmptyText"
+            @update:active-index="activeFilterIndex = $event"
+            @select="selectFilterOption"
+          />
         </div>
 
         <p class="mt-2 px-1 text-xs text-base-content/45">
@@ -445,55 +309,28 @@
               </template>
 
               <template v-if="item.tags?.length" #tags>
-                <CatalogBadge
-                  v-for="tag in item.tags"
-                  :key="tag"
-                >
-                  <template
-                    v-for="(part, partIndex) in highlightParts(formatTag(tag))"
-                    :key="`${part.text}-${partIndex}`"
-                  >
-                    <mark
-                      v-if="part.match"
-                      class="rounded-sm bg-primary/75 px-0.5 text-primary-content"
-                    >
-                      {{ part.text }}
-                    </mark>
-                    <template v-else>{{ part.text }}</template>
-                  </template>
+                <CatalogBadge v-for="tag in item.tags" :key="tag">
+                  <HighlightedText
+                    :text="formatTag(tag)"
+                    :keyword="keyword"
+                  />
                 </CatalogBadge>
               </template>
 
               <template #title>
-                <template
-                  v-for="(part, partIndex) in highlightParts(item.title)"
-                  :key="`${part.text}-${partIndex}`"
-                >
-                  <mark
-                    v-if="part.match"
-                    class="rounded-sm bg-primary/80 px-0.5 text-primary-content"
-                  >
-                    {{ part.text }}
-                  </mark>
-                  <template v-else>{{ part.text }}</template>
-                </template>
+                <HighlightedText
+                  :text="item.title"
+                  :keyword="keyword"
+                  mark-class="rounded-sm bg-primary/80 px-0.5 text-primary-content"
+                />
               </template>
 
               <template #description>
-                <template
-                  v-for="(part, partIndex) in highlightParts(
-                    getResultSummary(item),
-                  )"
-                  :key="`${part.text}-${partIndex}`"
-                >
-                  <mark
-                    v-if="part.match"
-                    class="rounded-sm bg-primary/65 px-0.5 text-primary-content"
-                  >
-                    {{ part.text }}
-                  </mark>
-                  <template v-else>{{ part.text }}</template>
-                </template>
+                <HighlightedText
+                  :text="getResultSummary(item)"
+                  :keyword="keyword"
+                  mark-class="rounded-sm bg-primary/65 px-0.5 text-primary-content"
+                />
               </template>
 
               <template #meta>
@@ -720,46 +557,39 @@
 </template>
 
 <script setup>
+import { computed, nextTick, ref, toRef, watch } from "vue";
+import { storeToRefs } from "pinia";
+import { Translation as I18nT } from "vue-i18n";
+import HighlightedText from "@/components/display/HighlightedText.vue";
 import Tooltip from "@/components/display/Tooltip.vue";
-
-import ScrollableContainer from "@/components/layout/ScrollableContainer.vue";
+import FilterTokenSuggestions from "@/components/interaction/controls/FilterTokenSuggestions.vue";
 import CatalogBadge from "@/components/interaction/navigation/CatalogBadge.vue";
 import CatalogCard from "@/components/interaction/navigation/CatalogCard.vue";
-import { getNavbarScrollOffset } from "@/utils/layout/navbar";
+import Pagination from "@/components/interaction/navigation/Pagination.vue";
+import ContentPage from "@/components/layout/ContentPage.vue";
+import { useArticleFilter } from "@/composables/blog/useArticleFilter";
+import { useFilterTokenInput } from "@/composables/useFilterTokenInput";
+import { BLOG_PAGE_SIZE } from "@/constants/blog-pagination";
+import { useLocale } from "@/i18n";
+import { createSearchExcerpt } from "@/services/search-content";
+import { useAnalyticsStore } from "@/stores/analytics";
+import { useCommentCountsStore } from "@/stores/comment-counts";
+import {
+  formatArticleTag,
+  normalizeArticleTag,
+} from "@/utils/blog/article-fields";
 import { getArticlePath } from "@/utils/blog/article-versions";
 import { estimateReadingTime } from "@/utils/blog/reading-time";
-import { useLocale } from "@/i18n";
+import { getNavbarScrollOffset } from "@/utils/layout/navbar";
+
+const FILTER_TRIGGERS = { "#": "tag", "/": "year" };
+
 const {
   t: translate,
   locale: uiLocale,
   number: formatNumber,
   date: formatLocalizedDate,
 } = useLocale();
-
-import {
-  computed,
-  nextTick,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  toRef,
-  watch,
-} from "vue";
-import { storeToRefs } from "pinia";
-import { Translation as I18nT } from "vue-i18n";
-
-import ContentPage from "@/components/layout/ContentPage.vue";
-import Pagination from "@/components/interaction/navigation/Pagination.vue";
-import { BLOG_PAGE_SIZE } from "@/constants/blog-pagination";
-import { useArticleFilter } from "@/composables/blog/useArticleFilter";
-import {
-  formatArticleTag,
-  normalizeArticleTag,
-  splitArticleHighlight,
-} from "@/utils/blog/article-fields";
-import { createSearchExcerpt } from "@/services/search-content";
-import { useAnalyticsStore } from "@/stores/analytics";
-import { useCommentCountsStore } from "@/stores/comment-counts";
 
 const props = defineProps({
   articles: {
@@ -801,8 +631,8 @@ const analyticsStore = useAnalyticsStore();
 const commentCountsStore = useCommentCountsStore();
 const { analyticsAvailable } = storeToRefs(analyticsStore);
 const { commentCountsAvailable } = storeToRefs(commentCountsStore);
-const readCountFormatter = { format: (value) => formatNumber(value) };
-const formatReadCount = (value) => readCountFormatter.format(Number(value));
+
+const formatReadCount = (value) => formatNumber(Number(value));
 const formatCompactCount = (value) =>
   uiLocale.value === "si"
     ? formatNumber(value)
@@ -815,6 +645,7 @@ const formatCompactReadingTime = (count) =>
         unitDisplay: "short",
       })
     : translate("common.counts.minutes", { count }, count);
+
 const articleTotalReads = computed(() =>
   analyticsStore.getContentTypeReads("article"),
 );
@@ -881,18 +712,13 @@ const pageStart = computed(() => {
   return (currentPage.value - 1) * BLOG_PAGE_SIZE + 1;
 });
 
-const pageEnd = computed(() => {
-  return Math.min(
-    currentPage.value * BLOG_PAGE_SIZE,
-    filteredArticles.value.length,
-  );
-});
+const pageEnd = computed(() =>
+  Math.min(currentPage.value * BLOG_PAGE_SIZE, filteredArticles.value.length),
+);
 
 const handlePageChange = async (page) => {
   await setCurrentPage(page);
   await nextTick();
-
-  if (typeof window === "undefined") return;
 
   window.requestAnimationFrame(() => {
     const results = document.getElementById("article-results");
@@ -916,35 +742,21 @@ const handlePageChange = async (page) => {
 };
 
 const formatTag = formatArticleTag;
-const highlightParts = (value) => {
-  return splitArticleHighlight(value, keyword.value);
-};
-const getResultSummary = (article) => {
-  return (
-    createSearchExcerpt(article?.content, keyword.value, article?.summary) ||
-    translate("blog.list.noSummary")
-  );
-};
-const getAdditionalMetadata = (article) => {
-  return (Array.isArray(article?.metadata) ? article.metadata : []).filter(
+const getResultSummary = (article) =>
+  createSearchExcerpt(article?.content, keyword.value, article?.summary) ||
+  translate("blog.list.noSummary");
+const getAdditionalMetadata = (article) =>
+  (Array.isArray(article?.metadata) ? article.metadata : []).filter(
     (item) => !["date", "length"].includes(item.key),
   );
-};
 
 const searchBox = ref(null);
 const searchInput = ref(null);
-const searchText = ref(keyword.value);
-const activeFilterQuery = ref(null);
-const activeFilterIndex = ref(0);
-const isComposing = ref(false);
-
-const isFilterMenuOpen = computed(() => activeFilterQuery.value !== null);
 
 const tagGroupCounts = computed(() => {
   const counts = new Map();
-  const articles = Array.isArray(props.articles) ? props.articles : [];
 
-  for (const article of articles) {
+  for (const article of props.articles) {
     const tags = Array.isArray(article?.tags)
       ? article.tags
       : article?.tags
@@ -968,323 +780,162 @@ const tagGroupCounts = computed(() => {
   return counts;
 });
 
-const filteredFilterOptions = computed(() => {
-  const filterQuery = activeFilterQuery.value;
+const {
+  searchText,
+  activeFilterQuery,
+  activeFilterIndex,
+  isFilterMenuOpen,
+  filteredFilterOptions,
+  filterOptionGroups,
+  updateFilterQuery,
+  resetSearchText,
+  selectFilterOption,
+  handleInput,
+  handleCompositionStart,
+  handleCompositionEnd,
+  handleArrow,
+  handleEnter,
+  handleTab,
+  handleBackspace,
+  handleEscape,
+} = useFilterTokenInput({
+  inputRef: searchInput,
+  containerRef: searchBox,
+  keyword,
+  triggers: FILTER_TRIGGERS,
+  syncFromKeyword: true,
+  getOptions: (filterQuery, normalizedQuery) => {
+    if (filterQuery.type === "tag") {
+      const selected = new Set(selectedTags.value);
 
-  if (!filterQuery) return [];
+      return allTags.value
+        .filter((tag) => !selected.has(tag))
+        .filter((tag) => {
+          if (!normalizedQuery) return true;
 
-  const normalizedQuery = filterQuery.query
-    .normalize("NFKC")
-    .toLocaleLowerCase()
-    .trim();
+          return formatTag(tag)
+            .normalize("NFKC")
+            .toLocaleLowerCase()
+            .includes(normalizedQuery);
+        })
+        .map((tag) => {
+          const segments = tag
+            .split("/")
+            .map((segment) => segment.trim())
+            .filter(Boolean);
+          const groupKey =
+            segments.length > 1 ? segments.slice(0, -1).join("/") : "";
+          const fullLabel = formatTag(tag);
+          const count = tagCounts.value.get(tag) || 0;
 
-  if (filterQuery.type === "tag") {
-    const selected = new Set(selectedTags.value);
-
-    return allTags.value
-      .filter((tag) => !selected.has(tag))
-      .filter((tag) => {
-        if (!normalizedQuery) return true;
-
-        return formatTag(tag)
-          .normalize("NFKC")
-          .toLocaleLowerCase()
-          .includes(normalizedQuery);
-      })
-      .map((tag, index) => {
-        const segments = tag
-          .split("/")
-          .map((segment) => segment.trim())
-          .filter(Boolean);
-        const groupKey =
-          segments.length > 1 ? segments.slice(0, -1).join("/") : "";
-        const fullLabel = formatTag(tag);
-
-        return {
-          type: "tag",
-          value: tag,
-          label: segments.at(-1) || fullLabel,
-          fullLabel,
-          groupKey,
-          groupLabel: groupKey ? formatTag(groupKey) : "",
-          prefix: "#",
-          count: tagCounts.value.get(tag) || 0,
-          index,
-        };
-      });
-  }
-
-  const selected = new Set(selectedYears.value);
-
-  return allYears.value
-    .filter((year) => !selected.has(year))
-    .filter((year) => !normalizedQuery || year.includes(normalizedQuery))
-    .map((year, index) => ({
-      type: "year",
-      value: year,
-      label: year,
-      fullLabel: year,
-      groupKey: "",
-      groupLabel: "",
-      prefix: "/",
-      count: yearCounts.value.get(year) || 0,
-      index,
-    }));
-});
-
-const filterOptionGroups = computed(() => {
-  const groups = [];
-  const groupMap = new Map();
-
-  for (const option of filteredFilterOptions.value) {
-    const key = `${option.type}:${option.groupKey}`;
-    let group = groupMap.get(key);
-
-    if (!group) {
-      group = {
-        key,
-        label: option.groupLabel,
-        count: option.groupKey
-          ? tagGroupCounts.value.get(option.groupKey) || 0
-          : 0,
-        options: [],
-      };
-      groupMap.set(key, group);
-      groups.push(group);
+          return {
+            type: "tag",
+            value: tag,
+            label: segments.at(-1) || fullLabel,
+            fullLabel,
+            ariaLabel: translate("blog.list.tag", { p0: fullLabel }),
+            groupKey,
+            groupLabel: groupKey ? formatTag(groupKey) : "",
+            prefix: "#",
+            count,
+            countText: translate("common.counts.articles", { count }, count),
+          };
+        });
     }
 
-    group.options.push(option);
-  }
+    const selected = new Set(selectedYears.value);
 
-  return groups;
+    return allYears.value
+      .filter((year) => !selected.has(year))
+      .filter((year) => !normalizedQuery || year.includes(normalizedQuery))
+      .map((year) => {
+        const count = yearCounts.value.get(year) || 0;
+        return {
+          type: "year",
+          value: year,
+          label: year,
+          fullLabel: year,
+          ariaLabel: translate("common.search.year", { p0: year }),
+          groupKey: "",
+          groupLabel: "",
+          prefix: "/",
+          count,
+          countText: translate("common.counts.articles", { count }, count),
+        };
+      });
+  },
+  getGroupCount: (groupKey) => tagGroupCounts.value.get(groupKey) || 0,
+  onSelectOption: (option) => {
+    if (option.type === "tag" && !selectedTags.value.includes(option.value)) {
+      selectedTags.value = [...selectedTags.value, option.value];
+    }
+
+    if (option.type === "year" && !selectedYears.value.includes(option.value)) {
+      selectedYears.value = [...selectedYears.value, option.value];
+    }
+  },
+  onBackspaceEmpty: () => {
+    const lastYear = selectedYears.value.at(-1);
+    const lastTag = selectedTags.value.at(-1);
+
+    if (lastYear) {
+      removeYear(lastYear);
+      return true;
+    }
+    if (lastTag) {
+      removeTag(lastTag);
+      return true;
+    }
+    return false;
+  },
+  onEscapeClosed: () => {
+    if (searchText.value) {
+      searchText.value = "";
+      clearKeyword();
+    }
+  },
 });
 
-const getFilterQuery = (value, caretPosition = String(value || "").length) => {
-  const text = String(value || "");
-  const caret = Math.max(
-    0,
-    Math.min(caretPosition ?? text.length, text.length),
-  );
-  const beforeCaret = text.slice(0, caret);
-  const match = beforeCaret.match(/(^|\s)([#\/])([^\s#\/]*)$/u);
+const suggestionHeader = computed(() =>
+  activeFilterQuery.value?.type === "tag"
+    ? {
+        icon: "ri-price-tag-3-line",
+        label: translate("blog.list.chooseTags"),
+        ariaLabel: translate("common.search.tagSuggestions"),
+      }
+    : {
+        icon: "ri-calendar-line",
+        label: translate("common.search.chooseYear"),
+        ariaLabel: translate("common.search.yearSuggestions"),
+      },
+);
 
-  if (!match) return null;
+const suggestionGroups = computed(() =>
+  filterOptionGroups.value.map((group) => ({
+    ...group,
+    countText: translate(
+      "common.counts.articles",
+      { count: group.count },
+      group.count,
+    ),
+  })),
+);
 
-  const leadingWhitespace = match[1];
-  const trigger = match[2];
-
-  return {
-    type: trigger === "#" ? "tag" : "year",
-    trigger,
-    query: match[3],
-    start: (match.index ?? 0) + leadingWhitespace.length,
-    end: caret,
-  };
-};
-
-const getPlainSearchText = (value, filterQuery) => {
-  const text = String(value || "");
-
-  if (!filterQuery) return text.trim().replace(/\s+/g, " ");
-
-  return `${text.slice(0, filterQuery.start)}${text.slice(filterQuery.end)}`
-    .trim()
-    .replace(/\s+/g, " ");
-};
-
-const syncKeywordFromSearch = () => {
-  const nextKeyword = getPlainSearchText(
-    searchText.value,
-    activeFilterQuery.value,
-  );
-
-  if (keyword.value !== nextKeyword) keyword.value = nextKeyword;
-};
-
-const updateFilterQuery = (target = searchInput.value) => {
-  const caretPosition = target?.selectionStart ?? searchText.value.length;
-  const nextQuery = getFilterQuery(searchText.value, caretPosition);
-  const queryChanged =
-    nextQuery?.type !== activeFilterQuery.value?.type ||
-    nextQuery?.query !== activeFilterQuery.value?.query ||
-    nextQuery?.start !== activeFilterQuery.value?.start;
-
-  activeFilterQuery.value = nextQuery;
-
-  if (queryChanged) activeFilterIndex.value = 0;
-};
-
-const handleSearchInput = (event) => {
-  if (isComposing.value) return;
-
-  updateFilterQuery(event.currentTarget);
-  syncKeywordFromSearch();
-};
-
-const handleCompositionEnd = (event) => {
-  isComposing.value = false;
-  updateFilterQuery(event.currentTarget);
-  syncKeywordFromSearch();
-};
-
-const closeFilterMenu = () => {
-  activeFilterQuery.value = null;
-  activeFilterIndex.value = 0;
-};
-
-const moveActiveFilter = (direction) => {
-  const optionCount = filteredFilterOptions.value.length;
-
-  if (!isFilterMenuOpen.value || !optionCount) return;
-
-  activeFilterIndex.value =
-    (activeFilterIndex.value + direction + optionCount) % optionCount;
-};
-
-const handleFilterArrow = (event, direction) => {
-  if (!isFilterMenuOpen.value) return;
-
-  event.preventDefault();
-  moveActiveFilter(direction);
-};
-
-const selectFilterOption = async (option) => {
-  const filterQuery = activeFilterQuery.value;
-
-  if (!filterQuery) return;
-
-  if (option.type === "tag" && !selectedTags.value.includes(option.value)) {
-    selectedTags.value = [...selectedTags.value, option.value];
-  }
-
-  if (option.type === "year" && !selectedYears.value.includes(option.value)) {
-    selectedYears.value = [...selectedYears.value, option.value];
-  }
-
-  const textBeforeQuery = searchText.value.slice(0, filterQuery.start);
-  const textAfterQuery = searchText.value.slice(filterQuery.end);
-  searchText.value = `${textBeforeQuery}${textAfterQuery}`.replace(
-    /\s{2,}/g,
-    " ",
-  );
-  const nextCaretPosition = Math.min(
-    filterQuery.start,
-    searchText.value.length,
-  );
-
-  closeFilterMenu();
-  syncKeywordFromSearch();
-
-  await nextTick();
-  searchInput.value?.focus();
-  searchInput.value?.setSelectionRange(nextCaretPosition, nextCaretPosition);
-};
-
-const selectActiveFilter = () => {
-  const option = filteredFilterOptions.value[activeFilterIndex.value];
-
-  if (!option) return false;
-
-  selectFilterOption(option);
-  return true;
-};
-
-const handleFilterEnter = (event) => {
-  if (isFilterMenuOpen.value && selectActiveFilter()) {
-    event.preventDefault();
-  }
-};
-
-const handleFilterTab = (event) => {
-  if (isFilterMenuOpen.value && selectActiveFilter()) {
-    event.preventDefault();
-  }
-};
-
-const handleSearchBackspace = (event) => {
-  if (isComposing.value) return;
-
-  const target = event.currentTarget;
-  const caretAtStart = target.selectionStart === 0 && target.selectionEnd === 0;
-
-  if (!caretAtStart) return;
-
-  const lastYear = selectedYears.value.at(-1);
-  const lastTag = selectedTags.value.at(-1);
-
-  if (lastYear) {
-    removeYear(lastYear);
-  } else if (lastTag) {
-    removeTag(lastTag);
-  } else {
-    return;
-  }
-
-  event.preventDefault();
-  closeFilterMenu();
-};
-
-const handleSearchEscape = () => {
-  if (isFilterMenuOpen.value) {
-    closeFilterMenu();
-    return;
-  }
-
-  if (searchText.value) {
-    searchText.value = "";
-    clearKeyword();
-  }
-};
-
-watch(filteredFilterOptions, (options) => {
-  if (!options.length) {
-    activeFilterIndex.value = -1;
-    return;
-  }
-
-  if (
-    activeFilterIndex.value < 0 ||
-    activeFilterIndex.value >= options.length
-  ) {
-    activeFilterIndex.value = 0;
-  }
-});
-
-watch(keyword, (nextKeyword) => {
-  const currentPlainText = getPlainSearchText(
-    searchText.value,
-    activeFilterQuery.value,
-  );
-
-  if (currentPlainText !== nextKeyword) {
-    searchText.value = nextKeyword;
-    closeFilterMenu();
-  }
-});
-
-const handleOutsidePointerDown = (event) => {
-  if (!searchBox.value?.contains(event.target)) closeFilterMenu();
-};
-
-onMounted(() => {
-  document.addEventListener("pointerdown", handleOutsidePointerDown);
-});
-
-onBeforeUnmount(() => {
-  document.removeEventListener("pointerdown", handleOutsidePointerDown);
-});
+const suggestionEmptyText = computed(() =>
+  activeFilterQuery.value?.query
+    ? translate("common.search.noOptions", {
+        p0: activeFilterQuery.value.query,
+      })
+    : translate("common.search.noFilters"),
+);
 
 const resetFilter = () => {
   clearFilter();
-  searchText.value = "";
-  closeFilterMenu();
+  resetSearchText();
 };
 
-const getArticleKey = (article) => {
-  return String(
-    article.id ?? article.slug ?? article.path ?? article.title ?? "",
-  );
-};
+const getArticleKey = (article) =>
+  String(article.id ?? article.slug ?? article.path ?? article.title ?? "");
 
 const getArticleRoute = (article) => {
   const generatedPath = String(article?.routePath || "").trim();

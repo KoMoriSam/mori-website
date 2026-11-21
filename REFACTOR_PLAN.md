@@ -119,7 +119,7 @@
   - 审视 `CatalogCard.vue` 的 22 个 Props：将常规内容卡片与可展开手风琴变体拆解或插槽化，把单组件 Props 降至 10 个以内；消除其中未 scoped 的 `.badge` 样式污染，并与 `ArticleReader.vue` 复用统一封面降级底图组件。
 - **验证**：`pnpm check sinhala`、`pnpm check image-converter`、`pnpm check blog`；人工验证博客列表、首页卡片、工具集卡片、阅读器字体选择、图片水印字体与僧伽罗字体选择。
 
-### - [ ] P2-2：抽离搜索与过滤自动补全引擎（消除 `SiteSearch` 与 `ArticleList` 220 行重复）
+### - [x] P2-2：抽离搜索与过滤自动补全引擎（消除 `SiteSearch` 与 `ArticleList` 220 行重复）
 - **涉及文件**：`src/components/interaction/overlay/SiteSearch.vue`（1712 行）、`src/views/blog/ArticleList.vue`（1299 行）。
 - **改造动作**：
   - 抽取 `src/composables/useFilterTokenInput.js` 统一 `#`/`/`/`@` Token 解析、IME 合成态、键盘上下选择、回退删除与外部点击关闭。
