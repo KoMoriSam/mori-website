@@ -755,8 +755,8 @@ import {
   splitArticleHighlight,
 } from "@/utils/blog/article-fields";
 import { createSearchExcerpt } from "@/services/search-content";
-import { useAnalyticsStore } from "@/stores/analyticsStore";
-import { useCommentCountsStore } from "@/stores/commentCountsStore";
+import { useAnalyticsStore } from "@/stores/analytics";
+import { useCommentCountsStore } from "@/stores/comment-counts";
 
 const props = defineProps({
   articles: {

@@ -172,7 +172,7 @@ const { t: translate, locale: uiLocale, number: formatNumber } = useLocale();
 import { computed } from "vue";
 import { storeToRefs } from "pinia";
 
-import { useAnalyticsStore } from "@/stores/analyticsStore";
+import { useAnalyticsStore } from "@/stores/analytics";
 
 const analyticsStore = useAnalyticsStore();
 const {

@@ -333,8 +333,8 @@ import { NOVEL_COVER_URL as novelCoverUrl } from "@/constants/novel-assets";
 
 import { storeToRefs } from "pinia";
 import { useNovelStore } from "@/stores/novel";
-import { useAnalyticsStore } from "@/stores/analyticsStore";
-import { useCommentCountsStore } from "@/stores/commentCountsStore";
+import { useAnalyticsStore } from "@/stores/analytics";
+import { useCommentCountsStore } from "@/stores/comment-counts";
 
 import ChapterList from "@/components/novel/ChapterList.vue";
 import ForestBackdrop from "@/components/novel/ForestBackdrop.vue";

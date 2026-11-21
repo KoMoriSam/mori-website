@@ -347,7 +347,7 @@ import CommentsPlaceholder from "@/components/reader/feedback/CommentsPlaceholde
 import { useMoriAuth } from "@/composables/auth/useMoriAuth";
 import { useLocale } from "@/i18n";
 import { useToast } from "@/composables/useToast";
-import { useCommentCountsStore } from "@/stores/commentCountsStore";
+import { useCommentCountsStore } from "@/stores/comment-counts";
 import { githubDiscussionUrl } from "@/utils/github-discussion-url";
 import { MARKDOWN_RESOURCE_OVERRIDES } from "@/constants/markdown";
 import CommentEntry from "./display/CommentEntry.vue";

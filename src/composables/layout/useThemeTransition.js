@@ -1,5 +1,5 @@
 import { nextTick, onMounted, onScopeDispose, watch } from "vue";
-import { useThemeStore } from "@/stores/themeStore";
+import { useThemeStore } from "@/stores/theme";
 
 export function useThemeTransition() {
   const themes = useThemeStore();

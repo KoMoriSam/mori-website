@@ -418,9 +418,9 @@ import { storeToRefs } from "pinia";
 import { usePreferredDark } from "@vueuse/core";
 
 import FontSelect from "@/components/interaction/controls/FontSelect.vue";
-import { useReaderStore } from "@/stores/readerStore";
+import { useReaderStore } from "@/stores/reader";
 import { readerTypographyMetrics } from "@/utils/reader/reader-typography";
-import { useThemeStore } from "@/stores/themeStore";
+import { useThemeStore } from "@/stores/theme";
 import {
   FONTS,
   MOBILE_READING_MODE_OPTIONS,
@@ -672,26 +672,21 @@ const isPresetActive = (preset) => {
 
 const applyPreset = (preset) => {
   if (preset?.styles?.fontStyle !== undefined) readerFontRequestId += 1;
-  if (props.mobile) {
-    store.applyMobileLayoutPreset(preset);
-    return;
-  }
+  store.applyReaderLayoutPreset(preset, { mobile: props.mobile });
+  if (props.mobile) return;
 
-  store.applyReaderLayoutPreset(preset);
   const siteTheme = presetSiteTheme(preset);
   if (siteTheme) themeStore.setTheme(siteTheme);
 };
 const savePreset = () => {
-  const saved = props.mobile
-    ? store.saveMobileLayoutPreset(presetName.value)
-    : store.saveReaderLayoutPreset(presetName.value);
-  if (saved) presetName.value = "";
+  if (store.saveReaderLayoutPreset(presetName.value, { mobile: props.mobile })) {
+    presetName.value = "";
+  }
 };
 const resetLayout = () => {
   readerFallbackFontId.value = DEFAULT_READER_FALLBACK_FONT;
   readerFontRequestId += 1;
-  if (props.mobile) store.resetMobileLayout();
-  else store.resetReaderLayout();
+  store.resetReaderLayout({ mobile: props.mobile });
 };
 const selectReaderFont = async (fontId) => {
   const requestId = ++readerFontRequestId;

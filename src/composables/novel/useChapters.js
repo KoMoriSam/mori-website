@@ -5,7 +5,11 @@ import { storeToRefs } from "pinia";
 import { useToast } from "@/composables/useToast";
 import { useReadingStateStorage } from "@/composables/storage/useReadingStateStorage";
 
-import { useNovelStore } from "@/stores/novel";
+import {
+  DEFAULT_NOVEL_CHAPTER_UUID,
+  isNovelReaderRoute,
+  useNovelStore,
+} from "@/stores/novel";
 import { getNavbarScrollOffset } from "@/utils/layout/navbar";
 import { moriSession } from '@/composables/auth/useMoriAuth';
 
@@ -26,9 +30,7 @@ export function useChapters() {
   const route = useRoute();
   const router = useRouter();
 
-  const isReaderRoute = computed(() => {
-    return Boolean(route.params.volumeSlug && route.params.chapterSlug);
-  });
+  const isReaderRoute = computed(() => isNovelReaderRoute(route));
 
   const waitForChapterRender = (uuid) => {
     const isReady = () =>
@@ -122,7 +124,7 @@ export function useChapters() {
     if (currentChapterIndex.value === 0 && isReaderRoute.value) {
       toast.info("已经是第一章啦！");
     } else {
-      handleChapter("7d5e9b50-a9cb-428a-9264-903046354e22");
+      handleChapter(DEFAULT_NOVEL_CHAPTER_UUID);
     }
   };
 

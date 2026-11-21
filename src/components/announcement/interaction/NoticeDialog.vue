@@ -146,7 +146,7 @@ import NoticeBadges from "@/components/announcement/display/NoticeBadges.vue";
 import NoticeTitle from "@/components/announcement/display/NoticeTitle.vue";
 import Modal from "@/components/interaction/overlay/Modal.vue";
 import LoadingIndicator from "@/components/feedback/LoadingIndicator.vue";
-import { useAnnouncementStore } from "@/stores/announcementStore";
+import { useAnnouncementStore } from "@/stores/announcements";
 import { formatAnnouncementDate } from "@/utils/announcement/format";
 
 const rendererFailed = ref(false);

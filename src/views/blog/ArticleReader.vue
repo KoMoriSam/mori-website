@@ -561,8 +561,8 @@ import { Translation as I18nT } from "vue-i18n";
 import Thread from "@/components/comments/Thread.vue";
 import { useRoute, useRouter } from "vue-router";
 
-import { useReaderStore } from "@/stores/readerStore";
-import { useCommentCountsStore } from "@/stores/commentCountsStore";
+import { useReaderStore } from "@/stores/reader";
+import { useCommentCountsStore } from "@/stores/comment-counts";
 import { useScrollTo } from "@/composables/useScrollTo";
 import { useReaderTextContext } from "@/composables/reader/useReaderTextContext";
 import { useContentReadTracking } from "@/composables/reader/useContentReadTracking";

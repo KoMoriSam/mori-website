@@ -5,7 +5,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { build, createServer } from "vite";
 import vue from "@vitejs/plugin-vue";
-import { createSSRApp } from "vue";
+import { createSSRApp, ref } from "vue";
 import { renderToString } from "vue/server-renderer";
 import { createPinia } from "pinia";
 import { createMemoryHistory, createRouter } from "vue-router";
@@ -93,7 +93,7 @@ try {
   assert.deepEqual(await sharp(Buffer.from(optimizedPng)).raw().toBuffer(), Buffer.from(pixels));
 
   const input = path.join(fixture, "entry.mjs");
-  await writeFile(input, 'export {default as encode} from "@jsquash/avif/encode"; export {optimise} from "@jsquash/oxipng"; export const worker=()=>new Worker(new URL("../worker.mjs",import.meta.url),{type:"module"});');
+  await writeFile(input, 'export {default as encode} from "@jsquash/avif/encode"; export {optimise} from "@jsquash/oxipng"; export const worker=()=>new Worker(new URL("./worker.mjs",import.meta.url),{type:"module"});');
   await writeFile(path.join(fixture, "worker.mjs"), 'import encode from "@jsquash/avif/encode"; import {optimise} from "@jsquash/oxipng"; self.onmessage=async({data})=>self.postMessage(data.kind==="avif"?await encode(data.image):await optimise(data.buffer));');
   const sizes = [];
   for (const optimized of [false, true]) {
@@ -129,7 +129,7 @@ try {
     ] });
     app.use(createPinia());
     app.use(router);
-    app.provide(LOCALE_SERVICE, { t: (key) => key, text: (value) => value });
+    app.provide(LOCALE_SERVICE, { locale: ref("zh-CN"), t: (key) => key, text: (value) => value });
     await router.push("/licenses");
     await router.isReady();
     const html = await renderToString(app);

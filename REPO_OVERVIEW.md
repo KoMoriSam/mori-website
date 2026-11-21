@@ -72,10 +72,10 @@ mori-website/
 │   ├── checks/                 # 34 个专项端到端/单元/性能/安全校验脚本
 │   └── lib/ & sinhala/         # 公共脚本库与僧伽罗字体/词库生成工具
 └── src/                        # Vue 3 前端应用
-    ├── main.js / App.vue       # ViteSSG 引导入口、全站布局与 Head/SEO 元数据
+    ├── main.js / App.vue       # ViteSSG 引导入口与全站布局（Head/SEO 元数据见 composables/layout/useSiteHead.js）
     ├── router/                 # 路由表、SSG 元数据注入、构建数据读取（含 dev 专属 test-routes）
     ├── i18n/                   # 按路由组懒加载的 vue-i18n 服务与 4 语言文案（zh-CN/en/fr/si）
-    ├── stores/                 # Pinia 全局状态（统一采用 kebab-case，旧 *Store.js 随重构收敛）
+    ├── stores/                 # Pinia 全局状态（统一采用 kebab-case）
     ├── services/               # 数据请求与内容获取层（http、api-*、novel-release、search-*）
     ├── composables/            # 组合式逻辑（按 auth/blog/games/home/layout/markdown/novel/reader/storage 分域）
     ├── constants/              # 站点常量与静态配置

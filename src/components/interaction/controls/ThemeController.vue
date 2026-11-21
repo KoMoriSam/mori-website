@@ -52,7 +52,7 @@ const { t: translate, text: localizeText } = useLocale();
 
 import { storeToRefs } from "pinia";
 
-import { useThemeStore } from "@/stores/themeStore";
+import { useThemeStore } from "@/stores/theme";
 
 const themeStore = useThemeStore();
 const { themeList } = storeToRefs(themeStore);

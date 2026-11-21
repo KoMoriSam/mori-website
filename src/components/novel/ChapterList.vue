@@ -266,8 +266,8 @@ const {
 import { storeToRefs } from "pinia";
 
 import { useNovelStore } from "@/stores/novel";
-import { useAnalyticsStore } from "@/stores/analyticsStore";
-import { useCommentCountsStore } from "@/stores/commentCountsStore";
+import { useAnalyticsStore } from "@/stores/analytics";
+import { useCommentCountsStore } from "@/stores/comment-counts";
 
 import { useChapters } from "@/composables/novel/useChapters";
 import { useClickLimit } from "@/composables/useClickLimit";

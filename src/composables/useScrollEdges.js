@@ -1,6 +1,6 @@
 import { computed, onScopeDispose, ref, watch } from "vue";
 import { layoutMotionActive } from "./layout/useLayoutMotion";
-import { useThemeStore } from "@/stores/themeStore";
+import { useThemeStore } from "@/stores/theme";
 
 const emptyEdges = () => ({ top: false, bottom: false, left: false, right: false });
 const scrollable = (overflow) => /^(auto|scroll|overlay)$/.test(overflow);

@@ -289,7 +289,7 @@ import {
 } from "vue";
 import { useResizeObserver } from "@vueuse/core";
 import { useRoute, useRouter } from "vue-router";
-import { useReaderStore } from "@/stores/readerStore";
+import { useReaderStore } from "@/stores/reader";
 import { useReaderTextContext } from "@/composables/reader/useReaderTextContext";
 import Renderer from "@/components/markdown/Renderer.vue";
 import FormatSetting from "@/components/reader/interaction/FormatSetting.vue";

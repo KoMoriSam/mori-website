@@ -15,7 +15,7 @@ import { useMoriAuth } from "@/composables/auth/useMoriAuth";
 const auth = useMoriAuth();
 import NovelDetail from "@/views/novel/NovelDetail.vue";
 import LoadingPlaceholder from "@/components/reader/feedback/LoadingPlaceholder.vue";
-import { useNovelStore } from '@/stores/novel';
+import { isNovelReaderRoute, useNovelStore } from '@/stores/novel';
 
 const novel = useNovelStore();
 const loadReader = () => import("@/views/novel/NovelReader.vue");
@@ -49,9 +49,7 @@ const components = {
   Reader,
 };
 
-const currentComponent = computed(() => {
-  const volumeSlug = String(route.params.volumeSlug || "");
-  const chapterSlug = String(route.params.chapterSlug || "");
-  return volumeSlug && chapterSlug ? "Reader" : "NovelDetail";
-});
+const currentComponent = computed(() =>
+  isNovelReaderRoute(route) ? "Reader" : "NovelDetail",
+);
 </script>

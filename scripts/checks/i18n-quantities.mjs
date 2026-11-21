@@ -54,8 +54,8 @@ const text = (html) => html.replace(/<!--[\s\S]*?-->/g, "").replace(/<[^>]+>/g, 
 let renders = 0;
 try {
   const { createLocaleService } = await server.ssrLoadModule("/src/i18n/index.js");
-  const { useAnalyticsStore } = await server.ssrLoadModule("/src/stores/analyticsStore.js");
-  const { useCommentCountsStore } = await server.ssrLoadModule("/src/stores/commentCountsStore.js");
+  const { useAnalyticsStore } = await server.ssrLoadModule("/src/stores/analytics.js");
+  const { useCommentCountsStore } = await server.ssrLoadModule("/src/stores/comment-counts.js");
   const { useNovelStore } = await server.ssrLoadModule("/src/stores/novel/index.js");
   const components = Object.fromEntries(await Promise.all([
     ["list", "views/blog/ArticleList.vue"], ["article", "views/blog/ArticleReader.vue"],

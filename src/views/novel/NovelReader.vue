@@ -268,9 +268,9 @@ const {
 } = useLocale();
 
 import { storeToRefs } from "pinia";
-import { useCommentCountsStore } from "@/stores/commentCountsStore";
+import { useCommentCountsStore } from "@/stores/comment-counts";
 import { useNovelStore } from "@/stores/novel";
-import { useReaderStore } from "@/stores/readerStore";
+import { useReaderStore } from "@/stores/reader";
 
 import Thread from "@/components/comments/Thread.vue";
 import ReadingLayout from "@/components/reader/layout/ReadingLayout.vue";
@@ -720,7 +720,7 @@ const setupNovelPosTracker = () => {
   disposeNovelPosTracker();
   stopNovelPosTracker.value = usePosTracker(
     router,
-    () => novelStore.updateTitle(),
+    () => novelStore.updateTitle(route),
     {
       getContextId: () => String(currentChapterUuid.value || ""),
       isActive: () => router.currentRoute.value.name === "novel-reader",
@@ -889,6 +889,7 @@ const textShareMeta = computed(() => {
 const handleRefreshContent = async () => {
   if (isLoadingContent.value) return;
   await novelStore.refreshChapters();
+  await novelStore.loadChapterContent(true);
   remountComments();
 };
 

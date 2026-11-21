@@ -81,8 +81,6 @@ export const useReaderStore = defineStore("reader", () => {
     const presets = getSetting(READER_LAYOUT_PRESETS_SETTING, []);
     return Array.isArray(presets) ? presets : [];
   });
-  // 兼容现有移动端调用；底层已作为两端共用的排版预设集合。
-  const mobileLayoutPresets = readerLayoutPresets;
 
   const setMobileWheelPagination = (enabled) =>
     setSetting(MOBILE_READER_WHEEL_SETTING, Boolean(enabled));
@@ -96,30 +94,18 @@ export const useReaderStore = defineStore("reader", () => {
   };
   const resetMobileTapZones = () =>
     setSetting(MOBILE_READER_ZONE_SETTING, [...DEFAULT_MOBILE_READER_ZONES]);
-  const saveMobileLayoutPreset = (name) => {
+  const saveReaderLayoutPreset = (name, { mobile = false } = {}) => {
     const normalizedName = String(name || "").trim();
     if (!normalizedName) return false;
+    const styles = mobile
+      ? { ...styleConfigs.value }
+      : Object.fromEntries(
+          READER_LAYOUT_STYLE_KEYS.map((key) => [key, styleConfigs.value[key]]),
+        );
     const preset = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       name: normalizedName,
-      mode: mobileReadingMode.value,
-      styles: { ...styleConfigs.value },
-    };
-    setSetting(READER_LAYOUT_PRESETS_SETTING, [
-      ...readerLayoutPresets.value,
-      preset,
-    ]);
-    return true;
-  };
-  const saveReaderLayoutPreset = (name) => {
-    const normalizedName = String(name || "").trim();
-    if (!normalizedName) return false;
-    const styles = Object.fromEntries(
-      READER_LAYOUT_STYLE_KEYS.map((key) => [key, styleConfigs.value[key]]),
-    );
-    const preset = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      name: normalizedName,
+      ...(mobile ? { mode: mobileReadingMode.value } : {}),
       styles,
     };
     setSetting(READER_LAYOUT_PRESETS_SETTING, [
@@ -128,26 +114,28 @@ export const useReaderStore = defineStore("reader", () => {
     ]);
     return true;
   };
-  const applyMobileLayoutPreset = (preset) => {
+  const applyReaderLayoutPreset = (preset, { mobile = false } = {}) => {
     if (!preset?.styles) return;
-    const styles = { ...preset.styles, ...getReaderPresetAppearance(preset.styles) };
-    STYLE_CONFIG_KEYS.forEach(({ key }) => {
-      if (styles[key] !== undefined) setStyle(key, styles[key]);
-    });
-    if (preset.mode !== undefined) setMobileReadingMode(preset.mode);
-  };
-  const applyReaderLayoutPreset = (preset) => {
-    if (!preset?.styles) return;
+    if (mobile) {
+      const styles = {
+        ...preset.styles,
+        ...getReaderPresetAppearance(preset.styles),
+      };
+      STYLE_CONFIG_KEYS.forEach(({ key }) => {
+        if (styles[key] !== undefined) setStyle(key, styles[key]);
+      });
+      if (preset.mode !== undefined) setMobileReadingMode(preset.mode);
+      return;
+    }
     READER_LAYOUT_STYLE_KEYS.forEach((key) => {
       if (preset.styles[key] !== undefined) setStyle(key, preset.styles[key]);
     });
   };
-  const removeMobileLayoutPreset = (id) =>
+  const removeReaderLayoutPreset = (id) =>
     setSetting(
       READER_LAYOUT_PRESETS_SETTING,
       readerLayoutPresets.value.filter((preset) => preset.id !== id),
     );
-  const removeReaderLayoutPreset = removeMobileLayoutPreset;
 
   const isDefault = (key) =>
     Object.hasOwn(READER_STYLE_DEFAULTS, key) &&
@@ -160,16 +148,16 @@ export const useReaderStore = defineStore("reader", () => {
       STYLE_CONFIG_KEYS.every(({ key }) => isDefault(key)),
   );
 
-  const resetMobileLayout = () => {
-    STYLE_CONFIG_KEYS.forEach(({ key }) => resetStyle(key));
-    setMobileReadingMode(DEFAULT_MOBILE_READING_MODE);
-  };
-
   const isReaderLayoutDefault = computed(
     () => READER_LAYOUT_STYLE_KEYS.every(isDefault),
   );
 
-  const resetReaderLayout = () => {
+  const resetReaderLayout = ({ mobile = false } = {}) => {
+    if (mobile) {
+      STYLE_CONFIG_KEYS.forEach(({ key }) => resetStyle(key));
+      setMobileReadingMode(DEFAULT_MOBILE_READING_MODE);
+      return;
+    }
     READER_LAYOUT_STYLE_KEYS.forEach(resetStyle);
   };
 
@@ -203,7 +191,6 @@ export const useReaderStore = defineStore("reader", () => {
     mobileVolumePagination,
     mobileTapZones,
     readerLayoutPresets,
-    mobileLayoutPresets,
     isMobileLayoutDefault,
     isReaderLayoutDefault,
     setMobileReadingMode,
@@ -211,13 +198,9 @@ export const useReaderStore = defineStore("reader", () => {
     setMobileVolumePagination,
     setMobileTapZone,
     resetMobileTapZones,
-    saveMobileLayoutPreset,
     saveReaderLayoutPreset,
-    applyMobileLayoutPreset,
     applyReaderLayoutPreset,
-    removeMobileLayoutPreset,
     removeReaderLayoutPreset,
-    resetMobileLayout,
     resetReaderLayout,
     setReaderFont,
     setStyle,

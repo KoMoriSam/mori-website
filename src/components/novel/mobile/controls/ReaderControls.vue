@@ -207,7 +207,7 @@
               type="button"
               class="btn btn-ghost btn-sm shrink-0"
               :disabled="isMobileLayoutDefault"
-              @click="readerStore.resetMobileLayout"
+              @click="readerStore.resetReaderLayout({ mobile: true })"
             >
               <i class="ri-reset-left-line" aria-hidden="true"></i>
               {{ translate('reader.format.reset') }}
@@ -297,7 +297,7 @@ import { useRouter } from "vue-router";
 import Thread from "@/components/comments/Thread.vue";
 import { MOBILE_READER_DIALOG_SIZE_CLASS } from "@/constants/reader-layout";
 import { useNovelStore } from "@/stores/novel";
-import { useReaderStore } from "@/stores/readerStore";
+import { useReaderStore } from "@/stores/reader";
 import { useChapters } from "@/composables/novel/useChapters";
 import { useCommentScope } from "@/composables/novel/useCommentScope";
 import { useModalClose } from "@/composables/useModal";

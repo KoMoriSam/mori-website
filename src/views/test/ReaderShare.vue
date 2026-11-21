@@ -71,7 +71,7 @@
 import { computed, nextTick, onBeforeUnmount, provide, ref, shallowRef } from "vue";
 import ShareCard from "@/components/reader/interaction/ShareCard.vue";
 import Renderer from "@/components/markdown/Renderer.vue";
-import { useReaderStore } from "@/stores/readerStore";
+import { useReaderStore } from "@/stores/reader";
 import { useArticleApi } from "@/services/api-articles";
 import { createArticleWikiLinkResolver } from "@/utils/blog/article-wiki-links";
 import { WIKI_LINK_RESOLVER } from "@/utils/markdown/markdown-it-wikilink";

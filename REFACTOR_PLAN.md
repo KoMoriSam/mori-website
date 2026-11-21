@@ -89,7 +89,7 @@
   - 评估历史迁移（`STORAGE_MIGRATION_V2` / `DISCARD_STORAGE_V1`）是否仍需保留单次启动迁移，若保留则集中到 `useStorageMigration.js` 一处，移除各 `use*Storage.js` 中散落的在线旧键兼容读取。
 - **验证**：`pnpm check announcements`、`pnpm check i18n-runtime`、`pnpm check site-perf`；本地清除与伪造旧 `localStorage` 数据人工验证主题/语言/阅读设置/公告已读状态恢复与无 hydration 警告。
 
-### - [ ] P1-4：统一 `src/stores/` 文件命名为 `kebab-case` 并瘦身 Store 边界
+### - [x] P1-4：统一 `src/stores/` 文件命名为 `kebab-case` 并瘦身 Store 边界
 - **现状问题**：6 个文件用 `*Store.js`（`analyticsStore.js` 等），1 个用 `article-page.js`，另有一个子目录 `novel/`；`readerStore.js` 保留两套平行 mobile/desktop 预设 API；`novel/actions.js` 存在永远返回 `1` 的 `getChapterPageCount()`、手写 `window.location` 判断、以及与 `useNovelChapters.js` 重复的目录缓存逻辑。
 - **改造动作**：
   - 将 `src/stores/` 文件统一重命名为 `kebab-case`：`analytics.js`、`announcements.js`、`changelog.js`、`comment-counts.js`、`reader.js`、`theme.js`（保留导出函数名 `use*Store` 不变，避免大规模改业务变量名，同步更新 `src/` 与 `scripts/checks/` 全部 import）。

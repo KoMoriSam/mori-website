@@ -39,7 +39,7 @@
 <script setup>
 import { computed, inject, ref, watch } from "vue";
 import { useLocale } from "@/i18n";
-import { useThemeStore } from "@/stores/themeStore";
+import { useThemeStore } from "@/stores/theme";
 import {
   avatarThemeColor,
   getAvatarImageColor,

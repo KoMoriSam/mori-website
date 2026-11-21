@@ -146,7 +146,7 @@ const { t: translate, locale: uiLocale } = useLocale();
 import { storeToRefs } from "pinia";
 
 import NoticeTitle from "@/components/announcement/display/NoticeTitle.vue";
-import { useAnnouncementStore } from "@/stores/announcementStore";
+import { useAnnouncementStore } from "@/stores/announcements";
 import { formatAnnouncementDate } from "@/utils/announcement/format";
 
 defineProps({ active: { type: Boolean, default: true } });

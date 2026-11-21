@@ -8,7 +8,7 @@ import {
   watch,
 } from "vue";
 
-import { useAnalyticsStore } from "@/stores/analyticsStore";
+import { useAnalyticsStore } from "@/stores/analytics";
 
 const READ_VISIBLE_DURATION_MS = 10 * 1000;
 const READ_RECORD_RETRY_DELAY_MS = 15 * 1000;
