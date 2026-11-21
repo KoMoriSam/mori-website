@@ -202,7 +202,7 @@
   - 统一 `sameOriginAssets` / 运行时环境变量白名单，消除 `scripts/preview/build.mjs` 与 `scripts/dev/start.mjs` 对 `scripts/lib/build-environment.mjs` 的重复声明。
 - **验证**：`pnpm check release-deploy`、`pnpm check env`、`pnpm check dev`、`pnpm release changelog publish --dry-run`、`pnpm release announcement publish --dry-run`；通过 `pnpm menu` 核对对应菜单项正常。
 
-### - [ ] P4-2：清理构建与本地联调脚本中的历史残留
+### - [x] P4-2：清理构建与本地联调脚本中的历史残留
 - **改造动作**：
   - 清理 `scripts/build/prune-assets.mjs:17` 和 `scripts/build/smart.mjs:452-454` 中遗留的 `dist/pagefind-novel` 旧逻辑。
   - 审查 `scripts/dev/config.mjs:38-46`：改为从 `wrangler.api.jsonc` 读取限流、DO 与 KV 绑定元数据，避免生产与本地联调配置再次漂移。

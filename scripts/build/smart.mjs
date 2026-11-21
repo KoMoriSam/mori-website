@@ -449,11 +449,9 @@ try {
       if (full || blogChanged || novelChanged) {
         // Incremental builds skip frontend compilation, which generates this Pagefind input.
         if (!full) await step("build/licenses", "--source");
-        for (const directory of [
-          ...(full || blogChanged ? ["pagefind"] : []),
-        ]) {
+        if (full || blogChanged) {
           await removeBuildDirectory(
-            resolve("dist", directory),
+            resolve("dist", "pagefind"),
             resolve("dist"),
           );
         }

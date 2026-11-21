@@ -21,6 +21,8 @@ export async function configure(port) {
     binding, database_name: name, database_id: `00000000-0000-4000-8000-00000000000${suffix}`,
     ...(migrations && { migrations_dir: resolve("migrations", migrations) }),
   });
+  const apiKvBindings = (api.kv_namespaces || []).map((entry) => entry.binding);
+  const kvBindings = Array.from(new Set(["LOCAL_COMMENTS", ...apiKvBindings]));
   const entries = [
     [authConfig, {
       name: "mori-auth-local", main: resolve("workers/dev/auth.js"),
@@ -35,15 +37,14 @@ export async function configure(port) {
         MORI_ATTACHMENT_PAID_VIDEO_REPOS: api.vars?.MORI_ATTACHMENT_PAID_VIDEO_REPOS || "",
       },
       services: [service("MORI_COMMENT_AUTH", "mori-auth-local", "CommentAuth")],
-      ratelimits: [
-        { name: "COMMENT_READ_LIMIT", namespace_id: "1101", simple: { limit: 90, period: 60 } },
-        { name: "COMMENT_WRITE_LIMIT", namespace_id: "1102", simple: { limit: 12, period: 60 } },
-      ],
+      ratelimits: api.ratelimits || [],
       d1_databases: [d1("ANALYTICS_DB", "mori-analytics-local", 2, "analytics")],
-      kv_namespaces: ["LOCAL_COMMENTS", "ANNOUNCEMENTS_KV", "CHANGELOG_KV", "RATE_LIMIT_KV"]
-        .map((binding, index) => ({ binding, id: String(index + 1).padStart(32, "0") })),
-      durable_objects: { bindings: [{ name: "GAME_ROOMS", class_name: "GameRoom" }] },
-      migrations: [{ tag: "games-v1", new_sqlite_classes: ["GameRoom"] }],
+      kv_namespaces: kvBindings.map((binding, index) => ({
+        binding,
+        id: String(index + 1).padStart(32, "0"),
+      })),
+      ...(api.durable_objects && { durable_objects: api.durable_objects }),
+      ...(api.migrations && { migrations: api.migrations }),
     }],
     [siteConfig, {
       name: "website-local", main: resolve("workers/dev/website.js"),

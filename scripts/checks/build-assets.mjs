@@ -26,19 +26,15 @@ try {
   await writeFile(path.join(dist, ".vite/ssr-manifest.json"), "build-only");
   await writeFile(path.join(dist, "licenses.html"), "licenses");
   await writeFile(path.join(dist, "licenses/index.html"), "licenses");
-  for (const bundle of ["pagefind", "pagefind-novel"]) {
-    for (const file of [...unused, ...retained]) {
-      const filename = path.join(dist, bundle, file);
-      await mkdir(path.dirname(filename), { recursive: true });
-      await writeFile(filename, file);
-    }
+  for (const file of [...unused, ...retained]) {
+    const filename = path.join(dist, "pagefind", file);
+    await mkdir(path.dirname(filename), { recursive: true });
+    await writeFile(filename, file);
   }
   const result = await pruneBuildAssets(dist);
-  assert.equal(result.removed.length, unused.length * 2 + 2);
+  assert.equal(result.removed.length, unused.length + 2);
   assert.ok(result.bytes > 0);
-  for (const bundle of ["pagefind", "pagefind-novel"]) {
-    for (const file of retained) assert.equal(await readFile(path.join(dist, bundle, file), "utf8"), file);
-  }
+  for (const file of retained) assert.equal(await readFile(path.join(dist, "pagefind", file), "utf8"), file);
   assert.equal(await readFile(path.join(dist, "licenses.html"), "utf8"), "licenses");
   assert.deepEqual(await pruneBuildAssets(dist), { bytes: 0, removed: [] });
   await writeFile(path.join(dist, "licenses/index.html"), "different page");
