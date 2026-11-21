@@ -1,6 +1,60 @@
 const DEFAULT_WATERMARK_SCALE = 0.05;
 const MAX_GRAPHIC_ASPECT_RATIO = 3;
 
+export const DEFAULT_WATERMARK_TEXT = "远方之森";
+
+export const WATERMARK_POSITIONS = Object.freeze([
+  { value: "top-left", key: "image.topLeft" },
+  { value: "top-center", key: "image.topCenter" },
+  { value: "top-right", key: "image.topRight" },
+  { value: "center-left", key: "image.centerLeft" },
+  { value: "center-center", key: "image.center" },
+  { value: "center-right", key: "image.centerRight" },
+  { value: "bottom-left", key: "image.bottomLeft" },
+  { value: "bottom-center", key: "image.bottomCenter" },
+  { value: "bottom-right", key: "image.bottomRight" },
+]);
+
+export function createDefaultWatermarkConfig() {
+  return {
+    enabled: false,
+    kind: "image-text",
+    text: "",
+    fontId: "site:font-serif",
+    fallbackFontId: "site:font-sans",
+    file: null,
+    graphicKind: "image",
+    icon: "ri-image-line",
+    mode: "single",
+    position: "bottom-right",
+    opacity: 0.75,
+    scale: 0.05,
+    shadow: true,
+    margin: 24,
+    offsetX: 0,
+    offsetY: 0,
+    gap: 160,
+    rotation: 0,
+    color: "#ffffff",
+  };
+}
+
+export function watermarkNeedsGraphic(config) {
+  return ["image", "image-text"].includes(config.kind);
+}
+
+export function watermarkContainsText(config) {
+  return ["text", "image-text"].includes(config.kind);
+}
+
+export function watermarkUsesGraphicKind(graphicKind, config) {
+  return watermarkNeedsGraphic(config) && config.graphicKind === graphicKind;
+}
+
+export function usesWatermarkImageFile(config) {
+  return watermarkUsesGraphicKind("image", config);
+}
+
 export function calculateWatermarkBaseSize(size, scale) {
   const normalizedScale = Number(scale);
   return Math.max(
@@ -87,7 +141,7 @@ export function drawImageWatermark(context, size, watermark, bitmap = null) {
         (metrics.actualBoundingBoxLeft || 0) +
           (metrics.actualBoundingBoxRight || metrics.width),
       );
-      stampHeight = textAscent + textDescent;
+      const textHeight = textAscent + textDescent;
       const graphicSize = calculateWatermarkGraphicSize(
         size,
         watermark.scale,

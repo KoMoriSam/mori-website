@@ -151,14 +151,13 @@
 
 > **目标**：将全仓剩余 5 个超千行~三千行单文件按职责拆清，解决性能瓶颈与跨组件耦合。
 
-### - [ ] P3-1：拆解 `ImageConverter.vue`（3007 行）
+### - [x] P3-1：拆解 `ImageConverter.vue`（3007 行 → 161 行）
 - **目标结构**：
-  - `src/composables/tools/image/useImageQueue.js`（文件队列、拖拽、并发控制、ZIP 打包导出，复抽通用 `downloadBlob`）
-  - `src/composables/tools/image/useImageWorker.js`（Web Worker RPC 桥接与二进制 WebP `ANMF` 解析）
-  - `src/composables/tools/image/useWatermarkPreview.js`（文本/图片/RemixIcon 水印 Canvas 渲染与缓存）
-  - `src/components/tools/image/{ImagePreviewStage.vue,FileQueuePanel.vue,ExportSettingsPanel.vue,WatermarkPanel.vue,RemixIconPicker.vue}`
-- **顺手治理**：拆散 28-getter 巨型 `watch`；替换 7 处硬编码中文为 i18n Key；修复 4 处孤立 ARIA/label ID；不再静默吞掉水印渲染/动画解码错误。
-- **验证**：`pnpm check image-converter`、`pnpm check i18n`；人工验证单图/多图转换、动图帧播放、文字/图标/图片水印、缩放与 ZIP 下载。
+  - `src/composables/tools/image/{useImageWorker.js,useImageQueue.js,useImagePreviewPlayback.js,useWatermarkPreview.js}`（Worker RPC 与元数据读取、文件队列/转换/ZIP 导出、动图预览播放控制、水印预览渲染与载荷生成）
+  - `src/components/tools/image/{ImagePreviewStage.vue,FileQueuePanel.vue,FileQueueItem.vue,ExportSettingsPanel.vue,WatermarkPanel.vue,RemixIconPicker.vue}`
+  - `src/utils/dom/download.js`（通用 `downloadBlob` / `triggerFileDownload`）、`src/utils/image/watermark-assets.js`（SVG/图标/文字印章栅格化）、`src/assets/image-checker.css`（共享透明棋盘格底纹），`countWebPFrames` 下沉至 `src/utils/image/converter.js`
+- **顺手治理**：拆散 28-getter 巨型 `watch`；替换 7 处硬编码中文为 i18n Key（并修复队列超限描述隐藏问题）；修复孤立 ARIA/label ID 与 `watermark.js` 的 `textHeight` 未定义缺陷；不再静默吞掉水印渲染/动画解码错误；修复动图暂停后续播重头播放问题并为 `ImagePreview` 补充同尺寸原地换图。
+- **验证**：`pnpm check image-converter`、`pnpm check i18n-quantities`、`pnpm check i18n-loading`、`pnpm check i18n-runtime` 与人工全项验收通过。
 
 ### - [ ] P3-2：拆解 `SinhalaFontConverter.vue`（2887 行）
 - **目标结构**：

@@ -79,7 +79,7 @@ mori-website/
     ├── i18n/                   # 按路由组懒加载的 vue-i18n 服务与 4 语言文案（zh-CN/en/fr/si）
     ├── stores/                 # Pinia 全局状态（统一采用 kebab-case）
     ├── services/               # 数据请求与内容获取层（http、api-*、novel-release、search-*）
-    ├── composables/            # 组合式逻辑（按 auth/blog/games/home/layout/markdown/novel/reader/storage 分域）
+    ├── composables/            # 组合式逻辑（按 auth/blog/games/home/layout/markdown/novel/reader/storage/tools 分域）
     ├── constants/              # 站点常量与静态配置
     ├── games/                  # 游戏目录注册、音频与前端展示映射
     ├── utils/                  # 纯函数与底层引擎（dom/、canvas/、markdown/、reader/、sinhala/、blog/、novel/、image/、images/、layout/、ssg/）

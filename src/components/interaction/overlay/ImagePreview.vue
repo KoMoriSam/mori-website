@@ -658,6 +658,22 @@ const restoreSlideViewState = (slide, state) => {
   slide.panTo(state.pan.x, state.pan.y);
 };
 
+const getMountedSlide = (slideIndex) =>
+  photoSwipe?.mainScroll?.itemHolders.find(
+    (holder) => holder.slide?.index === slideIndex,
+  )?.slide || null;
+
+const canSwapSlideImageInPlace = (previousSlide, nextSlide, slide) =>
+  Boolean(
+    previousSlide &&
+      previousSlide.src !== nextSlide.src &&
+      previousSlide.width === nextSlide.width &&
+      previousSlide.height === nextSlide.height &&
+      slide?.content?.element instanceof HTMLImageElement &&
+      slide.content.element.isConnected &&
+      !slide.content.isError(),
+  );
+
 const syncInlineSlides = () => {
   if (props.mode !== "inline") return;
   const nextSlides = normalizeSlides(props.slides);
@@ -688,8 +704,9 @@ const syncInlineSlides = () => {
     return;
   }
 
+  const previousSlides = activeSlides.value;
   const changedIndexes = nextSlides.flatMap((slide, slideIndex) => {
-    const previousSlide = activeSlides.value[slideIndex];
+    const previousSlide = previousSlides[slideIndex];
     return previousSlide?.src !== slide.src ||
       previousSlide?.revision !== slide.revision ||
       previousSlide?.width !== slide.width ||
@@ -700,6 +717,19 @@ const syncInlineSlides = () => {
   activeSlides.value = nextSlides;
   photoSwipe.options.dataSource = nextSlides;
   changedIndexes.forEach((slideIndex) => {
+    const previousSlide = previousSlides[slideIndex];
+    const nextSlide = nextSlides[slideIndex];
+    const mountedSlide = getMountedSlide(slideIndex);
+    if (canSwapSlideImageInPlace(previousSlide, nextSlide, mountedSlide)) {
+      mountedSlide.data = nextSlide;
+      mountedSlide.content.data = nextSlide;
+      if (mountedSlide.content.placeholder) {
+        mountedSlide.content.placeholder.destroy();
+        mountedSlide.content.placeholder = undefined;
+      }
+      mountedSlide.content.element.src = nextSlide.src;
+      return;
+    }
     const viewState =
       slideIndex === photoSwipe?.currIndex
         ? captureSlideViewState(photoSwipe.currSlide)

@@ -9,6 +9,7 @@ import {
 } from "../../src/utils/font-name.js";
 import {
   calculateOutputDimensions,
+  countWebPFrames,
   detectImageFormat,
   estimateDecodedBytes,
   makeOutputName,
@@ -21,6 +22,10 @@ import {
   calculateWatermarkBaseSize,
   calculateWatermarkGraphicSize,
   drawImageWatermark,
+  usesWatermarkImageFile,
+  watermarkContainsText,
+  watermarkNeedsGraphic,
+  watermarkUsesGraphicKind,
 } from "../../src/utils/image/watermark.js";
 
 const bytes = (...values) => Uint8Array.from(values);
@@ -211,6 +216,55 @@ webp.set(ascii("ANIM"), 12);
 webp[16] = 6;
 const patched = patchWebPLoopCount(webp, 7);
 assert.equal(readWebPLoopCount(patched), 7);
+assert.equal(countWebPFrames(webp), 0);
+
+const animatedWebp = new Uint8Array(12 + (8 + 3 + 1) + (8 + 4));
+animatedWebp.set(ascii("RIFF"), 0);
+animatedWebp.set(ascii("WEBP"), 8);
+animatedWebp.set(ascii("ANMF"), 12);
+animatedWebp[16] = 3;
+animatedWebp.set(ascii("ANMF"), 24);
+animatedWebp[28] = 4;
+assert.equal(countWebPFrames(animatedWebp), 2);
+
+assert.equal(watermarkContainsText({ kind: "text" }), true);
+assert.equal(watermarkContainsText({ kind: "image" }), false);
+assert.equal(watermarkNeedsGraphic({ kind: "image-text" }), true);
+assert.equal(watermarkUsesGraphicKind("icon", { kind: "image-text", graphicKind: "icon" }), true);
+assert.equal(usesWatermarkImageFile({ kind: "image", graphicKind: "image" }), true);
+
+let drawnImageText = false;
+drawImageWatermark(
+  {
+    ...shadowContext,
+    font: "",
+    textBaseline: "",
+    fillStyle: "",
+    measureText: () => ({
+      width: 80,
+      actualBoundingBoxLeft: 0,
+      actualBoundingBoxRight: 80,
+      actualBoundingBoxAscent: 32,
+      actualBoundingBoxDescent: 8,
+    }),
+    fillText() {
+      drawnImageText = true;
+    },
+  },
+  { width: 1000, height: 500 },
+  {
+    enabled: true,
+    kind: "image-text",
+    text: "Sample",
+    opacity: 0.8,
+    scale: 0.05,
+    shadow: false,
+    mode: "single",
+    position: "bottom-right",
+  },
+  { width: 64, height: 64 },
+);
+assert.equal(drawnImageText, true);
 
 const { BlobReader, BlobWriter, ZipWriter } = await import("@zip.js/zip.js");
 const zipWriter = new ZipWriter(new BlobWriter("application/zip"));
