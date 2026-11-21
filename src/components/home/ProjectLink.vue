@@ -2,11 +2,10 @@
   <CatalogCard
     :to="to"
     :href="href"
-    compact
+    layout="compact"
     :title="title"
     title-tag="h4"
     :description="description"
-    :icon="icon"
   >
     <template #cover>
       <span class="grid size-full place-items-center text-3xl text-primary"><i :class="icon" aria-hidden="true"></i></span>

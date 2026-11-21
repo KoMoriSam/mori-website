@@ -2,16 +2,18 @@
   <CatalogCard
     :to="article.routePath"
     :lang="article.lang"
-    :compact="!featured"
+    :layout="featured ? 'default' : 'compact'"
     :class="featured ? 'md:h-full' : ''"
     :title="article.title"
     title-tag="h3"
     :description="article.summary || ''"
-    :cover="article.banner || ''"
+    :cover="{
+      src: article.banner || '',
+      icon: 'ri-article-line',
+      sizes: '(min-width: 1280px) 600px, (min-width: 768px) 50vw, calc(100vw - 3rem)',
+    }"
     :tags="tags"
-    icon="ri-article-line"
     :action="featured ? translate('home.writing.read') : ''"
-    cover-sizes="(min-width: 1280px) 600px, (min-width: 768px) 50vw, calc(100vw - 3rem)"
   >
     <template #meta>
       <CatalogMeta

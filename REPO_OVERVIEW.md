@@ -82,7 +82,7 @@ mori-website/
     ├── composables/            # 组合式逻辑（按 auth/blog/games/home/layout/markdown/novel/reader/storage 分域）
     ├── constants/              # 站点常量与静态配置
     ├── games/                  # 游戏目录注册、音频与前端展示映射
-    ├── utils/                  # 纯函数与底层引擎（markdown/、reader/、sinhala/、blog/、novel/、image/、images/、layout/、ssg/）
+    ├── utils/                  # 纯函数与底层引擎（dom/、markdown/、reader/、sinhala/、blog/、novel/、image/、images/、layout/、ssg/）
     ├── workers/                # 浏览器端 Web Workers（图片编解码、Markdown 自定义样式编译）
     ├── views/                  # 路由页面层（Home、Blog/*、Novel/*、Tools/*、Games/*、Projects/Kaiming、Test/* 等）
     ├── components/             # 组件层（按业务域与通用层 display/feedback/interaction/layout/markdown 组织）

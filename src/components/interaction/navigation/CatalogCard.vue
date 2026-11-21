@@ -2,47 +2,29 @@
   <component
     :is="to ? RouterLink : href ? 'a' : 'div'"
     v-bind="linkAttrs"
-    class="group card card-border relative min-w-0 overflow-hidden transition-[translate,box-shadow,border-color] duration-200 hover:-translate-y-1 hover:shadow-xl has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-4 has-[:focus-visible]:outline-primary motion-reduce:transform-none motion-reduce:translate-none motion-reduce:transition-none"
+    class="group card card-border relative min-w-0 overflow-hidden bg-base-100 transition-[translate,box-shadow,border-color] duration-200 hover:-translate-y-1 hover:border-primary/30 hover:shadow-xl has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-4 has-[:focus-visible]:outline-primary motion-reduce:transform-none motion-reduce:translate-none motion-reduce:transition-none"
     :class="[
-      primary
-        ? 'border-primary bg-primary text-primary-content hover:border-primary'
-        : 'bg-base-100 hover:border-primary/30',
-      compact && !textOnly ? 'catalog-compact-preview min-h-24' : '',
-      responsiveCompact && !textOnly ? 'catalog-compact-preview catalog-responsive-compact max-md:min-h-24' : '',
-      expandable ? 'cursor-pointer' : '',
+      compact ? '[--preview-width:min(40%,9rem)] min-h-24' : '',
+      responsiveCompact ? '[--preview-width:min(40%,9rem)] max-md:min-h-24' : '',
       to || href
         ? 'cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary'
         : '',
     ]"
-    :data-project-card="expandable ? '' : undefined"
-    :data-card-motion="expandable ? 'card' : undefined"
   >
     <div
       :class="[
         responsiveCompact ? 'max-md:contents' : '',
-        compact || textOnly
+        compact
           ? 'contents'
           : [
               'relative flex items-end overflow-hidden bg-base-200',
-              coverClass || 'h-48 min-h-48 flex-1 sm:h-64 sm:min-h-64',
-            ]
+              coverConfig.class || 'h-48 min-h-48 flex-1 sm:h-64 sm:min-h-64',
+            ],
       ]"
     >
-      <input
-        v-if="expandable"
-        type="radio"
-        :name="groupName"
-        :value="value"
-        :checked="!compact"
-        :disabled="!compact"
-        :aria-label="title"
-        :aria-expanded="!compact"
-        :aria-controls="detailsId"
-        class="peer absolute inset-0 z-20 size-full cursor-pointer opacity-0"
-        @change="$emit('select')"
-      />
+      <slot name="header-before" :details-id="detailsId"></slot>
+
       <div
-        v-if="!textOnly"
         data-card-motion="cover"
         class="overflow-hidden bg-base-200"
         :class="[
@@ -51,14 +33,14 @@
             : 'absolute inset-0',
           responsiveCompact ? 'max-md:right-auto max-md:w-(--preview-width)' : '',
         ]"
-        :aria-busy="hasCover && !isCoverLoaded"
+        :aria-busy="hasCover && !coverLoaded"
       >
         <div v-if="$slots.cover" class="size-full" aria-hidden="true">
           <slot name="cover"></slot>
         </div>
         <template v-else-if="hasCover">
           <div
-            v-if="!isCoverLoaded"
+            v-if="!coverLoaded"
             class="skeleton absolute inset-0 rounded-none"
             aria-hidden="true"
           ></div>
@@ -67,45 +49,30 @@
           >
             <img
               v-fade-in
-              :key="cover"
+              :key="coverSrc"
               :ref="syncCoverImage"
               v-bind="coverAttrs"
-              :data-cover-src="cover"
+              :data-cover-src="coverSrc"
               :alt="title"
               loading="lazy"
               decoding="async"
               draggable="false"
               class="absolute inset-0 size-full object-center transition-opacity duration-500 ease-out motion-reduce:transition-none"
-              :class="contain ? 'object-contain' : 'object-cover'"
+              :class="coverConfig.contain ? 'object-contain' : 'object-cover'"
               @load="handleCoverLoad"
               @error="handleCoverError"
             />
             <div
               class="pointer-events-none absolute inset-0 bg-linear-to-t from-black/80 via-black/30 to-black/5 transition-opacity duration-200 motion-reduce:transition-none"
-              :class="[overlayTitle ? 'opacity-100' : 'opacity-0', responsiveCompact ? 'max-md:opacity-0' : '']"
+              :class="[
+                overlayTitle ? 'opacity-100' : 'opacity-0',
+                responsiveCompact ? 'max-md:opacity-0' : '',
+              ]"
               aria-hidden="true"
             ></div>
           </div>
         </template>
-        <template v-else>
-          <div
-            class="absolute -top-14 -right-10 size-40 rounded-full bg-primary/10 blur-2xl"
-            aria-hidden="true"
-          ></div>
-          <div
-            class="absolute -bottom-16 -left-10 size-44 rounded-full bg-accent/15 blur-2xl"
-            aria-hidden="true"
-          ></div>
-          <i
-            :class="icon"
-            class="absolute top-4 right-5 text-7xl text-base-content/5"
-            aria-hidden="true"
-          ></i>
-          <div
-            class="absolute inset-0 bg-[radial-gradient(currentColor_1px,transparent_1px)] bg-size-[16px_16px] opacity-[0.04]"
-            aria-hidden="true"
-          ></div>
-        </template>
+        <CoverBackdrop v-else :icon="coverConfig.icon" />
       </div>
 
       <div
@@ -114,16 +81,12 @@
         class="relative z-10 min-w-0 font-serif leading-snug peer-focus-visible:underline peer-focus-visible:decoration-primary peer-focus-visible:decoration-2 peer-focus-visible:underline-offset-4"
         :class="[
           headingClass,
-          compact ? 'px-3 pt-3' : 'w-full p-4 sm:p-5',
-          compact && !textOnly ? 'ml-(--preview-width)' : '',
-          responsiveCompact ? 'max-md:w-auto max-md:px-3 max-md:pt-3 max-md:pb-0 max-md:ml-(--preview-width)' : '',
-          responsiveCompact ? (primary ? 'max-md:text-primary-content' : 'max-md:text-base-content') : '',
-          overlayTitle
-            ? 'text-white'
-            : primary
-              ? 'text-primary-content'
-              : 'text-base-content',
-          expandable ? 'pointer-events-none' : '',
+          compact ? 'ml-(--preview-width) px-3 pt-3' : 'w-full p-4 sm:p-5',
+          responsiveCompact
+            ? 'max-md:w-auto max-md:px-3 max-md:pt-3 max-md:pb-0 max-md:ml-(--preview-width) max-md:text-base-content'
+            : '',
+          overlayTitle ? 'text-white' : 'text-base-content',
+          interaction?.interactiveOverlay ? 'pointer-events-none' : '',
         ]"
       >
         <div
@@ -131,19 +94,16 @@
           class="mb-2 flex flex-wrap gap-1.5 font-sans font-normal"
         >
           <slot name="tags" :cover-loaded="overlayTitle">
-            <CatalogBadge
-              v-for="tag in tags"
-              :key="tag"
-              :overlay="overlayTitle"
-              :primary="primary"
-              >{{ tag }}</CatalogBadge
-            >
+            <CatalogBadge v-for="tag in tags" :key="tag">{{ tag }}</CatalogBadge>
           </slot>
         </div>
         <component
           :is="titleTag"
-          class="wrap-break-word text-balance font-bold"
-          :class="['line-clamp-2', overlayTitle ? 'drop-shadow-sm' : '', responsiveCompact ? 'max-md:drop-shadow-none' : '']"
+          class="line-clamp-2 wrap-break-word text-balance font-bold"
+          :class="[
+            overlayTitle ? 'drop-shadow-sm' : '',
+            responsiveCompact ? 'max-md:drop-shadow-none' : '',
+          ]"
           ><slot name="title">{{ title }}</slot></component
         >
       </div>
@@ -153,9 +113,10 @@
       :id="detailsId"
       class="card-body min-w-0 gap-0"
       :class="[
-        compact ? 'px-3 pt-2 pb-3' : 'flex-none p-5 sm:p-6',
-        compact && !textOnly ? 'ml-(--preview-width)' : '',
-        responsiveCompact ? 'max-md:px-3 max-md:pt-2 max-md:pb-3 max-md:ml-(--preview-width)' : '',
+        compact ? 'ml-(--preview-width) px-3 pt-2 pb-3' : 'flex-none p-5 sm:p-6',
+        responsiveCompact
+          ? 'max-md:px-3 max-md:pt-2 max-md:pb-3 max-md:ml-(--preview-width)'
+          : '',
       ]"
     >
       <div v-if="titleInBody && !compact" class="mb-3">
@@ -164,9 +125,7 @@
           class="mb-2 flex flex-wrap gap-1.5"
         >
           <slot name="tags" :cover-loaded="false">
-            <CatalogBadge v-for="tag in tags" :key="tag" :primary="primary">{{
-              tag
-            }}</CatalogBadge>
+            <CatalogBadge v-for="tag in tags" :key="tag">{{ tag }}</CatalogBadge>
           </slot>
         </div>
         <component
@@ -179,24 +138,24 @@
       <p
         v-if="description || $slots.description"
         data-card-motion="description"
-        class="flex-none wrap-break-word text-pretty"
+        class="flex-none wrap-break-word text-pretty text-base-content/65"
         :class="[
           compact
             ? 'line-clamp-2 text-xs leading-5'
             : 'h-18 line-clamp-3 text-sm leading-6',
-          primary ? 'text-primary-content/75' : 'text-base-content/65',
-          responsiveCompact ? 'max-md:h-auto max-md:line-clamp-2 max-md:text-xs max-md:leading-5' : '',
+          responsiveCompact
+            ? 'max-md:h-auto max-md:line-clamp-2 max-md:text-xs max-md:leading-5'
+            : '',
         ]"
       >
         <slot name="description">{{ description }}</slot>
       </p>
       <div
-        v-show="!expandable || !compact"
+        v-show="!hideActions"
         data-card-motion="actions"
-        class="mt-auto flex flex-wrap items-center gap-x-3 gap-y-2"
+        class="mt-auto flex flex-wrap items-center gap-x-3 gap-y-2 text-base-content/50"
         :class="[
           compact ? 'pt-2 text-xs' : 'min-h-10 pt-5 text-sm',
-          primary ? 'text-primary-content/75' : 'text-base-content/50',
           responsiveCompact ? 'max-md:min-h-0 max-md:pt-2 max-md:text-xs' : '',
         ]"
       >
@@ -206,23 +165,23 @@
             compact
               ? 'flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-0.5 leading-4 empty:hidden'
               : 'contents',
-            responsiveCompact ? 'max-md:flex max-md:min-w-0 max-md:flex-1 max-md:flex-wrap max-md:items-center max-md:gap-x-1.5 max-md:gap-y-0.5 max-md:leading-4 empty:hidden' : '',
+            responsiveCompact
+              ? 'max-md:flex max-md:min-w-0 max-md:flex-1 max-md:flex-wrap max-md:items-center max-md:gap-x-1.5 max-md:gap-y-0.5 max-md:leading-4 empty:hidden'
+              : '',
           ]"
         >
           <slot name="meta"></slot>
         </div>
         <span
-          class="ml-auto flex max-w-full items-center gap-1 font-medium transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transform-none motion-reduce:transition-none"
+          class="ml-auto flex max-w-full items-center gap-1 font-medium text-primary transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transform-none motion-reduce:transition-none"
           :class="[
-            primary ? 'text-primary-content' : 'text-primary',
             compact ? 'self-end' : '',
             responsiveCompact ? 'max-md:self-end' : '',
-            actionClass,
           ]"
         >
-          <span v-if="action" class="min-w-0 wrap-break-word">{{
-            action
-          }}</span>
+          <span v-if="action || $slots.action" class="min-w-0 wrap-break-word">
+            <slot name="action">{{ action }}</slot>
+          </span>
           <i
             :class="href && !to ? 'ri-external-link-line' : 'ri-arrow-right-line'"
             class="shrink-0"
@@ -231,69 +190,86 @@
         </span>
       </div>
     </div>
-    <RouterLink
-      v-if="expandable && !compact"
-      :to="entryTo"
-      :aria-label="title"
-      class="absolute inset-0 z-30 focus-visible:outline-none"
-    />
+
+    <slot name="overlay"></slot>
   </component>
 </template>
 
 <script setup>
-import { computed, ref, useId, useSlots, watch } from "vue";
+import { computed, inject, provide, ref, useId, useSlots, watch } from "vue";
 import { RouterLink } from "vue-router";
+import CoverBackdrop from "@/components/display/CoverBackdrop.vue";
 import CatalogBadge from "./CatalogBadge.vue";
+import {
+  CATALOG_CARD_CONTEXT_KEY,
+  CATALOG_CARD_INTERACTION_KEY,
+} from "./catalog-card-context";
 import {
   getImageAttrs,
   restoreOriginalImage,
 } from "@/utils/images/responsive-images";
 
+const DEFAULT_COVER_SIZES =
+  "(min-width: 1280px) 390px, (min-width: 768px) calc(50vw - 2.625rem), calc(100vw - 3rem)";
+
 const props = defineProps({
   to: { type: [String, Object], default: null },
   href: { type: String, default: "" },
-  compact: Boolean,
-  compactOnMobile: Boolean,
-  textOnly: Boolean,
-  primary: Boolean,
-  contain: Boolean,
-  expandable: Boolean,
-  groupName: { type: String, default: "" },
-  value: { type: String, default: "" },
-  entryTo: { type: [String, Object], default: null },
+  layout: {
+    type: String,
+    default: "default",
+    validator: (value) => ["default", "compact", "responsive"].includes(value),
+  },
   title: { type: String, default: "" },
-  titleClass: { type: String, default: "" },
   titleTag: {
     type: String,
     default: "h2",
     validator: (value) => ["h2", "h3", "h4", "div"].includes(value),
   },
   description: { type: String, default: "" },
-  icon: { type: String, default: "ri-article-line" },
   action: { type: String, default: "" },
-  actionClass: { type: String, default: "" },
   tags: { type: Array, default: () => [] },
-  cover: { type: String, default: "" },
-  coverClass: { type: [String, Array, Object], default: "" },
-  coverSizes: {
-    type: String,
-    default:
-      "(min-width: 1280px) 390px, (min-width: 768px) calc(50vw - 2.625rem), calc(100vw - 3rem)",
-  },
+  cover: { type: [String, Object], default: "" },
 });
-defineEmits(["select"]);
 
 const detailsId = `catalog-details-${useId()}`;
 const coverLoaded = ref(true);
 const coverFailed = ref(false);
 const slots = useSlots();
-const compact = computed(() => props.compact);
-const responsiveCompact = computed(() => props.compactOnMobile && !props.compact);
-const titleInBody = computed(() => props.textOnly || Boolean(slots.cover));
-const headingClass = computed(() =>
-  [compact.value ? "text-base" : props.titleClass || "text-xl sm:text-2xl",
-    responsiveCompact.value ? "max-md:text-base" : ""],
+const interaction = inject(CATALOG_CARD_INTERACTION_KEY, null);
+
+const compact = computed(() => props.layout === "compact");
+const responsiveCompact = computed(() => props.layout === "responsive");
+const hideActions = computed(
+  () => Boolean(interaction?.hideActionsWhenCompact) && compact.value,
 );
+const titleInBody = computed(() => Boolean(slots.cover));
+const coverConfig = computed(() => {
+  if (typeof props.cover === "string") {
+    return {
+      src: props.cover,
+      icon: "ri-article-line",
+      class: "",
+      sizes: DEFAULT_COVER_SIZES,
+      contain: false,
+      fixedSizes: false,
+    };
+  }
+  return {
+    src: props.cover?.src || "",
+    icon: props.cover?.icon || "ri-article-line",
+    class: props.cover?.class || "",
+    sizes: props.cover?.sizes || DEFAULT_COVER_SIZES,
+    contain: Boolean(props.cover?.contain),
+    fixedSizes: Boolean(props.cover?.fixedSizes),
+  };
+});
+const coverSrc = computed(() => coverConfig.value.src);
+
+const headingClass = computed(() => [
+  compact.value ? "text-base" : "text-xl sm:text-2xl",
+  responsiveCompact.value ? "max-md:text-base" : "",
+]);
 const linkAttrs = computed(() =>
   props.to
     ? { to: props.to }
@@ -302,27 +278,30 @@ const linkAttrs = computed(() =>
       : {},
 );
 const hasCover = computed(
-  () => !slots.cover && Boolean(props.cover) && !coverFailed.value,
+  () => !slots.cover && Boolean(coverSrc.value) && !coverFailed.value,
 );
-const isCoverLoaded = computed(() => coverLoaded.value);
 const overlayTitle = computed(
-  () =>
-    !props.textOnly && !compact.value && hasCover.value && isCoverLoaded.value,
+  () => !compact.value && hasCover.value && coverLoaded.value,
 );
 const coverAttrs = computed(() => {
   const sizes =
-    (compact.value || responsiveCompact.value) && !props.expandable
+    (compact.value || responsiveCompact.value) && !coverConfig.value.fixedSizes
       ? responsiveCompact.value
-        ? `(max-width: 359px) 40vw, (max-width: 767px) 144px, ${props.coverSizes}`
+        ? `(max-width: 359px) 40vw, (max-width: 767px) 144px, ${coverConfig.value.sizes}`
         : "(min-width: 360px) 144px, 40vw"
-      : props.coverSizes;
-  const attrs = getImageAttrs(props.cover, sizes);
+      : coverConfig.value.sizes;
+  const attrs = getImageAttrs(coverSrc.value, sizes);
   delete attrs.onError;
   return attrs;
 });
 
+provide(CATALOG_CARD_CONTEXT_KEY, {
+  overlay: overlayTitle,
+  responsiveCompact,
+});
+
 watch(
-  () => props.cover,
+  coverSrc,
   () => {
     coverLoaded.value = false;
     coverFailed.value = false;
@@ -331,14 +310,16 @@ watch(
 );
 
 function handleCoverLoad(event) {
-  if (event.currentTarget.getAttribute("data-cover-src") !== props.cover)
+  if (event.currentTarget.getAttribute("data-cover-src") !== coverSrc.value) {
     return;
+  }
   coverLoaded.value = true;
   coverFailed.value = false;
 }
+
 function handleCoverError(event) {
   const image = event.currentTarget;
-  if (image.getAttribute("data-cover-src") !== props.cover) return;
+  if (image.getAttribute("data-cover-src") !== coverSrc.value) return;
   const original = image.getAttribute("data-original-src");
   if (original && image.getAttribute("src") !== original) {
     restoreOriginalImage(event);
@@ -347,6 +328,7 @@ function handleCoverError(event) {
   coverLoaded.value = false;
   coverFailed.value = true;
 }
+
 function syncCoverImage(image) {
   if (!image?.complete) return;
   const event = { currentTarget: image };
@@ -354,18 +336,3 @@ function syncCoverImage(image) {
   else handleCoverError(event);
 }
 </script>
-
-<style>
-.catalog-compact-preview {
-  --preview-width: min(40%, 9rem);
-}
-
-@media (width < 48rem) {
-  .catalog-responsive-compact .badge {
-    border-color: transparent;
-    background-color: color-mix(in oklab, var(--color-primary) 8%, transparent);
-    color: var(--color-primary);
-    backdrop-filter: none;
-  }
-}
-</style>

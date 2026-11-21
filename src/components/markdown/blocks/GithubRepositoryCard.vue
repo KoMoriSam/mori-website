@@ -3,12 +3,14 @@
     ref="card"
     :href="href"
     :title="label || repository"
-    :cover="preview?.coverUrl || ''"
-    icon="ri-github-fill"
+    :cover="{
+      src: preview?.coverUrl || '',
+      icon: 'ri-github-fill',
+      contain: true,
+    }"
     title-tag="div"
     class="not-prose @container/github-card font-sans"
-    compact
-    contain
+    layout="compact"
   >
     <template #title>
       <span class="flex min-w-0 items-start gap-(--md-component-gap)">

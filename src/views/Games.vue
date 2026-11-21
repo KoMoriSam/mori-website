@@ -20,26 +20,22 @@
         :to="{ name: game.name }"
         :title="t(game.titleKey)"
         :description="t(game.descriptionKey)"
-        :icon="game.icon"
-        :cover="game.cover"
-        cover-class="min-h-44 flex-1 sm:min-h-56"
-        compact-on-mobile
+        :cover="{
+          src: game.cover,
+          icon: game.icon,
+          class: 'min-h-44 flex-1 sm:min-h-56',
+        }"
+        layout="responsive"
         :action="t('games.play')"
       >
-        <template #tags="{ coverLoaded }">
-          <span
+        <template #tags>
+          <CatalogBadge
             v-for="info in game.metadata"
             :key="info.labelKey"
-            class="badge badge-sm h-auto min-h-5 max-w-full py-0.5 transition-colors duration-300 motion-reduce:transition-none"
-            :class="
-              coverLoaded
-                ? 'border-white/20 bg-black/20 text-white backdrop-blur-sm'
-                : 'badge-primary badge-soft'
-            "
+            :icon="info.icon"
           >
-            <i :class="info.icon" class="shrink-0" aria-hidden="true"></i>
-            <span class="min-w-0 break-words">{{ t(info.labelKey) }}</span>
-          </span>
+            {{ t(info.labelKey) }}
+          </CatalogBadge>
         </template>
         <template #meta>
           <span class="flex min-w-0 max-w-full items-center gap-1.5">
@@ -58,6 +54,7 @@
 </template>
 <script setup>
 import ContentPage from "@/components/layout/ContentPage.vue";
+import CatalogBadge from "@/components/interaction/navigation/CatalogBadge.vue";
 import CatalogCard from "@/components/interaction/navigation/CatalogCard.vue";
 import { GAMES } from "@/games/catalog";
 import { useLocale } from "@/i18n";

@@ -402,7 +402,7 @@
             <article
               v-for="index in BLOG_PAGE_SIZE"
               :key="index"
-              class="catalog-compact-preview card card-border relative min-w-0 overflow-hidden bg-base-100 max-md:min-h-24 max-md:pl-(--preview-width)"
+              class="card card-border relative min-w-0 overflow-hidden bg-base-100 [--preview-width:min(40%,9rem)] max-md:min-h-24 max-md:pl-(--preview-width)"
             >
               <div
                 class="skeleton rounded-none max-md:absolute max-md:inset-y-0 max-md:left-0 max-md:w-(--preview-width) md:h-52 md:w-full"
@@ -434,17 +434,20 @@
               class="md:[&>.card-body]:flex-1"
               :to="getArticleRoute(item)"
               :title="item.title"
-              :cover="item.banner || ''"
-              :action="translate('blog.list.readMore')"
-              action-class="max-md:[&>span]:sr-only"
-              cover-class="h-52 min-h-52 flex-none"
-              compact-on-mobile
+              :cover="{
+                src: item.banner || '',
+                class: 'h-52 min-h-52 flex-none',
+              }"
+              layout="responsive"
             >
-              <template v-if="item.tags?.length" #tags="{ coverLoaded }">
+              <template #action>
+                <span class="max-md:sr-only">{{ translate("blog.list.readMore") }}</span>
+              </template>
+
+              <template v-if="item.tags?.length" #tags>
                 <CatalogBadge
                   v-for="tag in item.tags"
                   :key="tag"
-                  :overlay="coverLoaded"
                 >
                   <template
                     v-for="(part, partIndex) in highlightParts(formatTag(tag))"

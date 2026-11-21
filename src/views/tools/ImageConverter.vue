@@ -1361,6 +1361,7 @@ import ImagePreview from "@/components/interaction/overlay/ImagePreview.vue";
 import { useToast } from "@/composables/useToast";
 import { FONTS } from "@/constants/reader";
 import remixIconTags from "@/data/remixicon-tags.json";
+import { walkDocumentStyleRules } from "@/utils/dom/stylesheets";
 import {
   calculateWatermarkBaseSize,
   calculateWatermarkGraphicSize,
@@ -1874,22 +1875,13 @@ async function loadDefaultWatermark() {
 
 function collectRemixIcons() {
   const names = new Set(FEATURED_REMIX_ICONS);
-  const visitRules = (rules) => {
-    for (const rule of rules) {
-      if (rule.cssRules) visitRules(rule.cssRules);
-      for (const match of (rule.selectorText || "").matchAll(
-        /\.ri-([\w-]+):{1,2}before/g,
-      ))
-        names.add(`ri-${match[1]}`);
+  walkDocumentStyleRules((rule) => {
+    for (const match of (rule.selectorText || "").matchAll(
+      /\.ri-([\w-]+):{1,2}before/g,
+    )) {
+      names.add(`ri-${match[1]}`);
     }
-  };
-  for (const sheet of document.styleSheets) {
-    try {
-      visitRules(sheet.cssRules);
-    } catch {
-      // Cross-origin stylesheets are irrelevant to the bundled icon font.
-    }
-  }
+  });
   remixIcons.value = [...names].sort((a, b) => a.localeCompare(b));
 }
 

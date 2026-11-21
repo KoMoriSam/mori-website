@@ -65,33 +65,7 @@
             ></div>
           </template>
 
-          <div
-            v-else
-            class="absolute inset-0 bg-gradient-to-br from-accent/25 to-primary/20"
-          >
-            <div
-              class="absolute -top-20 -right-16 size-64 rounded-full bg-primary/15 blur-3xl"
-            ></div>
-
-            <div
-              class="absolute -bottom-24 -left-16 size-72 rounded-full bg-accent/20 blur-3xl"
-            ></div>
-
-            <i
-              class="ri-article-line absolute top-6 right-6 text-8xl text-base-content/5 sm:top-8 sm:right-8 sm:text-9xl"
-            ></i>
-
-            <div
-              class="absolute inset-0 opacity-[0.04]"
-              style="
-                background-image: radial-gradient(
-                  currentColor 1px,
-                  transparent 1px
-                );
-                background-size: 18px 18px;
-              "
-            ></div>
-          </div>
+          <CoverBackdrop v-else variant="hero" />
 
           <div
             class="relative flex min-h-72 flex-col p-5 sm:min-h-80 sm:p-8"
@@ -576,6 +550,7 @@ import {
   getSourceLocale,
 } from "@/utils/blog/article-versions";
 
+import CoverBackdrop from "@/components/display/CoverBackdrop.vue";
 import FloatingActionButton from "@/components/interaction/controls/FloatingActionButton.vue";
 import ReadingLayout from "@/components/reader/layout/ReadingLayout.vue";
 import LoadingPlaceholder from "@/components/reader/feedback/LoadingPlaceholder.vue";

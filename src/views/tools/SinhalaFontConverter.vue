@@ -383,11 +383,9 @@
                   v-model="unicodeFontId"
                   v-model:fallback-font-id="unicodeFallbackFontId"
                   :website-fonts="unicodeWebsiteFonts"
-                  :uploaded-preview-text="sinhalaFontPreviewText"
-                  uploaded-preview-language="si"
-                  :local-preview-text="sinhalaFontPreviewText"
-                  local-preview-language="si"
-                  local-font-coverage="sinhala-unicode"
+                  :preview="unicodeFontPreview"
+                  :local-font-filter="filterSinhalaUnicodeLocalFonts"
+                  :resolve-css-font-matcher="createSinhalaUnicodeCssFontMatcher"
                   size="xs"
                   :aria-label="
                     translate('sinhala.unicodeFont')
@@ -651,11 +649,9 @@
                   v-model="legacyFontId"
                   v-model:fallback-font-id="legacyFallbackFontId"
                   :website-fonts="legacyWebsiteFonts"
-                  :uploaded-preview-text="legacyFontPreviewText"
-                  uploaded-preview-language="si"
-                  :local-preview-text="legacyFontPreviewText"
-                  local-preview-language="si"
-                  local-font-coverage="sinhala-legacy"
+                  :preview="legacyFontPreview"
+                  :local-font-filter="filterSinhalaLegacyLocalFonts"
+                  :probe-local-fonts="probeSinhalaLegacyLocalFonts"
                   size="xs"
                   :aria-label="
                     translate('sinhala.legacyFont')
@@ -1124,6 +1120,17 @@ import {
   unicodeWebsiteFonts,
 } from "@/utils/sinhala/fonts";
 import {
+  SINHALA_UNICODE_FALLBACK_FAMILY,
+  createSinhalaUnicodeCssFontMatcher,
+  filterSinhalaLegacyLocalFonts,
+  filterSinhalaUnicodeLocalFonts,
+  probeSinhalaLegacyLocalFonts,
+} from "@/utils/sinhala/font-catalog";
+import {
+  stripCssFontQuotes,
+  walkDocumentStyleRules,
+} from "@/utils/dom/stylesheets";
+import {
   editablePlainText,
   editableRange,
   editableSelection,
@@ -1139,6 +1146,15 @@ import {
   unicodeToFmSegments,
 } from "@/utils/sinhala/converter";
 
+const unicodeFontPreview = {
+  text: sinhalaFontPreviewText,
+  language: "si",
+  alwaysShowLocal: true,
+};
+const legacyFontPreview = {
+  text: legacyFontPreviewText,
+  language: "si",
+};
 const unicodeText = ref("");
 const fmText = ref("");
 const unicodeFontId = ref("abhaya");
@@ -1586,37 +1602,19 @@ const localFontScaleCache = new Map();
 
 function registeredFontScale(family) {
   const target = family.trim().toLocaleLowerCase();
-  const findInRules = (rules) => {
-    for (const rule of rules) {
-      if (rule.type === CSSRule.FONT_FACE_RULE) {
-        const name = rule.style
-          .getPropertyValue("font-family")
-          .trim()
-          .replace(/^["']|["']$/gu, "")
-          .toLocaleLowerCase();
-        const scale = Number.parseFloat(
-          rule.style.getPropertyValue("size-adjust"),
-        );
-        if (name === target && Number.isFinite(scale) && scale > 0)
-          return scale / 100;
-      }
-      const nested = rule.styleSheet?.cssRules || rule.cssRules;
-      if (nested) {
-        const scale = findInRules(nested);
-        if (scale) return scale;
-      }
+  let matchedScale = null;
+  walkDocumentStyleRules((rule) => {
+    if (rule.type !== CSSRule.FONT_FACE_RULE) return;
+    const name = stripCssFontQuotes(
+      rule.style.getPropertyValue("font-family"),
+    ).toLocaleLowerCase();
+    const scale = Number.parseFloat(rule.style.getPropertyValue("size-adjust"));
+    if (name === target && Number.isFinite(scale) && scale > 0) {
+      matchedScale = scale / 100;
+      return false;
     }
-    return null;
-  };
-  for (const sheet of document.styleSheets) {
-    try {
-      const scale = findInRules(sheet.cssRules);
-      if (scale) return scale;
-    } catch {
-      // Cross-origin stylesheets do not expose their rules.
-    }
-  }
-  return null;
+  });
+  return matchedScale;
 }
 
 async function localFontScale(fontId, font, referenceFamily, sample) {
@@ -1668,7 +1666,7 @@ watch(
         unicodeText.value,
         bold ? "bold" : "normal",
         fallbackFontId,
-        'Arial, "Helvetica Neue", "Liberation Sans"',
+        SINHALA_UNICODE_FALLBACK_FAMILY,
       );
       if (request !== unicodeFontRequest || !font) return;
       const scale = await localFontScale(

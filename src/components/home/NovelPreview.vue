@@ -2,14 +2,16 @@
   <CatalogCard
     :to="chapterRoute"
     :class="featured ? 'md:h-full' : ''"
-    :compact="!featured"
+    :layout="featured ? 'default' : 'compact'"
     :title="chapter.title"
     title-tag="h3"
     :description="featured ? translate('home.writing.novelDescription') : ''"
-    :cover="NOVEL_HORIZONTAL_COVER_URL"
+    :cover="{
+      src: NOVEL_HORIZONTAL_COVER_URL,
+      sizes: '(min-width: 1280px) 600px, (min-width: 768px) 50vw, calc(100vw - 3rem)',
+    }"
     :tags="[badge]"
     :action="action"
-    cover-sizes="(min-width: 1280px) 600px, (min-width: 768px) 50vw, calc(100vw - 3rem)"
   >
     <template #meta>
       <CatalogMeta

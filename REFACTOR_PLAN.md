@@ -113,7 +113,7 @@
 
 > **目标**：让通用层彻底脱离具体业务污染，消灭跨页面复制粘贴的 200+ 行交互与重复样式编译。
 
-### - [ ] P2-1：净化 `FontSelect.vue`（1410 行）与拆解 `CatalogCard.vue`（22 Props）
+### - [x] P2-1：净化 `FontSelect.vue`（1410 行）与拆解 `CatalogCard.vue`（22 Props）
 - **改造动作**：
   - 将 `FontSelect.vue` 中 230+ 行僧伽罗专属字体名单（15 Unicode + 74 Legacy）、16 条正则、`probeLegacyLocalFonts` 与 `localFontCoverage` 全部移回 `src/utils/sinhala/font-catalog.js`，`FontSelect.vue` 通过通用的 `localFontFilter` / `probeLocalFonts` / `fallbackFamily` 回调保持纯通用控件；拆出 `useLocalFonts.js` 管理 Local Font Access API 与 `<style>` 注入；统一替换 3 处 `document.styleSheets` 递归遍历为 `src/utils/dom/stylesheets.js`。
   - 审视 `CatalogCard.vue` 的 22 个 Props：将常规内容卡片与可展开手风琴变体拆解或插槽化，把单组件 Props 降至 10 个以内；消除其中未 scoped 的 `.badge` 样式污染，并与 `ArticleReader.vue` 复用统一封面降级底图组件。

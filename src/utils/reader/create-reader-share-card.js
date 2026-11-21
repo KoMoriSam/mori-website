@@ -1,3 +1,4 @@
+import { walkDocumentStyleRules } from "@/utils/dom/stylesheets";
 import { createLatexSvg, loadLatexSvgImage } from "@/utils/reader/latex";
 import { renderMermaidSource, styleMermaidSvg } from "@/utils/markdown/markdown-it-mermaid";
 import { prepareReaderShareSnapshot, yieldReaderShareTask } from './share-snapshot.js';
@@ -603,31 +604,14 @@ const prepareInlineImageRuns = async (blocks, localize) => {
 
 const collectFontFaceRules = () => {
   const entries = [];
-  const visitedSheets = new Set();
-  const visitRules = (rules) => {
-    Array.from(rules || []).forEach((rule) => {
-      if (rule.type === 5) {
-        entries.push({
-          rule,
-          baseUrl: rule.parentStyleSheet?.href || document.baseURI,
-        });
-        return;
-      }
-      if (rule.styleSheet) visitSheet(rule.styleSheet);
-      if (rule.cssRules) visitRules(rule.cssRules);
-    });
-  };
-  const visitSheet = (sheet) => {
-    if (!sheet || visitedSheets.has(sheet)) return;
-    visitedSheets.add(sheet);
-    try {
-      visitRules(sheet.cssRules);
-    } catch {
-      // 跨域样式表不可读取；本地打包字体仍可从同源样式表取得。
+  walkDocumentStyleRules((rule) => {
+    if (rule.type === 5) {
+      entries.push({
+        rule,
+        baseUrl: rule.parentStyleSheet?.href || document.baseURI,
+      });
     }
-  };
-
-  Array.from(document.styleSheets).forEach(visitSheet);
+  });
   return entries;
 };
 

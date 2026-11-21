@@ -554,7 +554,7 @@ const resolveMarkdownComponent = ({
         description: article.summary || "",
         cover: sanitizeMarkdownResourceUrl(article.banner),
         lang: article.lang,
-        compact: true,
+        layout: "compact",
         class: "not-prose @container/article-card font-sans",
       },
       {

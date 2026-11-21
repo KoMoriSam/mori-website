@@ -25,24 +25,15 @@
         :to="{ name: item.id }"
         :title="item.title"
         :description="item.description"
-        :cover="item.cover"
-        cover-class="min-h-44 flex-1 sm:min-h-56"
-        compact-on-mobile
-        icon="ri-test-tube-line"
+        :cover="{
+          src: item.cover,
+          icon: 'ri-test-tube-line',
+          class: 'min-h-44 flex-1 sm:min-h-56',
+        }"
+        :tags="[item.label]"
+        layout="responsive"
         action="打开测试"
       >
-        <template #tags="{ coverLoaded }">
-          <span
-            class="badge badge-sm h-auto min-h-5 max-w-full py-0.5 transition-colors duration-300 motion-reduce:transition-none"
-            :class="
-              coverLoaded
-                ? 'border-white/20 bg-black/20 text-white backdrop-blur-sm'
-                : 'badge-primary badge-soft'
-            "
-          >
-            <span class="min-w-0 wrap-break-word">{{ item.label }}</span>
-          </span>
-        </template>
         <template #meta>
           <code
             class="min-w-0 max-w-full break-all text-xs text-base-content/40"

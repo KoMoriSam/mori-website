@@ -27,12 +27,9 @@
       ref="popover"
       popover="auto"
       class="dropdown dropdown-center dropdown-bottom m-0 max-h-72 min-w-56 overscroll-contain overflow-y-auto [overflow-anchor:none] scrollbar-thin rounded-box border border-base-300 bg-base-100! p-1 shadow-lg"
-      :style="{
-        positionAnchor: anchorName,
-        width: 'anchor-size(width)',
-      }"
+      :style="{ positionAnchor: anchorName, width: 'anchor-size(width)' }"
       role="listbox"
-      :aria-label="localizeText(ariaLabel)"
+      :aria-label="resolvedAriaLabel"
       @scroll.passive="onScroll"
       @wheel="onWheel"
       @touchstart.passive="onTouchStart"
@@ -54,15 +51,14 @@
       </div>
 
       <div
-        v-for="group in filteredWebsiteGroups"
-        :key="group.id || group.label"
+        v-if="filteredWebsiteFonts.length"
         role="group"
-        :aria-label="group.label"
+        :aria-label="translate('common.fontSelect.site')"
       >
         <div
           class="bg-base-100 border-b border-base-200 sticky -top-1 z-10 grid grid-cols-[minmax(0,1fr)_2.5rem] items-center gap-1 py-1.5 text-xs leading-4 font-medium text-base-content/55"
         >
-          <span class="px-3">{{ group.label }}</span>
+          <span class="px-3">{{ translate("common.fontSelect.site") }}</span>
           <Tooltip
             adaptive
             placement="left"
@@ -73,38 +69,19 @@
             :text="translate('common.fontSelect.defaultFallback')"
             :aria-label="translate('common.fontSelect.defaultFallback')"
           >
-            {{ translate('common.fontSelect.fallback') }}
+            {{ translate("common.fontSelect.fallback") }}
           </Tooltip>
         </div>
         <div
-          v-for="font in group.fonts"
+          v-for="font in filteredWebsiteFonts"
           :key="font.id"
           class="grid grid-cols-[minmax(0,1fr)_2.5rem] items-center gap-1"
         >
-          <button
-            class="btn btn-sm btn-block relative justify-start ps-7.5 font-normal before:pointer-events-none before:absolute before:left-4 before:font-mono before:opacity-0 before:content-['✓']"
-            :class="[
-              font.style,
-              modelValue === font.id
-                ? 'btn-active before:opacity-100'
-                : 'btn-ghost',
-            ]"
-            :style="fontPreviewStyle(font)"
-            type="button"
-            role="option"
-            :aria-selected="modelValue === font.id"
-            @click="selectFont(font.id)"
-          >
-            <span class="min-w-0 truncate">{{ font.label }}</span>
-            <span
-              v-if="showFontPreview(font)"
-              class="ml-auto shrink-0"
-              :style="fontPreviewStyle(font, true)"
-              :lang="fontPreview(font).language"
-              aria-hidden="true"
-              >{{ fontPreview(font).text }}</span
-            >
-          </button>
+          <FontSelectOption
+            :font="font"
+            :selected="modelValue === font.id"
+            @select="selectFont"
+          />
           <Tooltip
             as="label"
             trigger-class=""
@@ -132,33 +109,15 @@
         <div
           class="bg-base-100 border-b border-base-200 sticky -top-1 z-10 px-3 py-1.5 text-xs leading-4 font-medium text-base-content/55"
         >
-          {{ translate('common.fontSelect.custom') }}
+          {{ translate("common.fontSelect.custom") }}
         </div>
-        <button
+        <FontSelectOption
           v-for="font in filteredUploadedFonts"
           :key="font.id"
-          class="btn btn-sm btn-block relative justify-start ps-7.5 font-normal before:pointer-events-none before:absolute before:left-4 before:font-mono before:opacity-0 before:content-['✓']"
-          :class="[
-            modelValue === font.id
-              ? 'btn-active before:opacity-100'
-              : 'btn-ghost',
-          ]"
-          :style="{ fontFamily: font.fontFamily }"
-          type="button"
-          role="option"
-          :aria-selected="modelValue === font.id"
-          @click="selectFont(font.id)"
-        >
-          <span class="min-w-0 truncate">{{ font.label }}</span>
-          <span
-            v-if="showFontPreview(font)"
-            class="ml-auto shrink-0"
-            :style="fontPreviewStyle(font, true)"
-            :lang="fontPreview(font).language"
-            aria-hidden="true"
-            >{{ fontPreview(font).text }}</span
-          >
-        </button>
+          :font="font"
+          :selected="modelValue === font.id"
+          @select="selectFont"
+        />
         <button
           class="btn btn-ghost btn-sm w-full justify-start"
           type="button"
@@ -173,22 +132,21 @@
           ></span>
           <i v-else class="ri-upload-2-line" aria-hidden="true"></i>
           <span class="ml-0.5">{{
-            isUploadingFont ? translate('common.fontSelect.loadingLabel') : translate('common.fontSelect.upload')
+            isUploadingFont
+              ? translate("common.fontSelect.loadingLabel")
+              : translate("common.fontSelect.upload")
           }}</span>
-          <span
-            v-if="uploadHint"
-            class="ml-1 font-normal text-xs text-base-content/55"
-          >
-          {{ localizeText(uploadHint) }}
+          <span class="ml-1 font-normal text-xs text-base-content/55">
+            {{ translate("common.fontSelect.localOnly") }}
           </span>
         </button>
       </div>
 
-      <div role="group" :aria-label="virtualGroup.label">
+      <div role="group" :aria-label="deviceGroupLabel">
         <div
           class="bg-base-100 border-b border-base-200 sticky -top-1 z-10 px-3 py-1.5 text-xs leading-4 font-medium text-base-content/55"
         >
-          {{ virtualGroup.label }}
+          {{ deviceGroupLabel }}
         </div>
         <button
           class="btn btn-ghost btn-sm w-full justify-start"
@@ -224,43 +182,21 @@
             class="absolute inset-x-0 top-0 flex flex-col will-change-transform"
             :style="virtualWindowStyle"
           >
-            <button
+            <FontSelectOption
               v-for="entry in visibleVirtualFonts"
               :key="entry.font.id"
-              class="btn btn-sm btn-block relative shrink-0 justify-start ps-7.5 font-normal before:pointer-events-none before:absolute before:left-4 before:font-mono before:opacity-0 before:content-['✓']"
-              :class="[
-                entry.font.style,
-                modelValue === entry.font.id
-                  ? 'btn-active before:opacity-100'
-                  : 'btn-ghost',
-              ]"
-              :style="fontPreviewStyle(entry.font)"
-              type="button"
-              role="option"
-              :aria-selected="modelValue === entry.font.id"
-              :aria-posinset="entry.index + 1"
-              :aria-setsize="virtualFonts.length"
-              @click="selectFont(entry.font.id)"
-            >
-              <span class="min-w-0 truncate">{{ entry.font.label }}</span>
-              <span
-                v-if="showFontPreview(entry.font)"
-                class="ml-auto shrink-0"
-                :style="fontPreviewStyle(entry.font, true)"
-                :lang="fontPreview(entry.font).language"
-                aria-hidden="true"
-                >{{ fontPreview(entry.font).text }}</span
-              >
-            </button>
+              :font="entry.font"
+              :selected="modelValue === entry.font.id"
+              :position="{ index: entry.index + 1, size: virtualFonts.length }"
+              @select="selectFont"
+            />
           </div>
         </div>
         <button
           v-if="
             !normalizedFontSearch &&
             localFontLoadingPhase !== 'initial' &&
-            (virtualGroup.hasMore ||
-              virtualGroup.loading ||
-              showLocalFontLoading)
+            (pendingLocalFontCount > 0 || isLoadingMoreLocalFonts || showLocalFontLoading)
           "
           class="btn btn-ghost btn-sm btn-block pointer-events-none justify-start"
           type="button"
@@ -273,17 +209,12 @@
             class="loading loading-dots loading-xs"
             aria-hidden="true"
           ></span>
-
-          <i
-            v-if="!showLocalFontLoading || localFontLoadingPhase !== 'more'"
-            class="ri-arrow-down-line"
-            aria-hidden="true"
-          ></i>
+          <i v-else class="ri-arrow-down-line" aria-hidden="true"></i>
           <span class="ml-0.5">
             {{
               showLocalFontLoading && localFontLoadingPhase === "more"
-                ? translate('common.fontSelect.loading', { p0: virtualGroup.label })
-                : translate('common.fontSelect.loadMore')
+                ? translate("common.fontSelect.loading", { p0: deviceGroupLabel })
+                : translate("common.fontSelect.loadMore")
             }}
           </span>
         </button>
@@ -294,16 +225,15 @@
         class="px-3 py-2 text-sm text-base-content/55"
         role="status"
       >
-        {{ translate('common.fontSelect.noMatches') }}
+        {{ translate("common.fontSelect.noMatches") }}
       </p>
-
     </div>
 
     <input
       ref="fontInput"
       class="hidden"
       type="file"
-      :accept="fontAccept"
+      :accept="DEFAULT_FONT_ACCEPT"
       :disabled="disabled || isUploadingFont"
       @change="onFontFile"
     />
@@ -311,191 +241,20 @@
 </template>
 
 <script setup>
+import { computed, nextTick, ref, useId, watch } from "vue";
 import Tooltip from "@/components/display/Tooltip.vue";
-
-import { useLocale } from '@/i18n';
-const { t: translate, text: localizeText } = useLocale();
-
+import FontSelectOption from "./FontSelectOption.vue";
+import { useLocale } from "@/i18n";
+import { useLocalFonts } from "@/composables/useLocalFonts";
 import {
-  computed,
-  nextTick,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  shallowRef,
-  useId,
-  watch,
-} from "vue";
-import { useToast } from "@/composables/useToast";
-import {
-  localFontFamilySupportsWeight,
-  localizeKnownFontFamily,
-  readLocalFontFaceWeight,
-  readLocalizedFontFamilyBlob,
-  shouldAvoidLocalFontPreview,
-  stripLocalFontStyleSuffix,
-} from "@/utils/font-name";
+  FONT_ROW_HEIGHT,
+  useFontVirtualWindow,
+} from "@/composables/useFontVirtualWindow";
+import { getFontPreviewStyle } from "@/utils/font-name";
 
-const FONT_ROW_HEIGHT = 32;
-const GROUP_HEADER_HEIGHT = 28;
-const SEARCH_HEADER_HEIGHT = 40;
-const POPOVER_PADDING = 4;
-const POPOVER_VIEWPORT_HEIGHT = 288;
-const FONT_WINDOW_SIZE = 10;
-const FONT_OVERSCAN = 1;
-const LOCAL_FONT_BATCH_SIZE = 256;
-const UPLOAD_ACTION_HEIGHT = 32;
-const UPLOAD_HINT_HEIGHT = 20;
-const DEVICE_ACTION_HEIGHT = 32;
-const LOADING_INDICATOR_DELAY = 180;
-const LOADING_INDICATOR_MIN_DURATION = 240;
 const DEFAULT_FONT_ACCEPT =
   ".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2";
-const SINHALA_UNICODE_DEVICE_FONT_NAMES = [
-  "Nirmala UI",
-  "Iskoola Pota",
-  "Sinhala Sangam MN",
-  "Sinhala MN",
-  "Noto Sans Sinhala",
-  "Noto Sans Sinhala UI",
-  "Noto Serif Sinhala",
-  "Abhaya Libre",
-  "Gemunu Libre",
-  "Maname",
-  "LKLUG",
-  "Potha",
-  "Malithi Web",
-  "Bhashitha",
-  "DinaminaUniWeb",
-];
-const SINHALA_LEGACY_DEVICE_FONT_NAMES = [
-  "FM Abhaya",
-  "FM Malithi",
-  "FM Gemunu",
-  "FM Bindumathi",
-  "FM Derana",
-  "FM Ganganee",
-  "FM Emanee",
-  "FM Samantha",
-  "FM Rajantha",
-  "FM Arjunn",
-  "FM Basuru",
-  "FM Rashmee",
-  "FM Sandhyanee",
-  "FM Abbaya",
-  "FM Aba",
-  "FM Bindu",
-  "FM Gangani",
-  "FM Gemun",
-  "FM Saman",
-  "FM Ababld",
-  "FM Econbld",
-  "DL Araliya",
-  "DL Manel",
-  "DL Lihini",
-  "DL Ridhma",
-  "DL Sumudu",
-  "DL Malathi",
-  "DL Thisaru",
-  "DL Anurada",
-  "DL Anuradha",
-  "DL Biso",
-  "DL Champika",
-  "DL Hansika",
-  "DL Harini",
-  "DL Kinduru",
-  "DL Kusumi",
-  "DL Nelumi",
-  "DL Nirosha",
-  "DL Nisansala",
-  "DL Paras",
-  "DL Priyanwada",
-  "DL Pumi",
-  "DL Sarala",
-  "FS Araliya",
-  "DS Araliya",
-  "Kaputa.com",
-  "Kaputadotcom",
-  "Thibus Sinhala",
-  "ThibusStru",
-  "Amalee",
-  "Tipitaka Sinhala1",
-  "SinhManel",
-  "SinNelumA",
-  "aKandyNew",
-  "aKandyNewSupplement",
-  "Kandy",
-  "Kandy Supplement",
-  "Lankadeepa",
-  "LankaNatha",
-  "Lankapura",
-  "Lankadveepa",
-  "Lankathilaka",
-  "Mahanuwara",
-  "Matale",
-  "MataraNormal",
-  "MataraSupplement",
-  "NidahasaHiru",
-  "NidahasaChapa",
-  "NidahasaMadu",
-  "NidahasaSadareka",
-  "NidahasaSarasavi",
-  "Padma",
-  "SinhalaTekTon",
-  "Thara",
-];
-const sinhalaUnicodeDeviceFontOrder = new Map(
-  SINHALA_UNICODE_DEVICE_FONT_NAMES.map((name, index) => [
-    normalizeSinhalaFontName(name),
-    index,
-  ]),
-);
-const sinhalaLegacyDeviceFontOrder = new Map(
-  SINHALA_LEGACY_DEVICE_FONT_NAMES.map((name, index) => [
-    normalizeSinhalaFontName(name),
-    index,
-  ]),
-);
-const SINHALA_LEGACY_SERIES = [
-  /^fm[\s_-]*/iu,
-  /^dl[\s_-]+/iu,
-  /^ds[\s_-]+/iu,
-  /^fs[\s_-]+/iu,
-  /^npw[\s_-]+/iu,
-  /^ams[\s_-]*/iu,
-  /^sara[\s_-]+/iu,
-  /^apex\d/iu,
-  /^ridi\d/iu,
-  /^tharu[\s_-]*digital/iu,
-  /^wije\d/iu,
-  /^0kd/iu,
-  /^4u[\s_-]+/iu,
-  /^am[\s_-]+/iu,
-  /^aa[\s_-]+/iu,
-  /^thibus/iu,
-];
-const HAN_TEXT_PATTERN = /[\u3400-\u9fff\uf900-\ufaff]/u;
-const FONT_LANGUAGE_PREVIEWS = [
-  [
-    /sinhala|abhaya|gemunu|maname|nirmala|iskoola|potha|malithi|bhashitha|dinamina|lklug|^un[-_\s]/iu,
-    "සිංහල 123",
-    "si",
-  ],
-  [
-    /japanese|hiragino|meiryo|yu\s*(?:gothic|mincho)|noto\s*(?:sans|serif)\s*jp/iu,
-    "日本語 123",
-    "ja",
-  ],
-  [/korean|hangul|malgun|nanum|noto\s*(?:sans|serif)\s*kr/iu, "한글 123", "ko"],
-  [/arabic|naskh|kufi/iu, "عربي 123", "ar"],
-  [/devanagari|hindi/iu, "हिन्दी 123", "hi"],
-  [/bengali|bangla/iu, "বাংলা 123", "bn"],
-  [/tamil/iu, "தமிழ் 123", "ta"],
-  [/thai/iu, "ไทย 123", "th"],
-  [/hebrew/iu, "עברית 123", "he"],
-  [/cyrillic/iu, "Аа123", "ru"],
-  [/chinese|cjk|han\b|[\u3400-\u9fff]/iu, "中文 123", "zh"],
-];
+
 const selectSizeClasses = {
   xs: "select-xs",
   sm: "select-sm",
@@ -508,28 +267,17 @@ const props = defineProps({
   modelValue: { type: String, required: true },
   fallbackFontId: { type: String, default: "" },
   websiteFonts: { type: Array, default: () => [] },
-  uploadedPreviewText: { type: String, default: "" },
-  uploadedPreviewLanguage: { type: String, default: "" },
-  localPreviewText: { type: String, default: "" },
-  localPreviewLanguage: { type: String, default: "" },
-  localFontCoverage: {
-    type: String,
-    default: "all",
-    validator: (value) =>
-      ["all", "sinhala-unicode", "sinhala-legacy"].includes(value),
-  },
+  preview: { type: Object, default: null },
+  localFontFilter: { type: Function, default: null },
+  probeLocalFonts: { type: Function, default: null },
+  resolveCssFontMatcher: { type: Function, default: null },
   disabled: { type: Boolean, default: false },
   size: {
     type: String,
     default: "",
     validator: (value) => ["", "xs", "sm", "md", "lg", "xl"].includes(value),
   },
-  ariaLabel: { type: String, default: "字体" },
-  fontAccept: { type: String, default: DEFAULT_FONT_ACCEPT },
-  uploadHint: {
-    type: String,
-    default: "仅本地处理",
-  },
+  ariaLabel: { type: String, default: "" },
 });
 
 const emit = defineEmits([
@@ -537,74 +285,71 @@ const emit = defineEmits([
   "update:fallbackFontId",
   "select",
 ]);
-const toast = useToast();
+
+const { t: translate, text: localizeText } = useLocale();
 const trigger = ref(null);
 const popover = ref(null);
 const fontSearchQuery = ref("");
 const fontInput = ref(null);
 const virtualContainer = ref(null);
 const isOpen = ref(false);
-const virtualStart = ref(0);
-const localFonts = shallowRef([]);
-const uploadedFonts = ref([]);
-const supportsLocalFontAccess = ref(false);
-const isReadingLocalFonts = ref(false);
-const isLoadingMoreLocalFonts = ref(false);
-const showLocalFontLoading = ref(false);
-const localFontLoadingPhase = ref(null);
-const isUploadingFont = ref(false);
-const hasReadLocalFonts = ref(false);
-const pendingLocalFontCount = ref(0);
-const totalLocalFontCount = ref(0);
 const componentId = useId().replace(/[^a-zA-Z0-9_-]/g, "");
 const popoverId = `font-select-${componentId}`;
 const anchorName = `--${popoverId}`;
 const fallbackRadioName = `font-fallback-${componentId}`;
 const localFallbackFontId = ref(props.fallbackFontId);
-let pendingVirtualStart = 0;
-let scrollFrame = 0;
-let pendingLocalFonts = [];
-let uploadedFontId = 0;
-let loadedFontFamilyId = 0;
-let localFontLoadingDelayTimer = 0;
-let localFontLoadingHideTimer = 0;
-let localFontLoadingShownAt = 0;
-let lastTouchY = null;
-const customFontSources = new Map();
-const localFontFamilies = new Map();
-const registeredCssLocalFonts = new Map();
-const localFontSources = new Map();
-const registeredLocalFonts = new Set();
-let localFontStyle = null;
-const loadedFontFaces = new Map();
-const pendingFontLoads = new Map();
 
-const fontGroups = computed(() => [
-  { id: "uploaded", get label() { return translate('common.fontSelect.upload'); }, fonts: uploadedFonts.value },
-  { id: "website", get label() { return translate('common.fontSelect.site'); }, fonts: props.websiteFonts },
-  {
-    id: "device",
-    get label() { return translate('common.fontSelect.device'); },
-    fonts: localFonts.value,
-    virtual: true,
-    hasMore: pendingLocalFontCount.value > 0,
-    loading: isLoadingMoreLocalFonts.value,
-    loadMore: loadMoreLocalFonts,
-  },
-]);
-
-const websiteGroups = computed(() =>
-  fontGroups.value.filter(
-    (group) =>
-      group.id !== "uploaded" &&
-      !group.virtual &&
-      Array.isArray(group.fonts) &&
-      group.fonts.length,
-  ),
+const effectiveFallbackFontId = computed(
+  () =>
+    props.fallbackFontId ||
+    localFallbackFontId.value ||
+    props.websiteFonts[0]?.id ||
+    "",
 );
+
+const {
+  localFonts,
+  uploadedFonts,
+  supportsLocalFontAccess,
+  isReadingLocalFonts,
+  isLoadingMoreLocalFonts,
+  showLocalFontLoading,
+  localFontLoadingPhase,
+  isUploadingFont,
+  hasReadLocalFonts,
+  pendingLocalFontCount,
+  isLocalFontLoading,
+  localFontActionLabel,
+  getPendingLocalFontEntries,
+  uploadFontFile,
+  readLocalFonts,
+  loadMoreLocalFonts,
+  ensureLocalFontAlias,
+  resolveFontFamily,
+  resolveFont,
+  selectedDocumentFontInfo,
+} = useLocalFonts({
+  componentId,
+  getModelValue: () => props.modelValue,
+  getWebsiteFonts: () => props.websiteFonts,
+  getEffectiveFallbackFontId: () => effectiveFallbackFontId.value,
+  getPreview: () => props.preview,
+  getLocalFontFilter: () => props.localFontFilter,
+  getProbeLocalFonts: () => props.probeLocalFonts,
+  getCssFontMatcher: () => props.resolveCssFontMatcher,
+  onBatchLoaded: () => syncVirtualWindow(popover.value, true),
+});
+
+const resolvedAriaLabel = computed(() =>
+  props.ariaLabel
+    ? localizeText(props.ariaLabel)
+    : translate("common.fontSelect.font"),
+);
+const deviceGroupLabel = computed(() => translate("common.fontSelect.device"));
 const normalizedFontSearch = computed(() =>
   fontSearchQuery.value.trim().toLocaleLowerCase(),
 );
+
 function matchesFontSearch(font) {
   if (!normalizedFontSearch.value) return true;
   return [font.label, font.fontFamily, font.id].some((value) =>
@@ -613,41 +358,55 @@ function matchesFontSearch(font) {
       .includes(normalizedFontSearch.value),
   );
 }
-const filteredWebsiteGroups = computed(() =>
-  websiteGroups.value
-    .map((group) => ({
-      ...group,
-      fonts: group.fonts.filter(matchesFontSearch),
-    }))
-    .filter((group) => group.fonts.length),
+
+const filteredWebsiteFonts = computed(() =>
+  props.websiteFonts.filter(matchesFontSearch),
 );
 const filteredUploadedFonts = computed(() =>
   uploadedFonts.value.filter(matchesFontSearch),
 );
-const virtualGroup = computed(() =>
-  fontGroups.value.find((group) => group.virtual),
-);
 const virtualFonts = computed(() => {
-  if (!normalizedFontSearch.value) return virtualGroup.value?.fonts || [];
-  return [
-    ...localFonts.value,
-    ...pendingLocalFonts.map(({ entry }) => entry),
-  ].filter(matchesFontSearch);
+  if (!normalizedFontSearch.value) return localFonts.value;
+  return [...localFonts.value, ...getPendingLocalFontEntries()].filter(
+    matchesFontSearch,
+  );
 });
 const hasSearchResults = computed(
   () =>
-    filteredWebsiteGroups.value.length > 0 ||
+    filteredWebsiteFonts.value.length > 0 ||
     filteredUploadedFonts.value.length > 0 ||
     virtualFonts.value.length > 0,
 );
-const visibleVirtualFonts = computed(() =>
-  virtualFonts.value
-    .slice(virtualStart.value, virtualStart.value + FONT_WINDOW_SIZE)
-    .map((font, offset) => ({
-      font,
-      index: virtualStart.value + offset,
-    })),
-);
+
+const {
+  visibleVirtualFonts,
+  virtualWindowStyle,
+  cancelPendingWork,
+  resetVirtualWindow,
+  syncVirtualWindow,
+  prepareSelectedFontPosition,
+  onScroll,
+  onWheel,
+  onTouchStart,
+  onTouchMove,
+  resetTouchPosition,
+  onKeydown,
+} = useFontVirtualWindow({
+  virtualContainer,
+  filteredWebsiteFonts,
+  filteredUploadedFonts,
+  virtualFonts,
+  getModelValue: () => props.modelValue,
+  canLoadMore: () =>
+    !normalizedFontSearch.value &&
+    pendingLocalFontCount.value > 0 &&
+    !isLocalFontLoading.value &&
+    !showLocalFontLoading.value,
+  loadMore: () => {
+    void loadMoreLocalFonts();
+  },
+});
+
 watch(
   visibleVirtualFonts,
   (fonts) => {
@@ -655,65 +414,29 @@ watch(
   },
   { flush: "post" },
 );
-const virtualWindowStyle = computed(() => ({
-  transform: `translate3d(0, ${virtualStart.value * FONT_ROW_HEIGHT}px, 0)`,
-}));
-const selectedFont = computed(() =>
-  fontGroups.value
-    .map((group) => group.fonts?.find(({ id }) => id === props.modelValue))
-    .find(Boolean),
-);
-const selectedFontStyle = computed(() => fontPreviewStyle(selectedFont.value));
-const selectedFontLabel = computed(() =>
-  selectedFont.value ? selectedFont.value.label : translate('common.fontSelect.choose'),
-);
-const effectiveFallbackFontId = computed(
-  () =>
-    props.fallbackFontId ||
-    localFallbackFontId.value ||
-    props.websiteFonts[0]?.id ||
-    "",
-);
-const localFontActionLabel = computed(() => {
-  if (!supportsLocalFontAccess.value) return translate('common.fontSelect.deviceUnsupported');
-  if (showLocalFontLoading.value && localFontLoadingPhase.value === "initial")
-    return translate('common.fontSelect.readingDevice');
-  if (isReadingLocalFonts.value) return translate('common.fontSelect.readDevice');
-  if (pendingLocalFontCount.value)
-    return translate('common.fontSelect.loadProgress', { p0: localFonts.value.length, p1: totalLocalFontCount.value });
-  if (localFonts.value.length)
-    return translate('common.fontSelect.deviceLoaded', { p0: localFonts.value.length });
-  if (hasReadLocalFonts.value) return translate('common.fontSelect.noDeviceFonts');
-  return translate('common.fontSelect.readDevice');
-});
-const isLocalFontLoading = computed(
-  () => isReadingLocalFonts.value || isLoadingMoreLocalFonts.value,
-);
 
-watch(isLocalFontLoading, updateLocalFontLoadingIndicator, {
-  flush: "sync",
+const selectedFont = computed(() => {
+  const targetId = props.modelValue;
+  return (
+    uploadedFonts.value.find(({ id }) => id === targetId) ||
+    props.websiteFonts.find(({ id }) => id === targetId) ||
+    localFonts.value.find(({ id }) => id === targetId) ||
+    getPendingLocalFontEntries().find(({ id }) => id === targetId) ||
+    null
+  );
 });
+const selectedFontStyle = computed(() => getFontPreviewStyle(selectedFont.value));
+const selectedFontLabel = computed(() =>
+  selectedFont.value
+    ? selectedFont.value.label
+    : translate("common.fontSelect.choose"),
+);
 
 watch(fontSearchQuery, async () => {
-  cancelPendingWork();
-  virtualStart.value = 0;
-  pendingVirtualStart = 0;
+  resetVirtualWindow();
   if (popover.value) popover.value.scrollTop = 0;
   await nextTick();
   syncVirtualWindow(popover.value, true);
-});
-
-onMounted(() => {
-  supportsLocalFontAccess.value =
-    window.isSecureContext && typeof window.queryLocalFonts === "function";
-});
-
-onBeforeUnmount(() => {
-  cancelPendingWork();
-  clearTimeout(localFontLoadingDelayTimer);
-  clearTimeout(localFontLoadingHideTimer);
-  for (const { face } of loadedFontFaces.values()) document.fonts?.delete(face);
-  localFontStyle?.remove();
 });
 
 function onPopoverToggle(event) {
@@ -728,194 +451,6 @@ function onPopoverToggle(event) {
   fontSearchQuery.value = "";
 }
 
-function onScroll(event) {
-  syncVirtualWindow(event.currentTarget);
-}
-
-function onWheel(event) {
-  if (event.deltaY <= 0 || !tryLoadMoreAtEnd(event.currentTarget)) return;
-  event.preventDefault();
-}
-
-function onTouchStart(event) {
-  lastTouchY = event.touches[0]?.clientY ?? null;
-}
-
-function onTouchMove(event) {
-  const touchY = event.touches[0]?.clientY;
-  if (touchY == null) return;
-  const pullingDown = lastTouchY != null && lastTouchY - touchY > 2;
-  lastTouchY = touchY;
-  if (!pullingDown || !tryLoadMoreAtEnd(event.currentTarget)) return;
-  event.preventDefault();
-}
-
-function resetTouchPosition() {
-  lastTouchY = null;
-}
-
-function onKeydown(event) {
-  if (
-    !["ArrowDown", "PageDown", "End"].includes(event.key) ||
-    !tryLoadMoreAtEnd(event.currentTarget)
-  )
-    return;
-  event.preventDefault();
-}
-
-function tryLoadMoreAtEnd(list) {
-  if (
-    !list ||
-    normalizedFontSearch.value ||
-    !virtualGroup.value?.hasMore ||
-    isLocalFontLoading.value ||
-    showLocalFontLoading.value ||
-    list.scrollHeight - list.clientHeight - list.scrollTop > 2
-  )
-    return false;
-  loadMoreFonts();
-  return true;
-}
-
-function syncVirtualWindow(list, immediate = false) {
-  if (!list) return;
-  const virtualScrollTop = Math.max(0, list.scrollTop - getVirtualListTop());
-  const maxStart = Math.max(0, virtualFonts.value.length - FONT_WINDOW_SIZE);
-  pendingVirtualStart = Math.min(
-    maxStart,
-    Math.max(0, Math.floor(virtualScrollTop / FONT_ROW_HEIGHT) - FONT_OVERSCAN),
-  );
-
-  if (immediate) {
-    if (scrollFrame) cancelAnimationFrame(scrollFrame);
-    scrollFrame = 0;
-    virtualStart.value = pendingVirtualStart;
-    return;
-  }
-
-  if (!scrollFrame) {
-    scrollFrame = requestAnimationFrame(() => {
-      scrollFrame = 0;
-      virtualStart.value = pendingVirtualStart;
-    });
-  }
-}
-
-function prepareSelectedFontPosition() {
-  let contentTop = POPOVER_PADDING + SEARCH_HEADER_HEIGHT;
-  for (const group of filteredWebsiteGroups.value) {
-    contentTop += GROUP_HEADER_HEIGHT;
-    const selectedIndex = group.fonts.findIndex(
-      ({ id }) => id === props.modelValue,
-    );
-    if (selectedIndex >= 0) {
-      virtualStart.value = 0;
-      pendingVirtualStart = 0;
-      return centerRow(contentTop + selectedIndex * FONT_ROW_HEIGHT);
-    }
-    contentTop += group.fonts.length * FONT_ROW_HEIGHT;
-  }
-
-  contentTop += GROUP_HEADER_HEIGHT;
-  const uploadedIndex = filteredUploadedFonts.value.findIndex(
-    ({ id }) => id === props.modelValue,
-  );
-  if (uploadedIndex >= 0) {
-    virtualStart.value = 0;
-    pendingVirtualStart = 0;
-    return centerRow(contentTop + uploadedIndex * FONT_ROW_HEIGHT);
-  }
-
-  const selectedIndex = virtualFonts.value.findIndex(
-    ({ id }) => id === props.modelValue,
-  );
-  if (selectedIndex < 0) {
-    virtualStart.value = 0;
-    pendingVirtualStart = 0;
-    return 0;
-  }
-  const maxStart = Math.max(0, virtualFonts.value.length - FONT_WINDOW_SIZE);
-  const nextStart = Math.max(
-    0,
-    Math.min(maxStart, selectedIndex - Math.floor(FONT_WINDOW_SIZE / 2)),
-  );
-  virtualStart.value = nextStart;
-  pendingVirtualStart = nextStart;
-  return centerRow(getVirtualListTop() + selectedIndex * FONT_ROW_HEIGHT);
-}
-
-function getVirtualListTop() {
-  if (virtualContainer.value) return virtualContainer.value.offsetTop;
-  return (
-    POPOVER_PADDING +
-    SEARCH_HEADER_HEIGHT +
-    filteredWebsiteGroups.value.reduce(
-      (height, group) =>
-        height + GROUP_HEADER_HEIGHT + group.fonts.length * FONT_ROW_HEIGHT,
-      0,
-    ) +
-    GROUP_HEADER_HEIGHT +
-    filteredUploadedFonts.value.length * FONT_ROW_HEIGHT +
-    UPLOAD_ACTION_HEIGHT +
-    (props.uploadHint ? UPLOAD_HINT_HEIGHT : 0) +
-    GROUP_HEADER_HEIGHT +
-    DEVICE_ACTION_HEIGHT
-  );
-}
-
-function centerRow(rowTop) {
-  return Math.max(
-    0,
-    rowTop -
-      SEARCH_HEADER_HEIGHT -
-      (POPOVER_VIEWPORT_HEIGHT - SEARCH_HEADER_HEIGHT - FONT_ROW_HEIGHT) / 2,
-  );
-}
-
-function fontPreview(font) {
-  if (font.previewText) {
-    return { text: font.previewText, language: font.previewLanguage || "" };
-  }
-  const name = [font.label, font.id].filter(Boolean).join(" ");
-  const match = FONT_LANGUAGE_PREVIEWS.find(([pattern]) => pattern.test(name));
-  return match
-    ? { text: match[1], language: match[2] }
-    : { text: "Aa123", language: "en" };
-}
-
-function showFontPreview(font) {
-  return font?.previewFontFamily !== null || Boolean(font.previewText);
-}
-
-function fontPreviewStyle(font, sample = false) {
-  if (!font) return null;
-  if (sample && font.cssVariable)
-    return { fontFamily: `var(${font.cssVariable})` };
-  const family = Object.hasOwn(font, "previewFontFamily")
-    ? font.previewFontFamily
-    : font.fontFamily;
-  return family || (sample && font.fontFamily)
-    ? { fontFamily: family || font.fontFamily }
-    : null;
-}
-
-function loadMoreFonts() {
-  const group = virtualGroup.value;
-  if (
-    !group?.hasMore ||
-    group.loading ||
-    isReadingLocalFonts.value ||
-    showLocalFontLoading.value ||
-    typeof group.loadMore !== "function"
-  )
-    return;
-  try {
-    void Promise.resolve(group.loadMore()).catch(() => {});
-  } catch {
-    // The group owns its loading error state.
-  }
-}
-
 function openFontPicker() {
   if (props.disabled || isUploadingFont.value) return;
   fontInput.value?.click();
@@ -925,448 +460,10 @@ async function onFontFile(event) {
   const file = event.target.files?.[0];
   event.target.value = "";
   if (!file) return;
-  const id = `upload:${++uploadedFontId}`;
-  const entry = {
-    id,
-    label: file.name.replace(/\.[^.]+$/, "") || file.name,
-    supportsFontWeight: false,
-    previewText: props.uploadedPreviewText,
-    previewLanguage: props.uploadedPreviewLanguage,
-  };
-  customFontSources.set(id, file);
-  isUploadingFont.value = true;
-  try {
-    entry.fontFamily = await loadCustomFont(id);
-    uploadedFonts.value.unshift(entry);
-    emit("select", id);
-    emit("update:modelValue", id);
-  } catch (error) {
-    customFontSources.delete(id);
-    toast.error(
-      `${file.name}：${error instanceof Error ? error.message : translate('common.fontSelect.loadFailed')}`,
-    );
-  } finally {
-    isUploadingFont.value = false;
-  }
-}
-
-async function readLocalFonts() {
-  if (
-    !supportsLocalFontAccess.value ||
-    isReadingLocalFonts.value ||
-    isLoadingMoreLocalFonts.value ||
-    hasReadLocalFonts.value
-  )
-    return;
-  localFontLoadingPhase.value = "initial";
-  isReadingLocalFonts.value = true;
-  try {
-    const fonts = await window.queryLocalFonts();
-    hasReadLocalFonts.value = true;
-    const uniqueFonts = new Map();
-    const nextLocalFontFamilies = new Map();
-    const registeredCssFonts =
-      props.localFontCoverage === "sinhala-unicode"
-        ? getRegisteredCssFontFamilies()
-        : new Map();
-    registeredCssLocalFonts.clear();
-    const fontPriority =
-      props.localFontCoverage === "sinhala-unicode"
-        ? sinhalaFontPriority
-        : props.localFontCoverage === "sinhala-legacy"
-          ? sinhalaLegacyFontPriority
-          : null;
-    const readableFonts =
-      props.localFontCoverage === "sinhala-legacy"
-        ? [...fonts, ...(await probeLegacyLocalFonts(fonts))]
-        : fonts;
-    const availableFonts = fontPriority
-      ? readableFonts
-          .map((font) => ({ font, priority: fontPriority(font) }))
-          .filter(({ priority }) => priority !== Infinity)
-          .sort((a, b) => a.priority - b.priority)
-          .map(({ font }) => font)
-      : readableFonts;
-    for (const font of availableFonts) {
-      const family =
-        font.family || font.fullName || font.postscriptName || translate('common.fontSelect.unnamed');
-      const sourceKey = family.toLocaleLowerCase();
-      const existing = uniqueFonts.get(sourceKey);
-      if (existing) {
-        existing.faces.push(font);
-        continue;
-      }
-      const id = `local:${encodeURIComponent(sourceKey)}`;
-      const registeredCssFont = registeredCssFonts.get(
-        normalizeSinhalaFontName(family),
-      );
-      const fontFamily = quoteFontFamily(
-        `Mori Device Font ${componentId} ${uniqueFonts.size}`,
-      );
-      const metadataLabel = [font.family, font.fullName].find((name) =>
-        HAN_TEXT_PATTERN.test(name || ""),
-      );
-      const fallbackLabel =
-        metadataLabel || localizeKnownFontFamily(family) || family;
-      const avoidPreview = shouldAvoidLocalFontPreview(font);
-      nextLocalFontFamilies.set(id, fontFamily);
-      if (registeredCssFont)
-        registeredCssLocalFonts.set(id, {
-          family: quoteFontFamily(registeredCssFont.family),
-          inputFallbackFamily: registeredCssFont.sizeAdjust
-            ? quoteFontFamily(
-                `Mori Device Input Font ${componentId} ${uniqueFonts.size}`,
-              )
-            : fontFamily,
-          sizeAdjust: registeredCssFont.sizeAdjust,
-        });
-      uniqueFonts.set(sourceKey, {
-        faces: [font],
-        entry: {
-          id,
-          label: stripLocalFontStyleSuffix(fallbackLabel, font),
-          fontFamily,
-          previewFontFamily: avoidPreview ? null : fontFamily,
-          previewText:
-            props.localFontCoverage === "sinhala-unicode" || !avoidPreview
-              ? props.localPreviewText
-              : "",
-          previewLanguage: props.localPreviewLanguage,
-        },
-      });
-    }
-    const nextLocalFonts = [...uniqueFonts.values()].map(
-      ({ entry, faces }) => ({
-        entry: {
-          ...entry,
-          supportsFontWeight: localFontFamilySupportsWeight(faces),
-        },
-      }),
-    );
-    if (props.localFontCoverage === "all")
-      nextLocalFonts.sort((a, b) => a.entry.label.localeCompare(b.entry.label));
-    localFontFamilies.clear();
-    localFontSources.clear();
-    for (const { entry, faces } of uniqueFonts.values())
-      localFontSources.set(entry.id, faces);
-    for (const { entry } of nextLocalFonts)
-      localFontFamilies.set(entry.id, nextLocalFontFamilies.get(entry.id));
-    localFonts.value = [];
-    pendingLocalFonts = nextLocalFonts;
-    pendingLocalFontCount.value = nextLocalFonts.length;
-    totalLocalFontCount.value = nextLocalFonts.length;
-    await loadMoreLocalFonts();
-    if (totalLocalFontCount.value)
-      toast.success(translate('common.fontSelect.deviceLoaded', { p0: totalLocalFontCount.value }));
-    else toast.info(translate('common.fontSelect.noUsableFonts'));
-  } catch (error) {
-    if (error?.name === "NotAllowedError")
-      toast.warning(translate('common.fontSelect.accessDenied'));
-    else
-      toast.error(error instanceof Error ? error.message : translate('common.fontSelect.readFailed'));
-  } finally {
-    isReadingLocalFonts.value = false;
-  }
-}
-
-function normalizeSinhalaFontName(name) {
-  return String(name || "")
-    .toLocaleLowerCase()
-    .replace(/[\s_-]+/g, "")
-    .replace(/(?:regular|semilight|semibold|medium|light|bold|variable)$/u, "");
-}
-
-function getRegisteredCssFontFamilies() {
-  const families = new Map();
-  function collect(rules) {
-    for (const rule of rules) {
-      if (rule.type === CSSRule.FONT_FACE_RULE) {
-        const family = rule.style
-          .getPropertyValue("font-family")
-          .trim()
-          .replace(/^(?:"([^"]+)"|'([^']+)')$/u, "$1$2");
-        const key = normalizeSinhalaFontName(family);
-        if (!key || family.startsWith("Mori Device Font ")) continue;
-        const sizeAdjust = rule.style.getPropertyValue("size-adjust").trim();
-        if (!families.has(key) || (sizeAdjust && !families.get(key).sizeAdjust))
-          families.set(key, { family, sizeAdjust });
-      } else if ("cssRules" in rule) {
-        try {
-          collect(rule.cssRules);
-        } catch {
-          // Cross-origin stylesheets cannot be inspected.
-        }
-      } else if (rule.styleSheet) {
-        try {
-          collect(rule.styleSheet.cssRules);
-        } catch {
-          // Cross-origin imports cannot be inspected.
-        }
-      }
-    }
-  }
-  for (const sheet of document.styleSheets) {
-    try {
-      collect(sheet.cssRules);
-    } catch {
-      // Cross-origin stylesheets cannot be inspected.
-    }
-  }
-  return families;
-}
-
-function sinhalaFontPriority(font) {
-  let isUnSeries = false;
-  for (const name of [font.family, font.fullName, font.postscriptName]) {
-    const priority = sinhalaUnicodeDeviceFontOrder.get(
-      normalizeSinhalaFontName(name),
-    );
-    if (priority !== undefined) return priority;
-    if (/^UN[-_\s]+/iu.test(name || "")) isUnSeries = true;
-  }
-  return isUnSeries ? SINHALA_UNICODE_DEVICE_FONT_NAMES.length : Infinity;
-}
-
-function sinhalaLegacyFontPriority(font) {
-  const names = [font.family, font.fullName, font.postscriptName].filter(Boolean);
-  if (names.some((name) => /unicode|uniweb|malithi[\s_-]*web/iu.test(name)))
-    return Infinity;
-  let seriesPriority = Infinity;
-  for (const name of names) {
-    const priority = sinhalaLegacyDeviceFontOrder.get(
-      normalizeSinhalaFontName(name),
-    );
-    if (priority !== undefined) return priority;
-    const seriesIndex = SINHALA_LEGACY_SERIES.findIndex((pattern) =>
-      pattern.test(name),
-    );
-    if (seriesIndex >= 0)
-      seriesPriority = Math.min(seriesPriority, seriesIndex);
-  }
-  return seriesPriority === Infinity
-    ? Infinity
-    : SINHALA_LEGACY_DEVICE_FONT_NAMES.length + seriesPriority;
-}
-
-async function probeLegacyLocalFonts(fonts) {
-  if (typeof FontFace !== "function") return [];
-  const existingFamilies = new Set(
-    fonts.map((font) => normalizeLegacyFamilyKey(font.family || font.fullName)),
-  );
-  const found = [];
-  for (const name of SINHALA_LEGACY_DEVICE_FONT_NAMES) {
-    const family = name.replace(/[\s_-]+/g, "");
-    const key = normalizeLegacyFamilyKey(family);
-    if (existingFamilies.has(key)) continue;
-    const candidates = name.startsWith("FM ")
-      ? [
-          `${family} x`,
-          `${family}  Bold`,
-          `${family} Bold`,
-          family,
-          `${name} x`,
-          name,
-        ]
-      : [name, name.replaceAll(" ", "-"), family];
-    for (const candidate of new Set(candidates)) {
-      try {
-        await new FontFace(
-          "Mori Legacy Font Probe",
-          `local(${quoteFontFamily(candidate)})`,
-        ).load();
-        found.push({
-          family,
-          fullName: candidate,
-          style: /bold/iu.test(candidate) ? "Bold" : "Regular",
-        });
-        existingFamilies.add(key);
-        break;
-      } catch {
-        // This font name is not available on the device.
-      }
-    }
-  }
-  return found;
-}
-
-function normalizeLegacyFamilyKey(name) {
-  const key = normalizeSinhalaFontName(name);
-  return key.startsWith("fm") ? key.replace(/x$/u, "") : key;
-}
-
-async function loadMoreLocalFonts() {
-  if (isLoadingMoreLocalFonts.value || !pendingLocalFonts.length) return;
-  if (!isReadingLocalFonts.value) localFontLoadingPhase.value = "more";
-  isLoadingMoreLocalFonts.value = true;
-  const batch = pendingLocalFonts.slice(0, LOCAL_FONT_BATCH_SIZE);
-  try {
-    await waitForPaint();
-    pendingLocalFonts = pendingLocalFonts.slice(batch.length);
-    pendingLocalFontCount.value = pendingLocalFonts.length;
-    localFonts.value = [
-      ...localFonts.value,
-      ...batch.map(({ entry }) => entry),
-    ];
-    await nextTick();
-    syncVirtualWindow(popover.value, true);
-    await waitForPaint();
-  } finally {
-    isLoadingMoreLocalFonts.value = false;
-  }
-}
-
-function updateLocalFontLoadingIndicator(loading) {
-  clearTimeout(localFontLoadingDelayTimer);
-  clearTimeout(localFontLoadingHideTimer);
-  if (loading) {
-    if (showLocalFontLoading.value) return;
-    localFontLoadingDelayTimer = setTimeout(() => {
-      localFontLoadingShownAt = performance.now();
-      showLocalFontLoading.value = true;
-    }, LOADING_INDICATOR_DELAY);
-    return;
-  }
-  if (!showLocalFontLoading.value) {
-    localFontLoadingPhase.value = null;
-    return;
-  }
-  const elapsed = performance.now() - localFontLoadingShownAt;
-  localFontLoadingHideTimer = setTimeout(
-    () => {
-      showLocalFontLoading.value = false;
-      localFontLoadingPhase.value = null;
-    },
-    Math.max(0, LOADING_INDICATOR_MIN_DURATION - elapsed),
-  );
-}
-
-function waitForPaint() {
-  return new Promise((resolve) =>
-    requestAnimationFrame(() => requestAnimationFrame(resolve)),
-  );
-}
-
-async function resolveFontFamily(fontId = props.modelValue, text = "") {
-  const websiteFont = props.websiteFonts.find(({ id }) => id === fontId);
-  if (websiteFont) {
-    if (websiteFont.inputFontFamily) return websiteFont.inputFontFamily;
-    const family = getComputedStyle(document.documentElement)
-      .getPropertyValue(websiteFont.cssVariable)
-      .trim();
-    return family || "sans-serif";
-  }
-  const localFontFamily = localFontFamilies.get(fontId);
-  if (localFontFamily) {
-    ensureLocalFontAlias(fontId);
-    const registeredCssFont = registeredCssLocalFonts.get(fontId);
-    return registeredCssFont
-      ? `${registeredCssFont.family}, ${registeredCssFont.inputFallbackFamily}`
-      : localFontFamily;
-  }
-  return loadCustomFont(fontId);
-}
-
-function ensureLocalFontAlias(fontId) {
-  if (registeredLocalFonts.has(fontId)) return;
-  const family = localFontFamilies.get(fontId);
-  const faces = localFontSources.get(fontId);
-  const registeredCssFont = registeredCssLocalFonts.get(fontId);
-  if (!family || !faces?.length) return;
-  if (!localFontStyle) {
-    localFontStyle = document.createElement("style");
-    document.head.append(localFontStyle);
-  }
-  for (const face of faces) {
-    const names = [
-      ...new Set([face.postscriptName, face.fullName].filter(Boolean)),
-    ];
-    if (!names.length && face.family) names.push(face.family);
-    if (!names.length) continue;
-    const sources = names.map((name) => `local(${quoteFontFamily(name)})`);
-    const style = /\bitalic\b/i.test(face.style || "")
-      ? "italic"
-      : /\boblique\b/i.test(face.style || "")
-        ? "oblique"
-        : "normal";
-    const weight = /\b(?:variable|wght)\b/i.test(face.style || "")
-      ? "100 900"
-      : readLocalFontFaceWeight(face.style) || 400;
-    localFontStyle.sheet?.insertRule(
-      `@font-face { font-family: ${family}; src: ${sources.join(", ")}; font-style: ${style}; font-weight: ${weight}; }`,
-    );
-    if (registeredCssFont?.sizeAdjust)
-      localFontStyle.sheet?.insertRule(
-        `@font-face { font-family: ${registeredCssFont.inputFallbackFamily}; src: ${sources.join(", ")}; font-style: ${style}; font-weight: ${weight}; size-adjust: ${registeredCssFont.sizeAdjust}; }`,
-      );
-  }
-  registeredLocalFonts.add(fontId);
-}
-
-async function resolveFont(
-  fontId = props.modelValue,
-  text = "",
-  requestedWeight = "normal",
-  fallbackFontId = effectiveFallbackFontId.value,
-  nonSinhalaFallbackFamily = "",
-) {
-  const primaryFamily = await resolveFontFamily(fontId, text);
-  const fallbackFamily =
-    fallbackFontId && fallbackFontId !== fontId
-      ? await resolveFontFamily(fallbackFontId, text)
-      : "";
-  const family = [
-    primaryFamily,
-    nonSinhalaFallbackFamily,
-    fallbackFamily,
-  ]
-    .filter(Boolean)
-    .join(", ");
-  const font = fontGroups.value
-    .map((group) => group.fonts?.find(({ id }) => id === fontId))
-    .find(Boolean);
-  const weight = font?.supportsFontWeight ? requestedWeight : "normal";
-  try {
-    await document.fonts?.load(`${weight} 200px ${family}`, text || translate('common.fontSelect.font'));
-  } catch {
-    // Consumers can continue through the font stack's fallbacks.
-  }
-  return {
-    family,
-    weight,
-    sourceFamily: localFontSources.get(fontId)?.[0]?.family || "",
-    usesRegisteredCssFont: registeredCssLocalFonts.has(fontId),
-  };
-}
-
-async function loadCustomFont(id) {
-  const loaded = loadedFontFaces.get(id);
-  if (loaded) return quoteFontFamily(loaded.family);
-  const pending = pendingFontLoads.get(id);
-  if (pending) return pending;
-  const promise = (async () => {
-    const source = customFontSources.get(id);
-    if (!(source instanceof Blob))
-      throw new Error(translate('common.fontSelect.customUnavailable'));
-    const family = `Mori Custom Font ${++loadedFontFamilyId}`;
-    const face = new FontFace(family, await source.arrayBuffer());
-    await face.load();
-    document.fonts.add(face);
-    loadedFontFaces.set(id, { face, family });
-    return quoteFontFamily(family);
-  })();
-  pendingFontLoads.set(id, promise);
-  try {
-    return await promise;
-  } finally {
-    pendingFontLoads.delete(id);
-  }
-}
-
-function quoteFontFamily(family) {
-  return `"${String(family)
-    .replaceAll("\\", "\\\\")
-    .replaceAll('"', '\\"')
-    .replace(/[\n\r\f]/g, " ")}"`;
+  const id = await uploadFontFile(file);
+  if (!id) return;
+  emit("select", id);
+  emit("update:modelValue", id);
 }
 
 function selectFont(fontId) {
@@ -1382,28 +479,6 @@ function selectFallbackFont(fontId) {
   if (props.disabled || fontId === effectiveFallbackFontId.value) return;
   localFallbackFontId.value = fontId;
   emit("update:fallbackFontId", fontId);
-}
-
-function cancelPendingWork() {
-  if (scrollFrame) cancelAnimationFrame(scrollFrame);
-  scrollFrame = 0;
-}
-
-function selectedDocumentFontName() {
-  return (
-    localFontSources.get(props.modelValue)?.[0]?.family ||
-    selectedFont.value?.label ||
-    ""
-  );
-}
-
-async function selectedDocumentFontInfo() {
-  const fontId = props.modelValue;
-  const source = customFontSources.get(fontId);
-  const family =
-    (source && (await readLocalizedFontFamilyBlob(source, ["en-US"]))) ||
-    selectedDocumentFontName();
-  return { family };
 }
 
 defineExpose({ resolveFont, resolveFontFamily, selectedDocumentFontInfo });
