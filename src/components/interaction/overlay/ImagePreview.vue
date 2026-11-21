@@ -45,63 +45,63 @@
           {{ caption }}
         </p>
 
-        <button
+        <Tooltip placement="bottom" align="end" as="button" trigger-class="inline-flex"
           type="button"
           class="btn btn-circle btn-ghost btn-neutral disabled:text-gray-300/25 text-gray-300 preview-close text-shadow-xs/90"
           data-preview-control
           :aria-label="translate('common.imagePreview.close')"
-          :title="translate('common.modal.close')"
+          :text="translate('common.modal.close')"
           @click="close"
         >
           <i class="ri-close-line text-xl" aria-hidden="true"></i>
-        </button>
+        </Tooltip>
       </header>
 
-      <button
+      <Tooltip placement="right" align="center" as="button" trigger-class="inline-flex"
         type="button"
         class="btn btn-square btn-lg btn-ghost btn-neutral disabled:text-gray-300/25 text-gray-300 preview-prev text-shadow-xs/90"
         data-preview-control
         :disabled="cannotGoPrevious"
         :aria-label="translate('common.imagePreview.previousLabel')"
-        :title="translate('common.imagePreview.previous')"
+        :text="translate('common.imagePreview.previous')"
         @click="previous"
       >
         <i class="ri-arrow-left-wide-line text-3xl" aria-hidden="true"></i>
-      </button>
+      </Tooltip>
 
-      <button
+      <Tooltip placement="left" align="center" as="button" trigger-class="inline-flex"
         type="button"
         class="btn btn-square btn-lg btn-ghost btn-neutral disabled:text-gray-300/25 text-gray-300 preview-next text-shadow-xs/90"
         data-preview-control
         :disabled="cannotGoNext"
         :aria-label="translate('common.imagePreview.nextLabel')"
-        :title="translate('common.imagePreview.next')"
+        :text="translate('common.imagePreview.next')"
         @click="next"
       >
         <i class="ri-arrow-right-wide-line text-3xl" aria-hidden="true"></i>
-      </button>
+      </Tooltip>
 
       <div
         class="preview-footer"
         data-preview-control
         :aria-label="translate('common.imagePreview.controls')"
       >
-        <button
+        <Tooltip placement="top" align="center" as="button" trigger-class="inline-flex"
           type="button"
           class="btn btn-square btn-ghost btn-neutral disabled:text-gray-300/25 text-gray-300 text-shadow-xs/90"
           :disabled="cannotZoomOut"
           :aria-label="translate('common.imagePreview.zoomOut')"
-          :title="translate('markdown.mermaid.zoomOut')"
+          :text="translate('markdown.mermaid.zoomOut')"
           @click="changeZoom(1 / ZOOM_FACTOR)"
         >
           <i class="ri-zoom-out-line text-lg" aria-hidden="true"></i>
-        </button>
-        <button
+        </Tooltip>
+        <Tooltip placement="top" align="center" as="button" trigger-class="inline-flex"
           type="button"
           class="btn btn-ghost font-mono tabular-nums btn-neutral disabled:text-gray-300/25 text-gray-300 text-shadow-xs/90"
           :disabled="cannotResetZoom"
           :aria-label="translate('common.imagePreview.zoomHint', { p0: zoomPercent })"
-          :title="translate('common.imagePreview.fit')"
+          :text="translate('common.imagePreview.fit')"
           @click="resetZoom"
         >
           {{ zoomPercent }}%
@@ -110,17 +110,17 @@
             class="ri-reset-left-line text-gray-300/50 text-xs"
             aria-hidden="true"
           ></i>
-        </button>
-        <button
+        </Tooltip>
+        <Tooltip placement="top" align="center" as="button" trigger-class="inline-flex"
           type="button"
           class="btn btn-square btn-ghost btn-neutral disabled:text-gray-300/25 text-gray-300 text-shadow-xs/90"
           :disabled="cannotZoomIn"
           :aria-label="translate('common.imagePreview.zoomIn')"
-          :title="translate('markdown.mermaid.zoomIn')"
+          :text="translate('markdown.mermaid.zoomIn')"
           @click="changeZoom(ZOOM_FACTOR)"
         >
           <i class="ri-zoom-in-line text-lg" aria-hidden="true"></i>
-        </button>
+        </Tooltip>
       </div>
     </div>
   </Teleport>
@@ -137,6 +137,8 @@
 </template>
 
 <script setup>
+import Tooltip from "@/components/display/Tooltip.vue";
+
 import { useLocale } from '@/i18n';
 const { t: translate, text: localizeText } = useLocale();
 
@@ -656,6 +658,22 @@ const restoreSlideViewState = (slide, state) => {
   slide.panTo(state.pan.x, state.pan.y);
 };
 
+const getMountedSlide = (slideIndex) =>
+  photoSwipe?.mainScroll?.itemHolders.find(
+    (holder) => holder.slide?.index === slideIndex,
+  )?.slide || null;
+
+const canSwapSlideImageInPlace = (previousSlide, nextSlide, slide) =>
+  Boolean(
+    previousSlide &&
+      previousSlide.src !== nextSlide.src &&
+      previousSlide.width === nextSlide.width &&
+      previousSlide.height === nextSlide.height &&
+      slide?.content?.element instanceof HTMLImageElement &&
+      slide.content.element.isConnected &&
+      !slide.content.isError(),
+  );
+
 const syncInlineSlides = () => {
   if (props.mode !== "inline") return;
   const nextSlides = normalizeSlides(props.slides);
@@ -686,8 +704,9 @@ const syncInlineSlides = () => {
     return;
   }
 
+  const previousSlides = activeSlides.value;
   const changedIndexes = nextSlides.flatMap((slide, slideIndex) => {
-    const previousSlide = activeSlides.value[slideIndex];
+    const previousSlide = previousSlides[slideIndex];
     return previousSlide?.src !== slide.src ||
       previousSlide?.revision !== slide.revision ||
       previousSlide?.width !== slide.width ||
@@ -698,6 +717,19 @@ const syncInlineSlides = () => {
   activeSlides.value = nextSlides;
   photoSwipe.options.dataSource = nextSlides;
   changedIndexes.forEach((slideIndex) => {
+    const previousSlide = previousSlides[slideIndex];
+    const nextSlide = nextSlides[slideIndex];
+    const mountedSlide = getMountedSlide(slideIndex);
+    if (canSwapSlideImageInPlace(previousSlide, nextSlide, mountedSlide)) {
+      mountedSlide.data = nextSlide;
+      mountedSlide.content.data = nextSlide;
+      if (mountedSlide.content.placeholder) {
+        mountedSlide.content.placeholder.destroy();
+        mountedSlide.content.placeholder = undefined;
+      }
+      mountedSlide.content.element.src = nextSlide.src;
+      return;
+    }
     const viewState =
       slideIndex === photoSwipe?.currIndex
         ? captureSlideViewState(photoSwipe.currSlide)

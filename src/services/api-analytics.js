@@ -1,7 +1,4 @@
-const normalizeEndpoint = (value = "") =>
-  String(value || "")
-    .trim()
-    .replace(/\/+$/, "");
+import { fetchJson, normalizeEndpoint } from "./http.js";
 
 const ENDPOINT = normalizeEndpoint(
   import.meta.env.VITE_ANALYTICS_API ||
@@ -53,29 +50,15 @@ async function requestJson(path, options = {}, { retry = false } = {}) {
   const attempts = retry ? 2 : 1;
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
-    const controller = new AbortController();
-    const timeout = window.setTimeout(
-      () => controller.abort(),
-      REQUEST_TIMEOUT_MS,
-    );
-
     try {
-      const response = await fetch(`${ENDPOINT}/${path}`, {
+      const payload = await fetchJson(`${ENDPOINT}/${path}`, {
         ...options,
         mode: "cors",
-        signal: controller.signal,
+        timeout: REQUEST_TIMEOUT_MS,
+        errorMessage: "统计接口请求失败",
       });
-      const payload = await response.json().catch(() => ({}));
 
-      if (!response.ok) {
-        const error = new Error(
-          String(payload?.message || `统计接口请求失败：${response.status}`),
-        );
-        error.status = response.status;
-        throw error;
-      }
-
-      return normalizePayload(payload);
+      return normalizePayload(payload || {});
     } catch (error) {
       const shouldRetry =
         attempt + 1 < attempts &&
@@ -83,8 +66,6 @@ async function requestJson(path, options = {}, { retry = false } = {}) {
 
       if (!shouldRetry) throw error;
       await wait(RETRY_DELAY_MS);
-    } finally {
-      window.clearTimeout(timeout);
     }
   }
 

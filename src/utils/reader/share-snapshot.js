@@ -1,4 +1,5 @@
 import { READER_STYLE_DEFAULTS } from "../../constants/reader.js";
+import { rangeIntersectsNode } from "./dom.js";
 
 export const READER_SHARE_SNAPSHOT_SELECTOR =
   ".markdown-link-card, table, [data-markdown-chat], [data-markdown-moment]";
@@ -9,13 +10,6 @@ export const yieldReaderShareTask = () =>
   typeof globalThis.scheduler?.yield === "function"
     ? globalThis.scheduler.yield()
     : new Promise((resolve) => setTimeout(resolve, 0));
-const intersects = (range, node) => {
-  try {
-    return !range || range.intersectsNode(node);
-  } catch {
-    return false;
-  }
-};
 
 export function captureReaderShareSnapshot(element, range = null) {
   const copy = element.cloneNode(true);
@@ -24,7 +18,7 @@ export function captureReaderShareSnapshot(element, range = null) {
   const isContext = (node) =>
     (node instanceof Element ? node : node.parentElement)?.closest(preserve);
   const copySelection = (source, target) => {
-    if (range && !intersects(range, source) && !isContext(source)) {
+    if (range && !rangeIntersectsNode(range, source) && !isContext(source)) {
       target.remove();
       return;
     }
@@ -69,7 +63,7 @@ export function captureReaderShareSnapshot(element, range = null) {
       copySelection(source, target);
       return;
     }
-    if (range && !intersects(range, source) && !isContext(source)) {
+    if (range && !rangeIntersectsNode(range, source) && !isContext(source)) {
       target.remove();
       return;
     }

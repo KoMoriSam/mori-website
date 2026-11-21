@@ -1,59 +1,73 @@
-import { nextTick } from "vue";
+import { computed, nextTick, ref } from "vue";
 
+import { alignMobileChapterHeaderBlock } from "@/utils/reader/align-header";
+import {
+  alignPageEdgeBaselines,
+  alignPageFlowBlocksToGrid,
+  alignPageStartBaselines,
+  clearPageBaselineAdjustments,
+  clearPageFlowGridAdjustments,
+} from "@/utils/reader/align-mobile-baselines";
+import { waitForReaderLayout } from "@/utils/reader/dom";
 import {
   collectPageFootnotes,
   extractParagraphCommentText,
   removeFootnotePageBreaks,
   restoreFootnoteParagraphSplits,
 } from "@/utils/reader/layout-mobile-footnotes";
-
-export const usePagedFootnoteLayout = ({
-  footnoteMeasureRef,
-  footnotesByPage,
-  footnoteReservesByPage,
-  measuringFootnotes,
-  totalPages,
-  pageHeight,
-  pageLineHeight,
-  leadingEmptyPages,
-  paginationLayoutResetting,
-  pageVerticalPadding,
-  minimumBodyLines,
-  maximumPasses,
-  getElementPage,
-  getRectPage,
-  getMeasuredPageCount,
-  clearPageBaselineAdjustments,
-  clearPageFlowGridAdjustments,
+import {
   prepareMobileTables,
   restoreMobileTables,
   splitMobileTables,
-  alignChapterHeaderBlock,
-  alignPageFlowBlocksToGrid,
-  alignPageStartBaselines,
-  normalizeLeadingEmptyPages,
-  alignPageEdgeBaselines,
-  waitForLayout,
+} from "@/utils/reader/split-mobile-tables";
+
+const DEFAULT_MIN_BODY_LINES = 3;
+const DEFAULT_MAX_LAYOUT_PASSES = 64;
+
+export const usePagedFootnoteLayout = ({
+  footnoteMeasureRef,
+  geometry,
+  pageCoords,
   isCurrent,
-  takeMutationRecords,
+  minimumBodyLines = DEFAULT_MIN_BODY_LINES,
+  maximumPasses = DEFAULT_MAX_LAYOUT_PASSES,
 }) => {
-  let paginationDepth = 0;
+  const footnotesByPage = ref({});
+  const footnoteReservesByPage = ref({});
+  const measuringFootnotes = ref([]);
+  const paginationLayoutResetting = ref(false);
   let splitSequence = 0;
 
+  const footnoteReserve = computed(
+    () => footnoteReservesByPage.value[geometry.currentPage.value] || 0,
+  );
+  const currentPageFootnotes = computed(
+    () => footnotesByPage.value[geometry.currentPage.value] || [],
+  );
+
+  const clearFootnotes = () => {
+    footnotesByPage.value = {};
+    footnoteReservesByPage.value = {};
+    measuringFootnotes.value = [];
+  };
+
   const collect = (article) =>
-    collectPageFootnotes({ article, getElementPage });
+    collectPageFootnotes({ article, getElementPage: pageCoords.getElementPage });
 
   const measureReserve = async (notes) => {
     if (!notes.length) return 0;
     measuringFootnotes.value = notes;
     await nextTick();
-    await waitForLayout();
+    await waitForReaderLayout();
 
     const measuredHeight = footnoteMeasureRef.value?.scrollHeight || 0;
-    const lineHeight = pageLineHeight.value;
+    const lineHeight = geometry.pageLineHeight.value;
     const contentLines = Math.max(
       1,
-      Math.floor((pageHeight.value - pageVerticalPadding * 2) / lineHeight),
+      Math.floor(
+        (geometry.pageHeight.value - geometry.pageVerticalPadding * 2) /
+          lineHeight,
+      ),
     );
     const maximumHeight =
       Math.max(1, contentLines - minimumBodyLines) * lineHeight;
@@ -66,8 +80,8 @@ export const usePagedFootnoteLayout = ({
   const findBreakPosition = (article, viewport, page, reserve) => {
     const footerTop =
       viewport.getBoundingClientRect().top +
-      pageHeight.value -
-      pageVerticalPadding -
+      geometry.pageHeight.value -
+      geometry.pageVerticalPadding -
       reserve;
     const walker = document.createTreeWalker(article, NodeFilter.SHOW_TEXT, {
       acceptNode(node) {
@@ -91,7 +105,8 @@ export const usePagedFootnoteLayout = ({
       range.selectNodeContents(node);
       const overflows = Array.from(range.getClientRects()).some(
         (rect) =>
-          getRectPage(rect, viewport) === page && rect.bottom > footerTop,
+          pageCoords.getRectPage(rect, viewport) === page &&
+          rect.bottom > footerTop,
       );
       if (overflows) {
         for (let offset = 0; offset < node.textContent.length; offset += 1) {
@@ -100,7 +115,7 @@ export const usePagedFootnoteLayout = ({
           const rect = range.getClientRects()[0];
           if (
             rect &&
-            getRectPage(rect, viewport) === page &&
+            pageCoords.getRectPage(rect, viewport) === page &&
             rect.bottom > footerTop
           ) {
             range.detach?.();
@@ -203,40 +218,66 @@ export const usePagedFootnoteLayout = ({
     restoreMobileTables(article);
     removeFootnotePageBreaks(article);
     restoreFootnoteParagraphSplits(article);
-    footnotesByPage.value = {};
-    footnoteReservesByPage.value = {};
-    measuringFootnotes.value = [];
+    clearFootnotes();
   };
 
   const resetPaginationLayout = async (article, token) => {
     if (!article?.isConnected) return false;
     rollback(article);
-    leadingEmptyPages.value = 0;
+    geometry.leadingEmptyPages.value = 0;
     paginationLayoutResetting.value = true;
     try {
       await nextTick();
-      await waitForLayout();
+      await waitForReaderLayout();
       if (!isCurrent(token) || !article.isConnected) return false;
     } finally {
       paginationLayoutResetting.value = false;
     }
     await nextTick();
-    await waitForLayout();
+    await waitForReaderLayout();
     return isCurrent(token) && article.isConnected;
   };
 
   const paginate = async (article, viewport, token) => {
-    paginationDepth += 1;
+    const current = () => isCurrent(token);
+    const setBaselineOffset = (offset) => {
+      geometry.pageBaselineOffset.value = offset;
+    };
     let completed = false;
     try {
       clearPageBaselineAdjustments(article);
       removeFootnotePageBreaks(article);
       restoreFootnoteParagraphSplits(article);
       prepareMobileTables(article);
-      if (!(await alignChapterHeaderBlock(article, token))) return false;
-      if (!(await alignPageFlowBlocksToGrid(article, token))) return false;
+
+      const headerAligned = await alignMobileChapterHeaderBlock({
+        article,
+        lineHeight: geometry.pageLineHeight.value,
+        waitForLayout: waitForReaderLayout,
+        isCurrent: current,
+      });
+      if (!headerAligned) return false;
+
+      const flowAligned = await alignPageFlowBlocksToGrid({
+        article,
+        viewport,
+        pageHeight: geometry.pageHeight.value,
+        lineHeight: geometry.pageLineHeight.value,
+        pageVerticalPadding: geometry.pageVerticalPadding,
+        getRectPage: pageCoords.getRectPage,
+        isCurrent: current,
+      });
+      if (!flowAligned) return false;
+
       try {
-        const splitOk = await splitMobileTables(article, viewport, token);
+        const splitOk = splitMobileTables({
+          article,
+          viewport,
+          pageHeight: geometry.pageHeight.value,
+          pageVerticalPadding: geometry.pageVerticalPadding,
+          lineHeight: geometry.pageLineHeight.value,
+          isCurrent: current,
+        });
         if (!splitOk) {
           console.warn("splitMobileTables returned false", { token });
           return false;
@@ -245,24 +286,37 @@ export const usePagedFootnoteLayout = ({
         console.error("splitMobileTables threw", error);
         return false;
       }
-      if (!(await alignPageStartBaselines(article, viewport, token)))
-        return false;
-      if (!(await normalizeLeadingEmptyPages(article, viewport, token)))
-        return false;
 
-      footnotesByPage.value = {};
-      footnoteReservesByPage.value = {};
-      measuringFootnotes.value = [];
+      const startAligned = await alignPageStartBaselines({
+        article,
+        viewport,
+        lineHeight: geometry.pageLineHeight.value,
+        pageVerticalPadding: geometry.pageVerticalPadding,
+        getRectPage: pageCoords.getRectPage,
+        getMeasuredPageCount: pageCoords.getMeasuredPageCount,
+        onBaselineOffset: setBaselineOffset,
+        isCurrent: current,
+      });
+      if (!startAligned) return false;
+
+      if (!(await pageCoords.normalizeLeadingEmptyPages(article, viewport, current))) {
+        return false;
+      }
+
+      clearFootnotes();
       await nextTick();
-      await waitForLayout();
+      await waitForReaderLayout();
 
       const reserveCache = new Map();
       let page = 1;
       let insertedBreaks = 0;
       while (insertedBreaks < maximumPasses) {
-        if (!isCurrent(token)) return false;
-        totalPages.value = getMeasuredPageCount(article, viewport);
-        if (page > totalPages.value) break;
+        if (!current()) return false;
+        geometry.totalPages.value = pageCoords.getMeasuredPageCount(
+          article,
+          viewport,
+        );
+        if (page > geometry.totalPages.value) break;
 
         const notes = collect(article)[page] || [];
         if (notes.length) {
@@ -272,7 +326,7 @@ export const usePagedFootnoteLayout = ({
             reserve = await measureReserve(notes);
             reserveCache.set(cacheKey, reserve);
           }
-          if (!isCurrent(token)) return false;
+          if (!current()) return false;
           const breakPosition = findBreakPosition(
             article,
             viewport,
@@ -283,18 +337,31 @@ export const usePagedFootnoteLayout = ({
             insertPageBreak(breakPosition);
             insertedBreaks += 1;
             await nextTick();
-            await waitForLayout();
+            await waitForReaderLayout();
           }
         }
         page += 1;
       }
 
-      if (!(await alignPageStartBaselines(article, viewport, token)))
+      const startRealigned = await alignPageStartBaselines({
+        article,
+        viewport,
+        lineHeight: geometry.pageLineHeight.value,
+        pageVerticalPadding: geometry.pageVerticalPadding,
+        getRectPage: pageCoords.getRectPage,
+        getMeasuredPageCount: pageCoords.getMeasuredPageCount,
+        onBaselineOffset: setBaselineOffset,
+        isCurrent: current,
+      });
+      if (!startRealigned) return false;
+      if (!(await pageCoords.normalizeLeadingEmptyPages(article, viewport, current))) {
         return false;
-      if (!(await normalizeLeadingEmptyPages(article, viewport, token)))
-        return false;
+      }
 
-      totalPages.value = getMeasuredPageCount(article, viewport);
+      geometry.totalPages.value = pageCoords.getMeasuredPageCount(
+        article,
+        viewport,
+      );
       const finalFootnotes = collect(article);
       const finalReserves = {};
       for (const [pageNumber, notes] of Object.entries(finalFootnotes)) {
@@ -307,13 +374,29 @@ export const usePagedFootnoteLayout = ({
         finalReserves[pageNumber] = reserve;
       }
 
-      if (!isCurrent(token)) return false;
-      await alignPageEdgeBaselines(article, viewport, finalReserves, token);
-      if (!isCurrent(token)) return false;
-      if (!(await normalizeLeadingEmptyPages(article, viewport, token)))
+      if (!current()) return false;
+      await alignPageEdgeBaselines({
+        article,
+        viewport,
+        reserves: finalReserves,
+        pageHeight: geometry.pageHeight.value,
+        lineHeight: geometry.pageLineHeight.value,
+        pageVerticalPadding: geometry.pageVerticalPadding,
+        getRectPage: pageCoords.getRectPage,
+        getMeasuredPageCount: pageCoords.getMeasuredPageCount,
+        collectPageFootnotes: collect,
+        onBaselineOffset: setBaselineOffset,
+        isCurrent: current,
+      });
+      if (!current()) return false;
+      if (!(await pageCoords.normalizeLeadingEmptyPages(article, viewport, current))) {
         return false;
+      }
 
-      totalPages.value = getMeasuredPageCount(article, viewport);
+      geometry.totalPages.value = pageCoords.getMeasuredPageCount(
+        article,
+        viewport,
+      );
       footnotesByPage.value = collect(article);
       footnoteReservesByPage.value = finalReserves;
       measuringFootnotes.value = [];
@@ -321,15 +404,18 @@ export const usePagedFootnoteLayout = ({
       return true;
     } finally {
       if (!completed) rollback(article);
-      takeMutationRecords();
-      paginationDepth = Math.max(0, paginationDepth - 1);
     }
   };
 
   return {
-    collectPageFootnotes: collect,
-    isPaginating: () => paginationDepth > 0,
+    clearFootnotes,
+    currentPageFootnotes,
+    footnoteReserve,
+    footnotesByPage,
+    footnoteReservesByPage,
+    measuringFootnotes,
     paginatePageFootnotes: paginate,
+    paginationLayoutResetting,
     resetPaginationLayout,
     rollbackIncompleteFootnoteLayout: rollback,
   };

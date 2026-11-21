@@ -44,83 +44,11 @@
       @progress-change="totalReadingProgress = $event"
     />
 
-    <Transition
-      enter-active-class="transition duration-200 ease-out"
-      enter-from-class="translate-y-2 opacity-0"
-      enter-to-class="translate-y-0 opacity-100"
-      leave-active-class="transition duration-150 ease-in"
-      leave-from-class="translate-y-0 opacity-100"
-      leave-to-class="translate-y-2 opacity-0"
-    >
-      <div
-        v-if="showNavigationHint"
-        class="pointer-events-none fixed inset-0 z-40 grid place-items-center"
-      >
-        <button
-          type="button"
-          class="alert alert-soft pointer-events-auto block w-[calc(100%-1.5rem)] max-w-sm cursor-pointer border border-base-300 bg-base-100/95 p-3 text-left text-sm shadow-lg backdrop-blur-md"
-          :aria-label="translate('reader.scroll.help')"
-          @click="dismissReaderHint"
-        >
-          <span class="block w-full">
-            <span class="flex items-baseline justify-between gap-3">
-              <span class="text-sm font-semibold">{{
-                translate("reader.paged.controls")
-              }}</span>
-              <span class="text-[0.6875rem] text-base-content/45">
-                {{ translate("reader.paged.dismissHint") }}
-              </span>
-            </span>
-
-            <span class="mt-2.5 grid grid-cols-2 gap-2">
-              <span class="rounded-box bg-base-200/75 px-2.5 py-2 text-center">
-                <i
-                  class="ri-arrow-up-down-line block text-xl leading-none text-base-content/75"
-                  aria-hidden="true"
-                ></i>
-                <span class="mt-1.5 block text-xs font-semibold">
-                  {{ translate("reader.scroll.scroll") }}
-                </span>
-                <span
-                  class="mt-0.5 block text-[0.6875rem] text-base-content/55"
-                >
-                  {{ translate("reader.paged.textArea") }}<br />{{
-                    translate("reader.scroll.swipeHint")
-                  }}
-                </span>
-              </span>
-
-              <span class="rounded-box bg-base-200/75 px-2.5 py-2 text-center">
-                <i
-                  class="ri-grid-line block text-xl leading-none text-base-content/75"
-                  aria-hidden="true"
-                ></i>
-                <span class="mt-1.5 block text-xs font-semibold">
-                  {{ translate("reader.paged.tapActions") }}
-                </span>
-                <span
-                  class="mt-0.5 block text-[0.6875rem] text-base-content/55"
-                >
-                  {{ translate("reader.paged.centerHint") }}<br />
-                  {{ translate("reader.paged.edgeHint") }}
-                </span>
-              </span>
-            </span>
-
-            <span
-              class="mt-2.5 flex items-baseline gap-2 border-t border-base-300 pt-2 text-xs"
-            >
-              <span class="shrink-0 font-semibold">{{
-                translate("reader.paged.moreControls")
-              }}</span>
-              <span class="text-base-content/60">
-                {{ translate("reader.paged.zonesHint") }}
-              </span>
-            </span>
-          </span>
-        </button>
-      </div>
-    </Transition>
+    <MobileReaderHint
+      :visible="showNavigationHint"
+      mode="scroll"
+      @dismiss="dismissReaderHint"
+    />
   </section>
 </template>
 
@@ -133,11 +61,13 @@ import { useRoute } from "vue-router";
 
 import ChapterHeader from "@/components/novel/ChapterHeader.vue";
 import ChapterToc from "@/components/novel/ChapterToc.vue";
+import MobileReaderHint from "@/components/novel/mobile/display/MobileReaderHint.vue";
 import Renderer from "@/components/markdown/Renderer.vue";
 import { useChapters } from "@/composables/novel/useChapters";
 import { useReadingStateStorage } from "@/composables/storage/useReadingStateStorage";
 import { readerTypographyMetrics } from "@/utils/reader/reader-typography";
 import { alignMobileChapterHeaderBlock } from "@/utils/reader/align-header";
+import { decodeAnchor, waitForReaderLayout } from "@/utils/reader/dom";
 import { useReaderHint } from "@/composables/novel/useReaderHint";
 import { useReaderTextContext } from "@/composables/reader/useReaderTextContext";
 
@@ -290,29 +220,13 @@ const handleScroll = () => {
   persistPosition();
 };
 
-const waitForLayout = () =>
-  new Promise((resolve) => {
-    window.requestAnimationFrame(() => window.requestAnimationFrame(resolve));
-  });
-
 const alignChapterHeaderBlock = async () => {
   const article = getArticleElement();
   return alignMobileChapterHeaderBlock({
     article,
     lineHeight: readerTypographyMetrics(props.styleConfigs).linePixels,
-    waitForLayout,
+    waitForLayout: waitForReaderLayout,
   });
-};
-
-const decodeAnchor = (value) => {
-  const anchor = String(value || "").replace(/^#/, "");
-  if (!anchor) return "";
-
-  try {
-    return decodeURIComponent(anchor);
-  } catch {
-    return anchor;
-  }
 };
 
 const findAnchorInContainer = (container, anchorId) => {
@@ -344,7 +258,7 @@ const restorePosition = async () => {
   const token = ++restoreToken;
 
   await nextTick();
-  await waitForLayout();
+  await waitForReaderLayout();
 
   const container = scrollContainerRef.value;
   if (!container || token !== restoreToken) return;
@@ -366,7 +280,7 @@ const restorePosition = async () => {
     container.scrollTop = 0;
   }
 
-  await waitForLayout();
+  await waitForReaderLayout();
   if (token !== restoreToken || container !== scrollContainerRef.value) return;
   clampScrollTop(container);
   updateScrollProgress();
@@ -533,4 +447,4 @@ onBeforeUnmount(() => {
 });
 </script>
 
-<style scoped src="@/assets/mobile-reader.css"></style>
+<style scoped src="@/assets/reader/mobile/scroll.css"></style>

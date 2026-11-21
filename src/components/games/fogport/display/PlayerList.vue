@@ -51,9 +51,9 @@
                 {{ player(id).money }}
               </dd>
             </div>
-            <div
-              class="tooltip tooltip-bottom text-left"
-              :data-tip="t('fogport.info.incomeHint')"
+            <Tooltip as="div" trigger-class="" activation-class="tooltip"
+              class="tooltip-bottom text-left"
+              :text="t('fogport.info.incomeHint')"
             >
               <dt class="text-xs text-base-content/60">
                 {{ t("fogport.info.roundIncome") }}
@@ -64,10 +64,10 @@
               >
                 {{ signed(incomeLevel(player(id).income)) }}
               </dd>
-            </div>
-            <div
-              class="tooltip tooltip-bottom text-left"
-              :data-tip="t('fogport.info.scoreHint')"
+            </Tooltip>
+            <Tooltip as="div" trigger-class="" activation-class="tooltip"
+              class="tooltip-bottom text-left"
+              :text="t('fogport.info.scoreHint')"
             >
               <dt class="text-xs text-base-content/60">
                 {{ t("fogport.info.scored") }}
@@ -76,7 +76,7 @@
                 <i class="ri-star-line text-primary" aria-hidden="true"></i>
                 {{ player(id).vp }}
               </dd>
-            </div>
+            </Tooltip>
           </dl>
           <details class="mt-3 text-xs">
             <summary class="cursor-pointer text-base-content/60">
@@ -120,6 +120,8 @@
   </div>
 </template>
 <script setup>
+import Tooltip from "@/components/display/Tooltip.vue";
+
 import Avatar from "@/components/auth/Avatar.vue";
 import ArtIcon from "./ArtIcon.vue";
 import {

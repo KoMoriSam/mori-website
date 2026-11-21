@@ -71,7 +71,7 @@ export const useRevealCurrentItem = ({
   );
 
   onBeforeUnmount(() => {
-    if (revealFrame && typeof window !== "undefined") {
+    if (revealFrame) {
       window.cancelAnimationFrame(revealFrame);
       revealFrame = 0;
     }

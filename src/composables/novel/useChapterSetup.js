@@ -2,16 +2,12 @@ import { watch, onMounted, onActivated } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { storeToRefs } from "pinia";
 
-import { useNovelStore } from "@/stores/novel";
+import { isNovelReaderRoute, useNovelStore } from "@/stores/novel";
 import { moriSession } from '@/composables/auth/useMoriAuth';
-
-import { useToast } from "@/composables/useToast";
 
 export function useChapterSetup() {
   const route = useRoute();
   const router = useRouter();
-
-  const toast = useToast({ closable: false, position: "center" });
 
   const novelStore = useNovelStore();
 
@@ -89,10 +85,6 @@ export function useChapterSetup() {
   const hasLegacyPageQuery = () =>
     route.query.p != null || route.query.page != null;
 
-  const isCanonicalChapterRoute = () => {
-    return Boolean(route.params.volumeSlug && route.params.chapterSlug);
-  };
-
   const hasCanonicalRouteForUuid = (uuid) => {
     const permalink = novelStore.getPermalinkByUuid(uuid);
     if (!permalink) return false;
@@ -124,7 +116,7 @@ export function useChapterSetup() {
       return;
     }
 
-    if (withFallback && currentChapterUuid.value && isCanonicalChapterRoute()) {
+    if (withFallback && currentChapterUuid.value && isNovelReaderRoute(route)) {
       replaceToCanonical(currentChapterUuid.value);
     }
   };
@@ -154,7 +146,7 @@ export function useChapterSetup() {
     try {
       await novelStore.setChapters();
       await syncChapterFromRoute({ withFallback: true });
-      novelStore.updateTitle();
+      novelStore.updateTitle(route);
     } catch (error) {
       console.error("Error during initialization:", error);
     }
@@ -169,7 +161,7 @@ export function useChapterSetup() {
         route.params.chapterSlug,
       ],
       () => {
-        novelStore.updateTitle();
+        novelStore.updateTitle(route);
       },
       { immediate: true },
     );
@@ -178,7 +170,7 @@ export function useChapterSetup() {
   // 在组件挂载或激活时重新更新标题
   const handleActivation = () => {
     onActivated(() => {
-      novelStore.updateTitle();
+      novelStore.updateTitle(route);
     });
   };
 

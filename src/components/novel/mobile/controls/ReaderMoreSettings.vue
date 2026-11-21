@@ -56,7 +56,7 @@ const { t: translate } = useLocale();
 
 import { computed } from "vue";
 import { storeToRefs } from "pinia";
-import { useReaderStore } from "@/stores/readerStore";
+import { useReaderStore } from "@/stores/reader";
 
 const emit = defineEmits(["edit-tap-zones"]);
 const store = useReaderStore();

@@ -446,7 +446,7 @@ function buildTrie(entries) {
 }
 
 function convertLongest(input, trie, omitUnmappedSinhalaJoiners = false, onMatch) {
-  const characters = Array.from(String(input ?? ""));
+  const characters = Array.from(input);
   let output = "";
 
   for (let index = 0; index < characters.length; ) {
@@ -488,7 +488,7 @@ function convertLongest(input, trie, omitUnmappedSinhalaJoiners = false, onMatch
 }
 
 function decomposeSinhalaConjuncts(input) {
-  const characters = Array.from(String(input ?? ""));
+  const characters = Array.from(input);
 
   return characters
     .filter((character, index) => {
@@ -514,14 +514,14 @@ function decomposeSinhalaConjuncts(input) {
 function decomposeSinhalaTouchingLetters(input) {
   // Unicode writes touching letters as C + ZWJ + virama + C. FM has no
   // separate touching-letter slots, so retain the letters and virama only.
-  return String(input ?? "").replace(
+  return input.replace(
     /([\u0d9a-\u0dc6])\u200d(?=්[\u0d9a-\u0dc6])/gu,
     "$1",
   );
 }
 
 function applyPaliSpellingOptions(input, options) {
-  let output = String(input ?? "");
+  let output = input;
   if (options.touchingConjuncts) {
     // A lookahead keeps the next consonant available for overlapping chains.
     // Already joined/reduced forms contain ZWJ after virama and are untouched.
@@ -545,7 +545,7 @@ function applyPaliSpellingOptions(input, options) {
 }
 
 function applyReducedFormOptions(input, options) {
-  let output = String(input ?? "");
+  let output = input;
   if (options.normalizeReducedForms) {
     if (options.preserveRepaya !== false) {
       output = output.replace(
@@ -584,7 +584,7 @@ function applyReducedFormOptions(input, options) {
 function encodeRakarUVowels(input) {
   // FM reuses rakar + ae/aae for rakar + u/uu. The reverse reading stays
   // ae/aae because legacy bytes cannot preserve this vowel distinction.
-  const characters = Array.from(String(input ?? ""));
+  const characters = Array.from(input);
   let inRakarSigns = false;
   return characters
     .map((character, index) => {
@@ -607,7 +607,7 @@ function encodeRakarUVowels(input) {
 function composeRakarUForms(input) {
   // Still accept separated sequences from older documents, even though new
   // Unicode input now uses the shared %e/%E convention.
-  const characters = Array.from(String(input ?? ""));
+  const characters = Array.from(input);
   return characters
     .map((character, index) => {
       if (
@@ -636,7 +636,7 @@ function isSinhalaStackedSign(character) {
 }
 
 function decomposeStackedSinhalaVowelSigns(input) {
-  const characters = Array.from(String(input ?? ""));
+  const characters = Array.from(input);
   return characters
     .map((character, index) => {
       if (
@@ -666,7 +666,7 @@ function hasUOrUuInDependentSignRun(characters, index) {
 }
 
 function restoreLogicalRepayaFromLegacy(input) {
-  const characters = Array.from(String(input ?? ""));
+  const characters = Array.from(input);
   const output = [];
   for (const character of characters) {
     if (character !== LEGACY_REPAYA_MARKER) {
@@ -1176,7 +1176,7 @@ function normalizeSinhalaConjuncts(input, options) {
         .filter(([category]) => normalizesConjunctCategory(options, category))
         .map(([, trie]) => trie)
     : [conjunctNormalizationTrie];
-  let output = String(input ?? "");
+  let output = input;
   for (;;) {
     const normalized = tries.reduce(
       (text, trie) => convertLongest(text, trie),
@@ -1188,10 +1188,10 @@ function normalizeSinhalaConjuncts(input, options) {
 }
 
 export function unicodeToFm(input = "", options = {}) {
-  let source =
-    options.preserveConjuncts === false || options.conjunctForms
-      ? decomposeSinhalaTouchingLetters(decomposeSinhalaConjuncts(input))
-      : input;
+  let source = String(input ?? "");
+  if (options.preserveConjuncts === false || options.conjunctForms) {
+    source = decomposeSinhalaTouchingLetters(decomposeSinhalaConjuncts(source));
+  }
   if (hasConjunctNormalization(options)) {
     source = normalizeSinhalaConjuncts(source, options);
   }
@@ -1211,11 +1211,12 @@ function composeSimpleSinhalaVowels(input) {
 }
 
 export function fmToUnicode(input = "", options = {}) {
+  const source = String(input ?? "");
   const trie = normalizesConjunctCategory(options, "rare")
     ? rareLegacyTrie
     : legacyTrie;
   let output = decomposeStackedSinhalaVowelSigns(
-    composeSimpleSinhalaVowels(convertLongest(input, trie)),
+    composeSimpleSinhalaVowels(convertLongest(source, trie)),
   );
   output = composeRakarUForms(output);
   output = restoreLogicalRepayaFromLegacy(output);
@@ -1236,7 +1237,7 @@ export function splitFmSourceClusters(input = "", options = {}) {
   const trie = normalizesConjunctCategory(options, "rare")
     ? rareLegacyTrie
     : legacyTrie;
-  convertLongest(input, trie, false, (source, text) => {
+  convertLongest(String(input ?? ""), trie, false, (source, text) => {
     matches.push({ source, text });
   });
   const clusters = [];
@@ -1335,9 +1336,7 @@ const FM_STANDALONE_LEGACY_SYMBOLS = new Set([
 ]);
 
 function containsSinhala(text) {
-  return Array.from(String(text ?? "")).some((character) =>
-    SINHALA_BLOCK_RE.test(character),
-  );
+  return SINHALA_BLOCK_RE.test(text);
 }
 
 function isNonSinhalaLetter(character) {
@@ -1354,11 +1353,11 @@ function isDistinctiveLegacyCharacter(character) {
 }
 
 function hasDistinctiveLegacyCharacter(input) {
-  return Array.from(String(input ?? "")).some(isDistinctiveLegacyCharacter);
+  return Array.from(input).some(isDistinctiveLegacyCharacter);
 }
 
 function hasLegacyTerminalPunctuation(input) {
-  const terminal = Array.from(String(input ?? "")).at(-1);
+  const terminal = Array.from(input).at(-1);
   if (!terminal) return false;
   const target = legacyToUnicodeMap.get(terminal);
   return (
@@ -1548,8 +1547,7 @@ function isKnownDecodedSinhalaToken(token) {
   return classifyDecodedSinhalaToken(token) !== null;
 }
 
-function isLikelyLatinPhrase(input) {
-  const source = String(input ?? "");
+function isLikelyLatinPhrase(source) {
   const words = source.match(LATIN_WORD_RE) ?? [];
   if (!words.length || hasDistinctiveLegacyCharacter(source)) return false;
   if (FM_STRUCTURAL_SIGNAL_RE.test(source)) return false;
@@ -1586,7 +1584,7 @@ function isLikelyLatinPhrase(input) {
 
 function isWellFormedSinhalaToken(input) {
   let state = "start";
-  for (const character of Array.from(String(input ?? ""))) {
+  for (const character of Array.from(input)) {
     if (SINHALA_INDEPENDENT_VOWEL_RE.test(character)) {
       if (state === "halant" || state === "joiner") return false;
       state = "independent-vowel";
@@ -1787,7 +1785,7 @@ function mergeConversionSegments(segments) {
 }
 
 function normalizeStraightQuotePairs(input) {
-  const characters = Array.from(String(input ?? ""));
+  const characters = Array.from(input);
   for (const [straight, opening, closing] of [
     ["'", "‘", "’"],
     ['"', "“", "”"],
@@ -1819,7 +1817,7 @@ function normalizeStraightQuotePairs(input) {
 }
 
 function removeOrphanJoiners(input) {
-  const characters = Array.from(String(input ?? ""));
+  const characters = Array.from(input);
   return characters
     .filter((character, index) => {
       if (character !== "\u200c" && character !== "\u200d") return true;
@@ -1857,7 +1855,7 @@ export function unicodeToFmSegments(input = "", options = {}) {
   };
 
   const normalizedInput = normalizeStraightQuotePairs(
-    removeOrphanJoiners(input),
+    removeOrphanJoiners(String(input ?? "")),
   );
   const characters = Array.from(normalizedInput);
   for (let index = 0; index < characters.length; index += 1) {
@@ -2018,7 +2016,7 @@ function isClassifiedConjunctFallback(source, options) {
 }
 
 function convertUnwrappedLegacyText(input, options) {
-  const parts = String(input ?? "").match(/\s+|[^\s]+/gu) ?? [];
+  const parts = input.match(/\s+|[^\s]+/gu) ?? [];
   return parts.flatMap((source, index) => {
     const previousToken = /^\s+$/u.test(parts[index - 1] ?? "")
       ? parts[index - 2]

@@ -88,7 +88,7 @@ const { t: translate, text: localizeText } = useLocale();
 import { storeToRefs } from "pinia";
 import { ref } from "vue";
 import { MOBILE_READER_ZONE_ACTIONS } from "@/constants/reader";
-import { useReaderStore } from "@/stores/readerStore";
+import { useReaderStore } from "@/stores/reader";
 
 const emit = defineEmits(["close"]);
 const store = useReaderStore();

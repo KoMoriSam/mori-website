@@ -5,7 +5,7 @@
         class="overflow-x-auto overflow-y-hidden overscroll-x-contain touch-pan-x py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         <div class="flex w-max flex-nowrap" :class="compact ? 'gap-1' : 'gap-2'">
-          <button
+          <Tooltip as="button" trigger-class="inline-flex"
             v-for="kind in actions"
             :key="kind"
             type="button"
@@ -18,13 +18,13 @@
             ]"
             :aria-disabled="!canAct"
             :aria-pressed="active === kind"
-            :title="t(`fogport.actions.${kind}`)"
+            :text="t(`fogport.actions.${kind}`)"
             :aria-label="t(`fogport.actions.${kind}`)"
             @click="emit('action', kind)"
           >
             <i :class="ACTION_ICONS[kind]" aria-hidden="true"></i
             ><span v-if="!iconsOnly">{{ t(`fogport.actions.${kind}`) }}</span>
-          </button>
+          </Tooltip>
         </div>
       </div>
     </ScrollableContainer>
@@ -47,6 +47,8 @@
   </div>
 </template>
 <script setup>
+import Tooltip from "@/components/display/Tooltip.vue";
+
 import ScrollableContainer from "@/components/layout/ScrollableContainer.vue";
 import { ref, watch } from "vue";
 import { useElementSize } from "@vueuse/core";

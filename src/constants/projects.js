@@ -9,7 +9,7 @@ export const PROJECTS = [
     meta: "Variable Font",
   },
   {
-    name: "MoriWebsite",
+    name: "mori-website",
     category: "网站项目",
     description:
       "当前主站的源码，基于 Vue、Vite、Tailwind CSS 与 daisyUI 构建。",

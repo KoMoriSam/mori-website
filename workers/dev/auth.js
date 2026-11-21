@@ -26,6 +26,8 @@ export default {
     await db.batch([
       db.prepare("INSERT OR IGNORE INTO users (id, name, avatar_url, can_read_novel, created_at) VALUES (?, ?, '', ?, ?)")
         .bind(id, `Local ${account}`, Number(account !== "restricted"), now),
+      db.prepare("INSERT OR IGNORE INTO identities (provider, provider_user_id, user_id, login) VALUES ('github', ?, ?, ?)")
+        .bind(id, id, `local-${account}`),
       db.prepare("INSERT INTO sessions (hash, user_id, family, audience, device, created_at, expires_at, revoked_at) VALUES (?, ?, ?, ?, 'local', ?, ?, ?)")
         .bind(await hash(token), id, family, invalid ? "website" : "auth", now,
           now + (account === "expired" ? -1 : 3600_000), account === "revoked" ? now : null),

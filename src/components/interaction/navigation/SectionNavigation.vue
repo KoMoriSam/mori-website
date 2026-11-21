@@ -6,9 +6,9 @@
   >
     <ul class="flex flex-col">
       <template v-for="(section, index) in sections" :key="section.id">
-      <li
-        class="tooltip tooltip-left"
-        :data-tip="sectionLabel(section)"
+      <Tooltip as="li" trigger-class="" activation-class="tooltip"
+        class="tooltip-left"
+        :text="sectionLabel(section)"
       >
         <a
           :href="`#${section.id}`"
@@ -25,7 +25,7 @@
             <span class="absolute inset-0 bg-primary opacity-(--wave-opacity) transition-opacity duration-150 ease-out motion-reduce:transition-none"></span>
           </span>
         </a>
-      </li>
+      </Tooltip>
       <li
         v-if="index < sections.length - 1"
         aria-hidden="true"
@@ -48,6 +48,8 @@
 </template>
 
 <script setup>
+import Tooltip from "@/components/display/Tooltip.vue";
+
 import { onBeforeUnmount, onMounted, ref } from "vue";
 import { useLocale } from "@/i18n";
 

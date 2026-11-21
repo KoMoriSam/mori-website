@@ -1,9 +1,13 @@
+import {
+  getNormalizedTagSegments,
+  normalizeArticleTags,
+  normalizeArticleText,
+} from "./article-fields.js";
 import { createArticleReferenceResolver } from "./article-references.js";
 import { getSourceLocale, resolveArticleVersion } from "./article-versions.js";
 
 const RELATED_ARTICLE_TARGET = 5;
 
-const normalize = (value) => String(value || "").normalize("NFKC").toLowerCase().trim();
 const stopWords = new Set([
   "the", "and", "for", "with", "from", "this", "that", "how", "about", "of", "to", "in", "an", "is",
   "les", "des", "une", "dans", "pour", "avec", "sur", "关于", "一种", "方式", "本站", "文章", "如何", "以及",
@@ -11,7 +15,7 @@ const stopWords = new Set([
 const segmenter = new Intl.Segmenter("und", { granularity: "word" });
 
 function textTerms(value) {
-  const text = normalize(value);
+  const text = normalizeArticleText(value);
   const terms = new Set();
   for (const { segment, isWordLike } of segmenter.segment(text)) {
     if (isWordLike && segment.length > 1 && !/^\p{N}+$/u.test(segment) && !stopWords.has(segment)) {
@@ -43,9 +47,13 @@ function articleTerms(source, localized) {
 }
 
 function tagPaths(article) {
-  const tags = Array.isArray(article.tags) ? article.tags : [];
-  return [...new Set(tags.map((tag) => String(tag).split("/").map(normalize).filter(Boolean).join("/")).filter(Boolean))]
-    .map((tag) => tag.split("/"));
+  return [
+    ...new Set(
+      normalizeArticleTags(article.tags)
+        .map((tag) => getNormalizedTagSegments(tag).join("/"))
+        .filter(Boolean),
+    ),
+  ].map((tag) => tag.split("/"));
 }
 
 function sharedTagDepth(left, right) {

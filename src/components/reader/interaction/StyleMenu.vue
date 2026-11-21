@@ -30,7 +30,7 @@
 import { useLocale } from '@/i18n';
 const { t: translate } = useLocale();
 
-import { useReaderStore } from "@/stores/readerStore";
+import { useReaderStore } from "@/stores/reader";
 
 defineProps({
   title: String,

@@ -59,28 +59,45 @@ const geometry = new Map(
     ),
   ]),
 );
+const pathCache = new Map();
+const segmentsCache = new Map();
+const markCache = new Map();
+const routeCacheKey = (link, era) => `${link.id}:${era}`;
+
 export function routeBranches(link, era = "canal") {
   const branches = geometry.get(link.id)?.[era];
   if (!branches) throw new Error("Unknown map edge " + link.id + " in " + era);
   return branches;
 }
 export function routePath(link, era = "canal") {
-  return routeBranches(link, era)
-    .map((points) => "M " + points.map((p) => p.x + " " + p.y).join(" L "))
-    .join(" ");
+  const key = routeCacheKey(link, era);
+  let cached = pathCache.get(key);
+  if (cached === undefined) {
+    cached = routeBranches(link, era)
+      .map((points) => "M " + points.map((p) => p.x + " " + p.y).join(" L "))
+      .join(" ");
+    pathCache.set(key, cached);
+  }
+  return cached;
 }
 export function routeSegments(link, era = "canal") {
-  return routeBranches(link, era).flatMap((points) =>
-    points.slice(1).map((b, i) => {
-      const a = points[i];
-      return {
-        x: a.x,
-        y: a.y,
-        length: Math.hypot(b.x - a.x, b.y - a.y),
-        angle: (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI,
-      };
-    }),
-  );
+  const key = routeCacheKey(link, era);
+  let cached = segmentsCache.get(key);
+  if (cached === undefined) {
+    cached = routeBranches(link, era).flatMap((points) =>
+      points.slice(1).map((b, i) => {
+        const a = points[i];
+        return {
+          x: a.x,
+          y: a.y,
+          length: Math.hypot(b.x - a.x, b.y - a.y),
+          angle: (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI,
+        };
+      }),
+    );
+    segmentsCache.set(key, cached);
+  }
+  return cached;
 }
 export function routeHitIds(links, era, position, tolerance = 12) {
   const distance = (link) =>
@@ -114,20 +131,26 @@ export function routeHitIds(links, era, position, tolerance = 12) {
     .map((hit) => hit.id);
 }
 export function routeMark(link, era = "canal") {
+  const key = routeCacheKey(link, era);
+  let cached = markCache.get(key);
+  if (cached !== undefined) return cached;
   const points = routeBranches(link, era)[0],
     lengths = points
       .slice(1)
       .map((p, i) => Math.hypot(p.x - points[i].x, p.y - points[i].y));
   let remaining = lengths.reduce((a, b) => a + b, 0) / 2;
+  cached = points[0];
   for (let i = 0; i < lengths.length; i++) {
     if (remaining <= lengths[i]) {
       const ratio = remaining / lengths[i];
-      return {
+      cached = {
         x: points[i].x + (points[i + 1].x - points[i].x) * ratio,
         y: points[i].y + (points[i + 1].y - points[i].y) * ratio,
       };
+      break;
     }
     remaining -= lengths[i];
   }
-  return points[0];
+  markCache.set(key, cached);
+  return cached;
 }

@@ -61,8 +61,47 @@ const counts = async () => {
   assert.equal(response.status, 200);
   return (await response.json()).counts[article];
 };
+const attachmentEndpoint = "/api/comments/attachments?scope=article&target=" + encodeURIComponent(article);
+const capabilities = await fetchLocal(attachmentEndpoint, { headers: { Cookie: cookie } });
+assert.equal(capabilities.status, 200);
+assert.equal((await capabilities.json()).available, true);
+const signatures = {
+  png: "\x89PNG\r\n\x1a\n", jpg: "\xff\xd8\xff", jpeg: "\xff\xd8\xff", gif: "GIF89a",
+  svg: '<svg xmlns="http://www.w3.org/2000/svg"></svg>', webp: "RIFF0000WEBP",
+  mp4: "0000ftypisom", mov: "0000ftypqt  ", webm: "\x1aE\xdf\xa3",
+};
+const { mediaAttachmentTypes, attachmentMarkdown } = await import("../../shared/comment-attachments.js");
+const attachmentReferences = [];
+for (const [extension, type] of Object.entries(mediaAttachmentTypes)) {
+  const bytes = Uint8Array.from(signatures[extension], (character) => character.charCodeAt(0));
+  const response = await fetchLocal(attachmentEndpoint, {
+    method: "POST", headers: {
+      Origin: origin, Cookie: cookie, "Content-Type": type.mime,
+      "X-Attachment-Name": encodeURIComponent("附件." + extension), "X-Attachment-Size": String(bytes.length),
+    }, body: bytes,
+  });
+  assert.equal(response.status, 201, extension);
+  const attachment = await response.json();
+  assert.equal(attachment.name, "附件." + extension);
+  const path = new URL(attachment.url).pathname;
+  assert.equal((await fetchLocal(path)).status, 401);
+  const downloaded = await fetchLocal(path, { headers: { Cookie: cookie } });
+  assert.equal(downloaded.status, 200);
+  assert.equal(downloaded.headers.get("Content-Type"), type.mime);
+  assert.deepEqual(new Uint8Array(await downloaded.arrayBuffer()), bytes);
+  attachmentReferences.push(attachmentMarkdown(attachment));
+}
+const anonymousUpload = await fetchLocal(attachmentEndpoint, {
+  method: "POST", headers: { Origin: origin, "X-Attachment-Name": "file.png", "X-Attachment-Size": "8", "Content-Type": "image/png" },
+  body: "12345678",
+});
+assert.equal(anonymousUpload.status, 401);
+const otherFile = await fetchLocal(attachmentEndpoint, {
+  method: "POST", headers: { Origin: origin, Cookie: cookie, "X-Attachment-Name": "file.pdf", "X-Attachment-Size": "1", "Content-Type": "application/pdf" }, body: "x",
+});
+assert.equal(otherFile.status, 415);
 const initialCount = await counts();
-const body = "本地联调 " + randomUUID();
+const body = "本地联调 " + randomUUID() + "\n\n" + attachmentReferences.join("\n\n");
 assert.equal((await write("post", { body }, "")).status, 401);
 const posted = await write("post", { body });
 assert.equal(posted.status, 200);

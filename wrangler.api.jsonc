@@ -6,6 +6,9 @@
 	"compatibility_flags": [
 		"nodejs_compat"
 	],
+	"vars": {
+		"MORI_ATTACHMENT_PAID_VIDEO_REPOS": "KoMoriSam/mori-blog-discussions,KoMoriSam/mori-novel-discussions,KoMoriSam/mori-test-discussions"
+	},
 	"services": [
 		{ "binding": "MORI_COMMENT_AUTH", "service": "mori-auth", "entrypoint": "CommentAuth" }
 	],
@@ -39,12 +42,6 @@
 			"database_name": "komorisam-analytics",
 			"migrations_dir": "./migrations/analytics",
 			"database_id": "12e811c2-6fa8-44e1-a5f2-1fc525e3d672",
-		},
-		{
-			"binding": "komorisam_analytics",
-			"database_name": "komorisam-analytics",
-			"database_id": "12e811c2-6fa8-44e1-a5f2-1fc525e3d672",
-			"remote": true,
 		},
 	],
 	"triggers": {

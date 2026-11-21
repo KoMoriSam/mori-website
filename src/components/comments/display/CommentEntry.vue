@@ -8,55 +8,104 @@
     }"
   >
     <header
-      class="flex min-w-0 items-center gap-2 p-2"
+      class="flex min-w-0 items-start gap-2 p-2"
       :class="{
         'comment-surface-top': !reply,
       }"
     >
       <Avatar :src="avatar" :name="comment.author?.login" />
       <div
-        class="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 self-center"
+        class="flex min-w-0 flex-1 flex-col items-start gap-1 self-center text-start"
       >
-        <a
-          v-if="authorUrl"
-          :href="authorUrl"
-          class="link link-hover min-w-0 font-semibold wrap-anywhere"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          {{ comment.author.login }}
-        </a>
-        <span v-else class="min-w-0 font-semibold wrap-anywhere">
-          {{ comment.author?.login || t("comments.deletedUser") }}
-        </span>
-        <span v-if="isSiteOwner" class="badge badge-primary badge-xs">
-          {{ t("comments.siteOwner") }}
-        </span>
-        <span
-          v-if="isContentAuthor"
-          class="badge badge-secondary badge-soft badge-xs"
-        >
-          {{ t("comments.contentAuthor") }}
-        </span>
-        <Popover
-          :label="publishedAt"
-          :title="publishedAt"
-          focus-preview
-          align="center"
-          trigger-class="cursor-pointer whitespace-nowrap text-xs text-base-content/60 hover:underline"
-          panel-class="text-xs"
-        >
-          <template #trigger>
-            <time :datetime="comment.createdAt">{{ relativeTime }}</time>
-          </template>
-          <time :datetime="comment.createdAt">{{ publishedAt }}</time>
-        </Popover>
-        <EditHistory
-          v-if="comment.lastEditedAt && !comment.isMinimized"
-          :key="`${historyRevision}:${comment.lastEditedAt}`"
-          :comment-id="comment.id"
-          :load-history="loadHistory"
-        />
+        <div ref="metadataRow" class="flex w-full min-w-0 items-center gap-1.5">
+          <Tooltip
+            adaptive
+            align="start"
+            content-class="max-w-[min(20rem,calc(100cqw-3rem))]"
+            :text="authorLabel"
+            :disabled="!authorTruncated"
+            class="min-w-0 shrink"
+          >
+            <component
+              :is="authorUrl ? 'a' : 'span'"
+              ref="authorName"
+              :href="authorUrl || undefined"
+              class="min-w-0 truncate font-semibold"
+              :class="{ 'link link-hover': authorUrl }"
+              :target="authorUrl ? '_blank' : undefined"
+              :rel="authorUrl ? 'noopener noreferrer' : undefined"
+              :tabindex="!authorUrl && authorTruncated ? 0 : undefined"
+              @pointerenter="measureAuthorName"
+              @focus="measureAuthorName"
+              >{{ authorLabel }}</component
+            >
+          </Tooltip>
+          <Tooltip
+            adaptive
+            align="end"
+            v-if="badgeLabels.length"
+            :text="badgeLabels.join(' · ')"
+            :disabled="!badgesStacked"
+            class="shrink-0"
+          >
+            <span
+              ref="badgeGroup"
+              role="group"
+              :aria-label="badgeLabels.join(' · ')"
+              :tabindex="badgesStacked ? 0 : undefined"
+              class="min-w-0"
+              :class="
+                badgesStacked
+                  ? 'stack stack-end h-5'
+                  : 'inline-flex items-center gap-1'
+              "
+              :style="
+                badgesStacked ? { width: badgeStackWidth + 'px' } : undefined
+              "
+            >
+              <span
+                v-if="isSiteOwner"
+                class="badge badge-primary badge-xs shrink-0"
+              >
+                <span class="whitespace-nowrap">{{
+                  t("comments.siteOwner")
+                }}</span>
+              </span>
+              <span
+                v-if="isContentAuthor"
+                class="badge badge-info badge-xs shrink-0"
+              >
+                <span class="whitespace-nowrap">{{
+                  t("comments.contentAuthor")
+                }}</span>
+              </span>
+            </span>
+          </Tooltip>
+        </div>
+        <div class="flex min-w-0 max-w-full items-center gap-1.5">
+          <Tooltip
+            adaptive
+            content-class="max-w-[min(20rem,calc(100cqw-3rem))]"
+            :text="publishedAt"
+            placement="bottom"
+            align="start"
+            class="shrink-0"
+          >
+            <time
+              :datetime="comment.createdAt"
+              :aria-label="publishedAt"
+              tabindex="0"
+              class="whitespace-nowrap text-xs text-base-content/60"
+              >{{ relativeTime }}</time
+            >
+          </Tooltip>
+          <EditHistory
+            v-if="comment.lastEditedAt && !comment.isMinimized"
+            :key="`${historyRevision}:${comment.lastEditedAt}`"
+            :comment-id="comment.id"
+            :load-history="loadHistory"
+          />
+        </div>
       </div>
       <ActionMenu
         :label="t('comments.actions')"
@@ -155,7 +204,6 @@
     </button>
     <div
       v-if="$slots.editor || $slots.replies || showReplyControl"
-      class="border-t border-base-300"
       :class="{ 'comment-surface-bottom bg-(--comment-reply-bg)': !reply }"
     >
       <slot v-if="editing" name="editor" />
@@ -163,8 +211,7 @@
       <slot v-if="!editing" name="editor" />
       <div
         v-if="showReplyControl && !$slots.editor"
-        class="p-(--comment-inset)"
-        :class="$slots.replies ? 'border-t border-base-300' : ''"
+        class="p-(--comment-inset) border-t border-base-300"
       >
         <button
           class="input input-sm w-full text-base-content/65"
@@ -181,14 +228,15 @@
 
 <script setup>
 import { COMMENT_MARKDOWN } from "@/utils/comments/comment-markdown";
-import { computed, ref, useId } from "vue";
+import { computed, inject, nextTick, ref, useId, watch } from "vue";
 import { useClipboard, useResizeObserver } from "@vueuse/core";
 import Avatar from "@/components/auth/Avatar.vue";
 import Renderer from "@/components/markdown/Renderer.vue";
 import ReactionButtons from "./ReactionButtons.vue";
 import ActionMenu from "@/components/display/menu/ActionMenu.vue";
-import Popover from "@/components/display/menu/Popover.vue";
+import Tooltip from "@/components/display/Tooltip.vue";
 import EditHistory from "../interaction/EditHistory.vue";
+import { COMMENT_THREAD_CONTEXT } from "../context";
 import { useLocale } from "@/i18n";
 import { formatRelativeDate } from "@/i18n/format-date";
 import {
@@ -198,21 +246,15 @@ import {
 import { useToast } from "@/composables/useToast";
 import { githubDiscussionUrl } from "@/utils/github-discussion-url";
 import { collectReaderBodyTextRects } from "@/utils/reader/measure-mobile-pages";
+
 const props = defineProps({
   comment: { type: Object, required: true },
-  authorLogin: { type: String, required: true },
-  viewerLogin: String,
-  now: { type: Number, required: true },
-  loadHistory: { type: Function, required: true },
-  historyRevision: Number,
-  permissions: Boolean,
-  canReply: Boolean,
-  authenticated: Boolean,
-  canQuote: Boolean,
-  repliesOpen: Boolean,
   reply: Boolean,
+  canReply: Boolean,
+  canQuote: Boolean,
+  includePermissions: { type: Boolean, default: true },
+  repliesOpen: Boolean,
   editing: Boolean,
-  busy: Boolean,
 });
 const emit = defineEmits([
   "reply",
@@ -222,7 +264,61 @@ const emit = defineEmits([
   "react",
   "toggle-replies",
 ]);
+const threadContext = inject(COMMENT_THREAD_CONTEXT);
+const authorLogin = computed(() => threadContext.authorLogin.value);
+const viewerLogin = computed(() => threadContext.viewerLogin.value);
+const now = computed(() => threadContext.now.value);
+const loadHistory = (id, cursor, signal) =>
+  threadContext.loadHistory(id, cursor, signal);
+const historyRevision = computed(() => threadContext.historyRevision.value);
+const authenticated = computed(() => threadContext.authenticated.value);
+const busy = computed(() => threadContext.busy.value);
+const permissions = computed(
+  () => Boolean(threadContext.permissions.value && props.includePermissions),
+);
+const { t, locale, date: formatDate, number } = useLocale();
 const bodyId = `comment-body-${useId()}`;
+const authorName = ref(null);
+const metadataRow = ref(null);
+const badgeGroup = ref(null);
+const badgesStacked = ref(false);
+const badgeStackWidth = ref(0);
+const authorLabel = computed(
+  () => props.comment.author?.login || t("comments.deletedUser"),
+);
+const authorTruncated = ref(false);
+function measureTextWidth(element) {
+  const range = document.createRange();
+  range.selectNodeContents(element);
+  return range.getBoundingClientRect().width;
+}
+function availableWidth(element) {
+  const style = getComputedStyle(element);
+  return element.getBoundingClientRect().width -
+    [style.paddingLeft, style.paddingRight, style.borderLeftWidth, style.borderRightWidth]
+      .reduce((total, value) => total + (parseFloat(value) || 0), 0);
+}
+function measureAuthorName() {
+  const element = authorName.value;
+  if (!element) {
+    authorTruncated.value = false;
+    return;
+  }
+  const stacked = badgesStacked.value;
+  measureBadges();
+  if (stacked !== badgesStacked.value) {
+    // Give the badges their compact layout before deciding whether the name needs ellipsis.
+    void nextTick(measureAuthorName);
+    return;
+  }
+  // scrollWidth/clientWidth round to integers; ellipsis can start before they differ.
+  authorTruncated.value =
+    element.scrollWidth > element.clientWidth ||
+    measureTextWidth(element) > availableWidth(element) + 0.01;
+}
+useResizeObserver(authorName, measureAuthorName);
+useResizeObserver(metadataRow, measureAuthorName);
+watch(authorLabel, measureAuthorName, { flush: "post" });
 const bodyContent = ref(null);
 const bodyExpanded = ref(false);
 const bodyPreviewHeight = ref(0);
@@ -275,7 +371,6 @@ function chooseAction(action) {
   if (action === "copyLink") void copyLink();
   else emit(action);
 }
-const { t, locale, date: formatDate, number } = useLocale();
 const minimizedMessage = computed(() => {
   const reason = props.comment.minimizedReason;
   if (!commentMinimizedReasons.includes(reason)) return t("comments.minimized");
@@ -285,13 +380,56 @@ const minimizedMessage = computed(() => {
 });
 const login = computed(() => props.comment.author?.login?.toLowerCase());
 const isOwnComment = computed(() =>
-  Boolean(login.value && login.value === props.viewerLogin?.toLowerCase()),
+  Boolean(login.value && login.value === viewerLogin.value?.toLowerCase()),
 );
 const isSiteOwner = computed(
   () => login.value === siteOwnerLogin.toLowerCase(),
 );
 const isContentAuthor = computed(
-  () => login.value === props.authorLogin.toLowerCase(),
+  () => login.value === authorLogin.value.toLowerCase(),
+);
+const badgeLabels = computed(() => [
+  ...(isSiteOwner.value ? [t("comments.siteOwner")] : []),
+  ...(isContentAuthor.value ? [t("comments.contentAuthor")] : []),
+]);
+
+function measureBadges() {
+  const row = metadataRow.value;
+  const group = badgeGroup.value;
+  const name = authorName.value;
+  if (!row || !group || !name || badgeLabels.value.length < 2) {
+    badgesStacked.value = false;
+    return;
+  }
+  const widths = Array.from(group.children, (badge) => {
+    const style = getComputedStyle(badge);
+    return (
+      measureTextWidth(badge.firstElementChild) +
+      [
+        style.paddingLeft,
+        style.paddingRight,
+        style.borderLeftWidth,
+        style.borderRightWidth,
+      ].reduce((total, value) => total + (parseFloat(value) || 0), 0)
+    );
+  });
+  // Compare the uncompressed row, so stacking cannot make its own breakpoint oscillate.
+  const gap = parseFloat(getComputedStyle(row).columnGap) || 0;
+  const expandedBadges =
+    widths.reduce((total, width) => total + width, 0) + 4 * (widths.length - 1);
+  badgeStackWidth.value = Math.max(...widths) + 7;
+  badgesStacked.value =
+    measureTextWidth(name) + expandedBadges + gap > availableWidth(row) + 0.01;
+}
+watch(
+  [
+    badgeLabels,
+    authorLabel,
+    () => props.comment.lastEditedAt,
+    () => props.comment.isMinimized,
+  ],
+  measureAuthorName,
+  { flush: "post" },
 );
 const publishedAt = computed(() =>
   formatDate(props.comment.createdAt, {
@@ -300,7 +438,7 @@ const publishedAt = computed(() =>
   }),
 );
 const relativeTime = computed(() =>
-  formatRelativeDate(props.comment.createdAt, locale.value, props.now),
+  formatRelativeDate(props.comment.createdAt, locale.value, now.value),
 );
 const toast = useToast();
 const { copy, copied } = useClipboard({ legacy: true });
@@ -313,13 +451,13 @@ const canQuoteComment = computed(
 );
 const canEditComment = computed(
   () =>
-    props.permissions &&
+    permissions.value &&
     !props.comment.isMinimized &&
     props.comment.viewerCanUpdate,
 );
 const canDeleteComment = computed(
   () =>
-    props.permissions &&
+    permissions.value &&
     !props.comment.isMinimized &&
     props.comment.viewerCanDelete,
 );
@@ -372,7 +510,7 @@ const avatar = computed(() =>
 const reactionGroups = computed(() =>
   props.comment.reactionGroups?.map((group) => ({
     ...group,
-    viewerHasReacted: props.permissions && group.viewerHasReacted,
+    viewerHasReacted: permissions.value && group.viewerHasReacted,
   })),
 );
 </script>

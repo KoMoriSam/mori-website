@@ -14,18 +14,16 @@
     :title="statsLabel"
   >
     <template #overlay>
-    <span
+    <Tooltip placement="bottom" align="start" as="span" trigger-class="inline-flex"
       v-if="!building"
       class="badge badge-sm absolute left-2 top-2 z-20 border-warning/30 bg-neutral/90 text-neutral-content"
-      :title="t('fogport.visual.copies', { n: quantity })"
-      >×{{ quantity }}</span
-    >
-    <span
+      :text="t('fogport.visual.copies', { n: quantity })" :aria-label="t('fogport.visual.copies', { n: quantity })"
+      >×{{ quantity }}</Tooltip>
+    <Tooltip placement="bottom" align="end" as="span" trigger-class="inline-flex"
       class="badge badge-sm absolute right-2 top-2 z-20 gap-1 border-warning/30 bg-neutral/90 text-neutral-content"
-      :title="t('fogport.industry')"
+      :text="t('fogport.industry')" :aria-label="t('fogport.industry')"
       ><i :class="INDUSTRY_ICONS[tile.type]" aria-hidden="true"></i
-      >{{ roman[tile.level - 1] }}</span
-    >
+      >{{ roman[tile.level - 1] }}</Tooltip>
     <div
       v-if="!detail"
       class="pointer-events-none invisible absolute inset-x-2 top-9 z-20 space-y-1 bg-neutral/95 p-1 text-[11px] text-neutral-content opacity-0 transition-opacity group-hover/tile:visible group-hover/tile:opacity-100 group-focus-visible/industry:visible group-focus-visible/industry:opacity-100"
@@ -53,10 +51,10 @@
           class="ri-checkbox-circle-fill text-primary"
           aria-hidden="true"
         ></i
-        ><span
+        ><Tooltip placement="bottom" align="start" as="span" trigger-class=""
           class="flex items-center gap-0.5"
           :class="building.flipped ? 'text-success' : 'text-neutral-content/75'"
-          :title="t(building.flipped ? 'fogport.flipped' : 'fogport.unflipped')"
+          :text="t(building.flipped ? 'fogport.flipped' : 'fogport.unflipped')" :aria-label="t(building.flipped ? 'fogport.flipped' : 'fogport.unflipped')"
           ><i
             :class="
               building.flipped
@@ -70,8 +68,7 @@
           ><span v-if="building.resources">{{ building.resources }}</span
           ><span class="sr-only">{{
             t(building.flipped ? "fogport.flipped" : "fogport.unflipped")
-          }}</span></span
-        >
+          }}</span></Tooltip>
       </div>
       <div v-else class="mt-1 flex items-center gap-1 text-xs">
         <i class="ri-coins-line text-warning" aria-hidden="true"></i
@@ -91,6 +88,8 @@
   </CardSurface>
 </template>
 <script setup>
+import Tooltip from "@/components/display/Tooltip.vue";
+
 import { computed, defineComponent, h } from "vue";
 import { Translation as I18nT } from "vue-i18n";
 import ArtIcon from "./ArtIcon.vue";
@@ -160,7 +159,7 @@ const ValueStats = defineComponent({
         ["income", "ri-arrow-up-circle-line", "fogport.incomeSpaces"],
         ["link", "ri-route-line", "fogport.linkValue"],
       ].map(([key, icon, label]) =>
-        h("span", { class: "flex items-center gap-1", title: t(label) }, [
+        h(Tooltip, { as: "span", triggerClass: "", placement: "bottom", align: "start", disabled: props.detail, class: "flex items-center gap-1", text: t(label) }, { default: () => [
           h("i", { class: icon, "aria-hidden": true }),
           props.detail
             ? h(I18nT, { keypath: "fogport.statCount", tag: "span", scope: "global" }, {
@@ -168,7 +167,7 @@ const ValueStats = defineComponent({
                 label: () => h("small", { class: "text-[9px]" }, t(label)),
               })
             : String(props.tile[key]),
-        ]),
+        ] }),
       ),
     ),
 });
@@ -185,15 +184,19 @@ const ResourceStats = defineComponent({
         .filter(([key]) => props.tile[key])
         .map(([key, icon]) =>
           h(
-            "span",
+            Tooltip,
             {
+              as: "span",
+              triggerClass: "",
+              placement: "bottom",
+              align: "start",
               class: "flex items-center gap-1",
-              title: t("fogport.resources." + key),
+              text: t("fogport.resources." + key),
             },
-            [
+            { default: () => [
               h(ArtIcon, { asset: "resource-" + key, icon }),
               String(props.tile[key]),
-            ],
+            ] },
           ),
         ),
     ),

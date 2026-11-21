@@ -1,3 +1,11 @@
+import {
+  compositeBackdropLayer,
+  mixGoldWithInk,
+  mixRgb,
+  paintEllipticalGlow,
+  prepareBackdropLayer,
+} from "../canvas/backdrop.js";
+
 export function createPunctuationDrift({
   context,
   layer,
@@ -46,51 +54,33 @@ export function createPunctuationDrift({
   ];
 
   function paintGradient() {
-    const { width, height, layerScale, time, lightTheme } = state;
-    layerContext.setTransform(layerScale, 0, 0, layerScale, 0, 0);
-    layerContext.clearRect(0, 0, width, height);
+    const { width, height, time, lightTheme } = state;
+    prepareBackdropLayer(layerContext, state);
     for (const wash of washes) {
       const x = width * (wash.x + Math.sin(time * 0.12 + wash.phase) * 0.07);
       const y = height * (wash.y + Math.cos(time * 0.1 + wash.phase) * 0.1);
       const radius =
         width * (wash.radius + Math.sin(time * 0.08 + wash.phase) * 0.025);
       const opacity = wash.opacity * (lightTheme ? 0.6 : 1);
-      layerContext.save();
-      layerContext.translate(x, y);
-      layerContext.scale(radius, height * 0.55);
-      const gradient = layerContext.createRadialGradient(0, 0, 0, 0, 0, 1);
-      gradient.addColorStop(0, rgba(wash.color, opacity));
-      gradient.addColorStop(0.48, rgba(wash.color, opacity * 0.55));
-      gradient.addColorStop(1, rgba(wash.color, 0));
-      layerContext.fillStyle = gradient;
-      layerContext.fillRect(-1, -1, 2, 2);
-      layerContext.restore();
+      paintEllipticalGlow(layerContext, rgba, {
+        x,
+        y,
+        radiusX: radius,
+        radiusY: height * 0.55,
+        color: wash.color,
+        opacity,
+        midStop: 0.48,
+        midOpacity: 0.55,
+      });
     }
-    context.drawImage(
-      layer,
-      0,
-      0,
-      layer.width,
-      layer.height,
-      0,
-      0,
-      width,
-      height,
-    );
+    compositeBackdropLayer(context, layer, state);
   }
 
   return {
     createPalette({ green, gold, ink }, lightTheme) {
-      const goldWeight = lightTheme ? 0.55 : 0.7;
       return {
-        green: lightTheme
-          ? green.map((value, index) =>
-              Math.round(value * 0.75 + ink[index] * 0.25),
-            )
-          : green,
-        gold: gold.map((value, index) =>
-          Math.round(value * goldWeight + ink[index] * (1 - goldWeight)),
-        ),
+        green: lightTheme ? mixRgb(green, ink, 0.75) : green,
+        gold: mixGoldWithInk(gold, ink, lightTheme),
       };
     },
     paint() {

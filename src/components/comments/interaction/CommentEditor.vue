@@ -1,9 +1,26 @@
 <template>
-  <div class="min-w-0" :class="{ 'flex min-h-0 flex-1 flex-col': expanded }">
+  <div
+    ref="editorElement"
+    class="min-w-0"
+    @paste="pasteAttachments"
+    @dragover="dragAttachments"
+    @drop="dropAttachments"
+    @focusin="attachments.focusField($event.target)"
+  >
+    <input
+      ref="fileInput"
+      type="file"
+      class="hidden"
+      multiple
+      :accept="mediaAttachmentAccept"
+      @change="selectAttachments"
+    />
     <form
-      v-if="compact && !expanded && !inlineOpen"
+      v-if="isCompact && !inlineOpen"
       class="flex min-w-0 items-center gap-2 text-sm"
-      :class="{ 'p-(--comment-inset)': embedded }"
+      :class="{
+        'p-(--comment-inset) border-t border-base-300': embedded,
+      }"
       :data-inline-comment-editor="embedded || undefined"
       :inert="loading"
       :aria-hidden="loading || undefined"
@@ -18,7 +35,7 @@
           v-model="shortBody"
           class="min-w-0 grow"
           type="text"
-          :disabled="!authenticated"
+          :disabled="!isAuthenticated"
           :readonly="multiline"
           :aria-label="fieldLabel"
           :placeholder="placeholder"
@@ -27,31 +44,50 @@
           @click="multiline && openEditor()"
           @keydown.enter="openMultilineDraft"
         />
-        <button
-          ref="expandButton"
-          type="button"
-          class="btn btn-ghost btn-xs btn-square shrink-0 tooltip tooltip-left"
-          :aria-label="t('comments.expandEditor')"
-          :data-tip="t('comments.expandEditor')"
-          :disabled="!authenticated || loading || busy"
-          @click="openEditor"
-        >
-          <i class="ri-fullscreen-line" aria-hidden="true"></i>
-        </button>
+        <Tooltip :text="t('comments.attachments')" class="shrink-0">
+          <ActionMenu
+            v-if="attachmentTarget"
+            :label="t('comments.attachments')"
+            :groups="attachmentMenu"
+            :disabled="!isAuthenticated || loading || isBusy"
+            preserve-selection
+            trigger-class="btn btn-ghost btn-xs btn-square shrink-0"
+            @select="chooseAttachment"
+            @link-error="attachmentLinkError"
+          >
+            <template #trigger
+              ><i class="ri-attachment-2" aria-hidden="true"></i
+            ></template>
+          </ActionMenu>
+        </Tooltip>
+        <Tooltip :text="t('comments.expandEditor')" class="shrink-0">
+          <button
+            ref="expandButton"
+            type="button"
+            class="btn btn-ghost btn-xs btn-square shrink-0"
+            :aria-label="t('comments.expandEditor')"
+            :disabled="!isAuthenticated || loading || isBusy"
+            @click="openEditor"
+          >
+            <i class="ri-fullscreen-line" aria-hidden="true"></i>
+          </button>
+        </Tooltip>
       </label>
       <button
-        v-if="authenticated"
+        v-if="isAuthenticated"
         type="submit"
         class="btn btn-primary btn-sm shrink-0"
-        :disabled="loading || busy || !body.trim()"
+        :disabled="loading || isBusy || attachments.pending || !body.trim()"
       >
-        <span :class="{ 'skeleton skeleton-text': loading }">{{ submitLabel }}</span>
+        <span :class="{ 'skeleton skeleton-text': loading }">{{
+          submitLabel
+        }}</span>
       </button>
       <LoginButton
         v-else
         class="btn-sm shrink-0"
         :class="{ 'skeleton skeleton-text': loading }"
-        :disabled="busy"
+        :disabled="isBusy"
         :return-hash="returnHash"
         :login-action="loginAction"
         :label="t('comments.loginToComment')"
@@ -61,187 +97,118 @@
         type="button"
         class="btn btn-ghost btn-sm btn-square shrink-0"
         :aria-label="t('comments.cancel')"
-        :disabled="busy"
-        @click="$emit('cancel')"
+        :disabled="isBusy"
+        @click="emit('cancel')"
       >
         <i class="ri-close-line text-base" aria-hidden="true"></i>
       </button>
     </form>
-    <form
-      v-if="expanded || !compact || inlineOpen"
-      class="min-w-0 text-sm"
-      :class="[
-        expanded
-          ? 'flex min-h-0 flex-1 flex-col'
-          : 'flex flex-col',
-        !embedded &&
-          !expanded &&
-          'comment-surface card card-border border-base-300 bg-base-100',
-      ]"
-      :data-inline-comment-editor="embedded || undefined"
-      :inert="loading"
-      :aria-hidden="loading || undefined"
-      @submit.prevent="submit"
-      @keydown="handleShortcut"
+    <CommentEditorForm
+      v-else
+      ref="inlineFormRef"
+      v-model="body"
+      :action="action"
+      :attachment-menu="attachmentMenu"
+      :attachments-pending="attachments.pending"
+      :cancelable="cancelable"
+      :embedded="embedded"
+      :inline-open="inlineOpen"
+      :loading="loading"
+      :authenticated="isAuthenticated"
+      @choose-attachment="chooseAttachment"
+      @attachment-link-error="attachmentLinkError"
+      @collapse="collapseEditor"
+      @cancel="emit('cancel')"
+      @submit="submit"
+    />
+    <Teleport
+      :to="modalAttachmentsTarget"
+      :disabled="!editorOpen || !modalAttachmentsTarget"
     >
       <div
-        class="grid grid-cols-[auto_minmax(0,1fr)] items-end before:pointer-events-none before:col-span-full before:row-start-1 before:self-end before:border-b before:border-base-300"
-        :class="[
-          !embedded && !expanded && 'comment-surface-top bg-base-200/50',
-          expanded && 'shrink-0',
-        ]"
+        v-if="attachments.items.length || attachmentNotice"
+        class="max-h-48 shrink-0 overflow-y-auto px-(--comment-inset) pb-2 text-xs"
+        aria-live="polite"
       >
-        <div
-          class="tabs tabs-lift relative col-start-1 row-start-1 px-(--comment-inset) pt-(--comment-inset)"
-          role="radiogroup"
-          :aria-label="fieldLabel"
+        <p
+          v-if="attachmentNotice"
+          role="status"
+          class="py-1 text-base-content/70"
         >
-          <input
-            v-model="preview"
-            :name="tabGroup"
-            :value="false"
-            :aria-label="t('comments.write')"
-            type="radio"
-            class="tab"
-          />
-          <input
-            v-model="preview"
-            :name="tabGroup"
-            :value="true"
-            :aria-label="t('comments.preview')"
-            :disabled="!authenticated"
-            type="radio"
-            class="tab"
-          />
-        </div>
-        <MarkdownToolbar
-          v-if="!preview"
-          v-model="monospace"
-          :disabled="!authenticated || loading"
-          class="col-start-2 row-start-1 justify-end p-(--comment-inset)"
-          @format="format"
-        />
-      </div>
-      <div
-        class="bg-(--comment-editor-bg) p-(--comment-inset) pb-0"
-        :class="{ 'flex min-h-0 flex-1 flex-col': expanded }"
-      >
-        <div
-          class="grid min-w-0 grid-cols-1 bg-base-100"
-          :class="{
-            'focus-within:border-primary': !preview,
-            'min-h-0 flex-1 grid-rows-[minmax(0,1fr)]': expanded,
-          }"
-        >
-          <Renderer
-            v-if="preview && body.trim()"
-            :content="body"
-            mode="custom"
-            :custom-markdown="COMMENT_MARKDOWN"
-            scope-anchors
-            prose-size="sm"
-            class="col-start-1 row-start-1 max-h-(--comment-editor-max-height,none) max-w-none overflow-y-auto p-3 wrap-anywhere scrollbar-thin"
-            :class="{ 'min-h-0 max-h-none': expanded }"
-            dir="auto"
-          />
-          <p
-            v-else-if="preview"
-            class="col-start-1 row-start-1 p-3 text-base-content/60"
-          >
-            {{ t("comments.emptyPreview") }}
-          </p>
-          <textarea
-            ref="textarea"
-            v-model="body"
-            class="textarea col-start-1 row-start-1 block max-h-(--comment-editor-max-height,none) w-full min-w-0 resize-y p-3 enabled:bg-transparent disabled:resize-none field-sizing-content"
-            :class="{
-              'font-mono': monospace,
-              invisible: preview,
-              'text-transparent placeholder:text-transparent': loading,
-              'min-h-0 max-h-none resize-none overflow-y-auto text-base field-sizing-fixed':
-                expanded,
-            }"
-            :aria-hidden="preview || undefined"
-            :disabled="!authenticated"
-            :autofocus="expanded || undefined"
-            dir="auto"
-            rows="4"
-            maxlength="10000"
-            :aria-label="fieldLabel"
-            :placeholder="placeholder"
-          />
-          <div
-            v-if="loading"
-            class="pointer-events-none col-start-1 row-start-1 min-w-0 p-3"
-          >
-            <div class="skeleton h-3.5 w-36 max-w-full rounded-sm"></div>
-          </div>
-        </div>
-      </div>
-      <p v-if="expanded && error" role="alert" class="px-2 pt-2 text-error">
-        {{ t(error) }}
-      </p>
-      <footer
-        class="m-(--comment-inset) flex flex-wrap items-center justify-between gap-2"
-      >
-        <a
-          href="https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="btn btn-ghost btn-sm font-normal text-base-content/65"
-        >
-          <i class="ri-markdown-line text-base" aria-hidden="true"></i>
-          <span :class="{ 'skeleton skeleton-text': loading }">{{
-            t("comments.markdownHelp")
-          }}</span>
-        </a>
-        <div class="ms-auto flex flex-wrap items-center justify-end gap-2">
+          {{ attachmentNotice }}
           <button
-            v-if="inlineOpen"
+            v-if="otherAttachments"
             type="button"
-            class="btn btn-ghost btn-sm btn-square tooltip tooltip-left"
-            :aria-label="t('comments.collapseEditor')"
-            :data-tip="t('comments.collapseEditor')"
-            :disabled="busy"
-            @click="collapseEditor"
+            class="link ms-1"
+            @click="openAttachmentDiscussion"
           >
-            <i class="ri-fullscreen-exit-line" aria-hidden="true"></i>
+            {{ t("comments.attachmentOther") }}
           </button>
-          <button
-            v-if="cancelable"
-            type="button"
-            class="btn btn-ghost btn-sm"
-            :disabled="busy"
-            @click="$emit('cancel')"
+        </p>
+        <ul class="space-y-2">
+          <li
+            v-for="item in attachments.items"
+            :key="item.id"
+            class="flex min-w-0 items-center gap-2"
           >
-            {{ t("comments.cancel") }}
-          </button>
-          <button
-            v-if="authenticated"
-            type="submit"
-            class="btn btn-primary btn-sm"
-            :disabled="loading || busy || !body.trim()"
-          >
-            <span :class="{ 'skeleton skeleton-text': loading }">{{
-              submitLabel
-            }}</span>
-          </button>
-          <LoginButton
-            v-else
-            class="btn-sm"
-            :class="{ 'skeleton skeleton-text': loading }"
-            :disabled="busy"
-            :return-hash="returnHash"
-            :login-action="loginAction"
-            :label="t('comments.loginToComment')"
-          />
-        </div>
-      </footer>
-    </form>
-    <Teleport v-if="editorOpen" to="body">
+            <div class="min-w-0 flex-1">
+              <Tooltip
+                adaptive
+                content-class="max-w-[min(20rem,calc(100cqw-2rem))]"
+                overflow-only
+                placement="bottom"
+                align="start"
+                as="span"
+                trigger-class=""
+                class="min-w-0 block"
+                :text="item.name"
+                :aria-label="item.name"
+              ><span class="block min-w-0 truncate">{{
+                item.name
+              }}</span></Tooltip>
+              <span
+                :class="
+                  item.status === 'failed' ? 'text-error' : 'text-base-content/60'
+                "
+              >
+                {{
+                  item.status === "failed"
+                    ? attachmentFailure(item.error, item.maximum)
+                    : t("comments.attachmentStatus." + item.status)
+                }}
+              </span>
+              <progress
+                v-if="item.status === 'uploading'"
+                class="progress progress-primary block h-1 w-full"
+                :value="item.progress"
+                max="100"
+                :aria-label="item.name"
+              ></progress>
+            </div>
+            <button
+              v-if="['queued', 'uploading'].includes(item.status)"
+              type="button"
+              class="btn btn-ghost btn-xs"
+              @click="attachments.cancel(item)"
+            >
+              {{ t("comments.cancel") }}
+            </button>
+            <button
+              v-else-if="['failed', 'cancelled'].includes(item.status)"
+              type="button"
+              class="btn btn-ghost btn-xs"
+              @click="attachments.retry(item)"
+            >
+              {{ t("common.navigationStatus.retry") }}
+            </button>
+          </li>
+        </ul>
+      </div>
+    </Teleport>
+    <Teleport to="body">
       <Modal
         ref="editorModal"
-        visible
+        :visible="editorOpen"
         button-mode="close"
         scroll-content="nested"
         :title="fieldLabel"
@@ -251,15 +218,27 @@
         @close="editorOpen = false"
       >
         <template #description>
-          <CommentEditor
-            v-model="body"
-            expanded
-            :authenticated="authenticated"
-            :busy="busy"
-            :action="action"
-            :error="error"
-            @submit="$emit('submit', () => editorModal?.close())"
-          />
+          <div
+            class="@container/comments flex min-h-0 flex-1 flex-col"
+            @paste="pasteAttachments"
+            @dragover="dragAttachments"
+            @drop="dropAttachments"
+            @focusin="attachments.focusField($event.target)"
+          >
+            <CommentEditorForm
+              ref="modalFormRef"
+              v-model="body"
+              expanded
+              :action="action"
+              :attachment-menu="attachmentMenu"
+              :attachments-pending="attachments.pending"
+              :authenticated="isAuthenticated"
+              @choose-attachment="chooseAttachment"
+              @attachment-link-error="attachmentLinkError"
+              @submit="submitExpanded"
+            />
+            <div ref="modalAttachmentsTarget" class="contents"></div>
+          </div>
         </template>
       </Modal>
     </Teleport>
@@ -267,43 +246,70 @@
 </template>
 
 <script setup>
-import { COMMENT_MARKDOWN } from "@/utils/comments/comment-markdown";
-import {
-  computed,
-  defineAsyncComponent,
-  nextTick,
-  ref,
-  useId,
-  watch,
-} from "vue";
-import { useMediaQuery, useStorage, useWindowSize } from "@vueuse/core";
+import { computed, inject, nextTick, provide, ref, watch } from "vue";
+import { useElementSize, useWindowSize } from "@vueuse/core";
+import { mediaAttachmentAccept } from "@/../shared/comment-attachments.js";
 import LoginButton from "@/components/auth/LoginButton.vue";
+import ActionMenu from "@/components/display/menu/ActionMenu.vue";
+import Tooltip from "@/components/display/Tooltip.vue";
 import Modal from "@/components/interaction/overlay/Modal.vue";
-import MarkdownToolbar from "./MarkdownToolbar.vue";
+import { useCommentAttachments } from "@/composables/useCommentAttachments";
+import { MARKDOWN_RESOURCE_OVERRIDES } from "@/constants/markdown";
 import { useLocale } from "@/i18n";
-import { editMarkdown } from "@/utils/markdown/edit-markdown";
-const Renderer = defineAsyncComponent(
-  () => import("@/components/markdown/Renderer.vue"),
-);
+import { githubDiscussionUrl } from "@/utils/github-discussion-url";
+import { COMMENT_THREAD_CONTEXT } from "../context";
+import CommentEditorForm from "./CommentEditorForm.vue";
+
 const body = defineModel({ type: String, required: true });
 const props = defineProps({
   action: { type: String, default: "post" },
-  returnHash: String,
-  loginAction: Function,
-  busy: Boolean,
-  authenticated: Boolean,
-  loading: Boolean,
+  githubAttachmentUrl: { type: String, default: "" },
   cancelable: Boolean,
   embedded: Boolean,
-  compact: Boolean,
-  expanded: Boolean,
-  error: String,
+  compact: { type: Boolean, default: undefined },
+  authenticated: { type: Boolean, default: undefined },
+  loading: Boolean,
 });
 const emit = defineEmits(["submit", "cancel"]);
+
+const threadContext = inject(COMMENT_THREAD_CONTEXT, null);
+const isCompact = computed(
+  () => props.compact ?? Boolean(threadContext?.compactEditor.value),
+);
+const isAuthenticated = computed(
+  () => props.authenticated ?? Boolean(threadContext?.authenticated.value),
+);
+const isBusy = computed(() => Boolean(threadContext?.editorBusy.value));
+const returnHash = computed(() => threadContext?.returnHash.value || "");
+const loginAction = computed(() => threadContext?.loginAction);
+const attachmentTarget = computed(
+  () => threadContext?.attachmentTarget.value ?? null,
+);
+const prepareDiscussion = computed(() => threadContext?.prepareDiscussion);
+const resolvedGithubAttachmentUrl = computed(
+  () =>
+    githubDiscussionUrl(props.githubAttachmentUrl) ||
+    threadContext?.discussionUrl.value ||
+    "",
+);
+
+const attachments = useCommentAttachments(body, () => attachmentTarget.value);
+const inheritedPreviews = inject(MARKDOWN_RESOURCE_OVERRIDES, null);
+provide(MARKDOWN_RESOURCE_OVERRIDES, {
+  get: (url) => attachments.previews.get(url) || inheritedPreviews?.get(url),
+  refresh: () => inheritedPreviews?.refresh?.(),
+});
+
+const fileInput = ref(null);
+const attachmentNotice = ref("");
+const otherAttachments = ref(false);
 const editorOpen = ref(false);
 const editorModal = ref(null);
 const inlineOpen = ref(false);
 const expandButton = ref(null);
+const inlineFormRef = ref(null);
+const modalFormRef = ref(null);
+const modalAttachmentsTarget = ref(null);
 const multiline = computed(() => /[\r\n]/u.test(body.value));
 const shortBody = computed({
   get: () => body.value.split(/[\r\n]/u, 1)[0],
@@ -311,36 +317,152 @@ const shortBody = computed({
     body.value = value;
   },
 });
-const desktop = useMediaQuery("(min-width: 1024px)");
+const editorElement = ref(null);
+const { width: editorWidth } = useElementSize(editorElement);
+// The reader sidebar is 20–22rem wide; the toolbar already folds to fit its space.
+const canExpandInline = computed(() => editorWidth.value >= 320);
 const { height: visibleHeight } = useWindowSize({ type: "visual" });
-watch([desktop, () => props.compact], ([isDesktop, compact]) => {
-  if (isDesktop || !compact) editorModal.value?.close();
-  if (!isDesktop || !compact) inlineOpen.value = false;
+watch([canExpandInline, isCompact], ([canInline, compact]) => {
+  if (canInline || !compact) editorModal.value?.close();
+  if (!canInline || !compact) inlineOpen.value = false;
 });
-const preview = ref(false);
-watch(
-  () => props.authenticated,
-  (authenticated) => {
-    if (!authenticated) preview.value = false;
-  },
-);
-const textarea = ref(null);
-const monospace = useStorage("mori:comments:monospace", false, undefined, {
-  initOnMounted: true,
-});
-const tabGroup = useId();
+
 const { t } = useLocale();
 const fieldLabel = computed(() => t(`comments.editor.${props.action}.label`));
-const placeholder = computed(() => t(`comments.editor.${props.action}.placeholder`));
+const placeholder = computed(() =>
+  t(`comments.editor.${props.action}.placeholder`),
+);
 const submitLabel = computed(() => t(`comments.editor.${props.action}.submit`));
-const shortcuts = { b: "bold", i: "italic", e: "code", k: "link" };
+
+const attachmentMenu = computed(() => [
+  {
+    items: [
+      {
+        id: "media",
+        label: t("comments.attachmentMedia"),
+        icon: "ri-image-add-line",
+      },
+      {
+        id: "github",
+        label: t("comments.attachmentOther"),
+        icon: "ri-github-fill",
+        href:
+          resolvedGithubAttachmentUrl.value || resolveAttachmentDiscussionUrl,
+      },
+    ],
+  },
+]);
+
+function attachmentFailure(code, maximum) {
+  const messages = {
+    LOGIN_REQUIRED: "comments.loginToComment",
+    ATTACHMENT_TOO_LARGE: "comments.attachmentTooLarge",
+    ATTACHMENT_INVALID_FILE: "comments.attachmentInvalid",
+    ATTACHMENT_REJECTED: "comments.attachmentRejected",
+    ATTACHMENT_RATE_LIMITED: "comments.rateLimited",
+    ATTACHMENT_NOT_CONFIGURED: "comments.attachmentUnavailable",
+    ATTACHMENT_AUTHORIZATION_FAILED: "comments.attachmentUnavailable",
+    ATTACHMENT_BODY_TOO_LONG: "comments.attachmentBodyTooLong",
+  };
+  const label = t(messages[code] || "comments.attachmentFailed");
+  return code === "ATTACHMENT_TOO_LARGE" && maximum
+    ? `${label} (${maximum / 1024 / 1024} MB)`
+    : label;
+}
+
+function chooseAttachment(action) {
+  if (action === "media") fileInput.value?.click();
+}
+
+async function resolveAttachmentDiscussionUrl() {
+  const url =
+    resolvedGithubAttachmentUrl.value ||
+    githubDiscussionUrl(await prepareDiscussion.value?.());
+  if (!url) throw new Error("ATTACHMENT_DISCUSSION_UNAVAILABLE");
+  return url;
+}
+
+function attachmentLinkError(error) {
+  attachmentNotice.value = attachmentFailure(error.message);
+}
+
+async function openAttachmentDiscussion() {
+  if (!isAuthenticated.value || props.loading || isBusy.value) return;
+  const tab = window.open("about:blank", "_blank");
+  if (tab) tab.opener = null;
+  try {
+    const url = await resolveAttachmentDiscussionUrl();
+    if (!url || !tab) throw new Error("ATTACHMENT_DISCUSSION_UNAVAILABLE");
+    tab.location.replace(url);
+  } catch (error) {
+    tab?.close();
+    attachmentLinkError(error);
+  }
+}
+
+function addAttachments(files, field) {
+  if (
+    !isAuthenticated.value ||
+    props.loading ||
+    isBusy.value ||
+    !attachmentTarget.value
+  )
+    return;
+  const activeForm = editorOpen.value
+    ? modalFormRef.value
+    : inlineFormRef.value;
+  const other = attachments.add(
+    files,
+    field?.selectionStart ??
+      activeForm?.getSelectionStart?.() ??
+      body.value.length,
+  );
+  otherAttachments.value = other.length > 0;
+  attachmentNotice.value = other.length
+    ? t("comments.attachmentUseGithub", { files: other.join(", ") })
+    : "";
+  if (isCompact.value && !editorOpen.value && !inlineOpen.value) openEditor();
+}
+
+function selectAttachments(event) {
+  addAttachments(Array.from(event.target.files || []));
+  event.target.value = "";
+}
+
+function pasteAttachments(event) {
+  const files = Array.from(event.clipboardData?.files || []);
+  if (!files.length || !attachmentTarget.value) return;
+  event.preventDefault();
+  addAttachments(files, event.target);
+}
+
+function dragAttachments(event) {
+  if (!event.dataTransfer?.types.includes("Files") || !attachmentTarget.value)
+    return;
+  event.preventDefault();
+  event.dataTransfer.dropEffect =
+    isAuthenticated.value && !isBusy.value ? "copy" : "none";
+}
+
+function dropAttachments(event) {
+  if (!event.dataTransfer?.files.length || !attachmentTarget.value) return;
+  event.preventDefault();
+  addAttachments(Array.from(event.dataTransfer.files), event.target);
+}
+
+function submitExpanded() {
+  if (!attachments.pending)
+    emit("submit", () => {
+      attachments.reset();
+      editorModal.value?.close();
+    });
+}
 
 function openEditor() {
-  if (!props.authenticated || props.loading || props.busy) return;
-  if (desktop.value) {
+  if (!isAuthenticated.value || props.loading || isBusy.value) return;
+  if (canExpandInline.value) {
     inlineOpen.value = true;
-    preview.value = false;
-    void nextTick(() => textarea.value?.focus());
+    void nextTick(() => inlineFormRef.value?.focusTextarea?.());
   } else {
     editorOpen.value = true;
   }
@@ -358,85 +480,16 @@ function openMultilineDraft(event) {
 }
 
 function submit() {
-  if (props.authenticated && !props.loading && !props.busy && body.value.trim())
-    emit("submit", inlineOpen.value ? collapseEditor : undefined);
-}
-
-function format(action) {
-  const field = textarea.value;
-  if (!props.authenticated || props.loading || !field || preview.value) return;
-  const edit = editMarkdown(
-    action,
-    field.value,
-    field.selectionStart,
-    field.selectionEnd,
-  );
   if (
-    !edit ||
-    field.value.length + edit.text.length - (edit.end - edit.start) >
-      field.maxLength
+    isAuthenticated.value &&
+    !props.loading &&
+    !isBusy.value &&
+    !attachments.pending &&
+    body.value.trim()
   )
-    return;
-  field.setRangeText(edit.text, edit.start, edit.end);
-  body.value = field.value;
-  field.focus();
-  field.setSelectionRange(edit.selectionStart, edit.selectionEnd);
-}
-
-function handleShortcut(event) {
-  if (!props.authenticated || props.loading) return;
-  if ((!event.ctrlKey && !event.metaKey) || event.altKey || event.isComposing)
-    return;
-  const key = event.key.toLowerCase();
-  if (key === "p" && event.shiftKey) {
-    event.preventDefault();
-    preview.value = !preview.value;
-    if (!preview.value) void nextTick(() => textarea.value?.focus());
-  } else if (key === "enter") {
-    event.preventDefault();
-    if (!props.busy && body.value.trim()) event.currentTarget.requestSubmit();
-  } else if (
-    event.target === textarea.value &&
-    !event.shiftKey &&
-    shortcuts[key]
-  ) {
-    event.preventDefault();
-    format(shortcuts[key]);
-  }
+    emit("submit", () => {
+      attachments.reset();
+      if (inlineOpen.value) collapseEditor();
+    });
 }
 </script>
-
-<style scoped>
-form {
-  --comment-editor-bg: var(--color-base-100);
-}
-
-form[data-inline-comment-editor] {
-  --comment-editor-bg: var(--comment-reply-bg, var(--color-base-100));
-}
-
-.tabs-lift > .tab:checked {
-  --tab-bg: var(--comment-editor-bg);
-  /* Let the corner fill overlap the adjacent surfaces when edges round to device pixels. */
-  --tab-corner-height: calc(var(--tab-radius-limit) + var(--border));
-  --tab-inset: auto auto calc(0px - var(--border)) auto;
-  --tab-radius-grad:
-    transparent calc(100% - var(--border) - 0.125px),
-    var(--tab-border-color) calc(100% - var(--border) + 0.125px)
-      calc(100% - 0.125px),
-    var(--tab-bg) calc(100% + 0.125px);
-  --radius-start: radial-gradient(
-    circle var(--tab-radius-limit) at top left,
-    var(--tab-radius-grad)
-  );
-  --radius-end: radial-gradient(
-    circle var(--tab-radius-limit) at top right,
-    var(--tab-radius-grad)
-  );
-}
-
-.tabs-lift > .tab:checked::before {
-  background-size: calc(var(--tab-radius-limit) + var(--border)) 100%;
-  pointer-events: none;
-}
-</style>

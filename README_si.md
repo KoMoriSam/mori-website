@@ -27,7 +27,7 @@
 </p>
 
 <p align="center">
-  වත්මන් අනුවාදය: <strong>2.21.2</strong>
+  වත්මන් අනුවාදය: <strong>2.22.0</strong>
 </p>
 
 ## 远方之森 ගැන

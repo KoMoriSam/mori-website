@@ -1,5 +1,6 @@
 <template>
   <main
+    ref="mainElement"
     class="mx-auto w-full max-w-7xl flex-1 px-6 pt-3 pb-6 md:px-12 md:pt-4 md:pb-8 lg:px-16 xl:px-20"
     :class="
       [fillHeight
@@ -115,10 +116,13 @@
 import { useLocale } from "@/i18n";
 const { t: translate } = useLocale();
 
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import Footer from "@/components/layout/Footer.vue";
+
+const mainElement = ref(null);
+defineExpose({ mainElement });
 
 const route = useRoute();
 const router = useRouter();

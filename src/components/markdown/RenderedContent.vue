@@ -1,7 +1,9 @@
 <script>
 import { computed, Fragment, h, inject, onMounted, provide, useId, watch } from "vue";
 import { routerKey } from "vue-router";
+import { MARKDOWN_RESOURCE_OVERRIDES } from "@/constants/markdown";
 import { ensureMarkdownStyles } from "@/utils/markdown/load-markdown-styles";
+import Tooltip from "@/components/display/Tooltip.vue";
 
 import {
   MARKDOWN_COMPONENT_RESOLVER,
@@ -28,6 +30,7 @@ export default {
   setup(props) {
     const router = inject(routerKey, null);
     const inheritedResolver = inject(MARKDOWN_COMPONENT_RESOLVER, null);
+    const resourceOverrides = inject(MARKDOWN_RESOURCE_OVERRIDES, null);
     const activeResolver = computed(
       () => props.resolver || inheritedResolver || null,
     );
@@ -50,7 +53,7 @@ export default {
       h(
         Fragment,
         null,
-        renderHtmlFragment(fragment.value, activeResolver.value, router),
+        renderHtmlFragment(fragment.value, activeResolver.value, router, resourceOverrides, Tooltip),
       );
   },
 };

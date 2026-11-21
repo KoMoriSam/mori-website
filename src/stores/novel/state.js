@@ -1,6 +1,9 @@
 import { ref, computed } from "vue";
 import { useReadingStateStorage } from "@/composables/storage/useReadingStateStorage";
 
+export const DEFAULT_NOVEL_CHAPTER_UUID =
+  "7d5e9b50-a9cb-428a-9264-903046354e22";
+
 export const useNovelState = () => {
   // 章节相关状态
   const { getState, setState } = useReadingStateStorage();
@@ -32,7 +35,7 @@ export const useNovelState = () => {
 
   // 阅读进度状态
   const currentChapterUuid = computed({
-    get: () => getState("READ_CH_ID", "7d5e9b50-a9cb-428a-9264-903046354e22"),
+    get: () => getState("READ_CH_ID", DEFAULT_NOVEL_CHAPTER_UUID),
     set: (value) => setState("READ_CH_ID", value),
   });
   const currentChapterPage = computed({

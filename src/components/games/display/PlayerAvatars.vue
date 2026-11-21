@@ -23,14 +23,14 @@
       })
     "
   >
-    <div
+    <Tooltip placement="bottom" align="center" as="div" trigger-class="inline-flex"
       v-for="player in room.players"
       :key="player.id"
       class="indicator shrink-0"
       :class="{
         grayscale: !player.online,
       }"
-      :title="playerLabel(player)"
+      :text="playerLabel(player)" :aria-label="playerLabel(player)"
     >
       <span
         v-if="
@@ -72,10 +72,12 @@
             : '',
         ]"
       />
-    </div>
+    </Tooltip>
   </div>
 </template>
 <script setup>
+import Tooltip from "@/components/display/Tooltip.vue";
+
 import { computed } from "vue";
 import Avatar from "@/components/auth/Avatar.vue";
 import { useLocale } from "@/i18n";

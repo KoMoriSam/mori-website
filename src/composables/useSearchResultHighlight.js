@@ -1,6 +1,7 @@
 import { nextTick, onBeforeUnmount, onMounted, watch } from "vue";
 import { useRoute } from "vue-router";
 import { moriSession } from '@/composables/auth/useMoriAuth';
+import { decodeAnchor } from "@/utils/reader/dom";
 
 const HIGHLIGHT_SELECTOR = "mark[data-global-search-highlight]";
 const SEARCH_ANCHOR_PREFIX = "search-content-";
@@ -8,17 +9,6 @@ const HIGHLIGHT_CLASS = "font-bold bg-primary/75! text-primary-content!";
 const SCROLL_OFFSET_REM = 3;
 const IGNORED_ANCESTORS =
   "script, style, noscript, textarea, input, select, option";
-
-const decodeHash = (hash) => {
-  const rawHash = String(hash || "").replace(/^#/, "");
-  if (!rawHash) return "";
-
-  try {
-    return decodeURIComponent(rawHash);
-  } catch {
-    return rawHash;
-  }
-};
 
 const queryText = (value) =>
   (Array.isArray(value) ? value : [value])
@@ -198,7 +188,7 @@ export function useSearchResultHighlight() {
   };
 
   const tryHighlight = () => {
-    const anchorId = decodeHash(route.hash);
+    const anchorId = decodeAnchor(route.hash);
     const query = queryText(route.query.q);
     if (!query) return { highlighted: true, target: null };
 
@@ -263,7 +253,7 @@ export function useSearchResultHighlight() {
   };
 
   const scheduleHighlight = async () => {
-    if (!isMounted || typeof document === "undefined") return;
+    if (!isMounted) return;
 
     const runId = ++highlightRunId;
     stopWaiting();

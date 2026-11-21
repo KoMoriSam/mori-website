@@ -1,7 +1,7 @@
 <template>
   <section
     ref="threadElement"
-    class="comment-thread flex min-h-0 w-full min-w-0 flex-col gap-4 font-sans"
+    class="comment-thread @container/comments flex min-h-0 w-full min-w-0 flex-col gap-4 font-sans"
     :class="{
       'flex-1 [--comment-editor-max-height:40dvh]': scrollMode === 'dialog',
       'lg:flex-1 lg:[--comment-editor-max-height:40dvh]':
@@ -51,11 +51,7 @@
             }}</span>
             <span aria-hidden="true">·</span>
             <span>{{
-              t(
-                "comments.replies",
-                { count: number(replyCount) },
-                replyCount,
-              )
+              t("comments.replies", { count: number(replyCount) }, replyCount)
             }}</span>
             <span
               v-if="discussion?.locked"
@@ -147,15 +143,7 @@
                 v-for="comment in comments"
                 :key="comment.id"
                 :comment="comment"
-                :author-login="authorLogin"
-                :viewer-login="moriSession.profile?.login"
-                :now="now"
-                :load-history="loadEditHistory"
-                :history-revision="moriSession.revision"
-                :permissions="permissions"
                 :can-reply="!discussion.locked"
-                :authenticated="moriSession.authenticated"
-                :busy="busy"
                 :editing="editor.id === comment.id && editor.action === 'edit'"
                 :replies-open="repliesOpen(comment)"
                 @toggle-replies="toggleReplies(comment)"
@@ -174,15 +162,10 @@
                 >
                   <CommentEditor
                     v-model="editor.body"
-                    :return-hash="returnHash"
-                    :login-action="auth.login"
+                    :github-attachment-url="comment.url"
+                    :action="editor.action"
                     embedded
                     cancelable
-                    :compact="compactEditor"
-                    :authenticated="moriSession.authenticated"
-                    :busy="busy || moriSession.checking"
-                    :action="editor.action"
-                    :error="error"
                     @cancel="resetEditor"
                     @submit="submitEditor"
                   />
@@ -203,17 +186,11 @@
                       v-for="reply in visibleReplies(comment)"
                       :key="reply.id"
                       :comment="reply"
-                      :author-login="authorLogin"
-                      :now="now"
-                      :load-history="loadEditHistory"
-                      :history-revision="moriSession.revision"
                       reply
                       :can-quote="!discussion.locked && !comment.isMinimized"
-                      :permissions="
-                        permissions &&
+                      :include-permissions="
                         comment.replies.includePermissions !== false
                       "
-                      :busy="busy"
                       @quote="quoteReply(comment, reply)"
                       @edit="startEditor('edit', reply, comment.id)"
                       @delete="remove(reply)"
@@ -222,15 +199,10 @@
                       <template v-if="editor.id === reply.id" #editor>
                         <CommentEditor
                           v-model="editor.body"
-                          :return-hash="returnHash"
-                          :login-action="auth.login"
+                          :github-attachment-url="reply.url"
+                          action="edit"
                           embedded
                           cancelable
-                          :compact="compactEditor"
-                          :authenticated="moriSession.authenticated"
-                          :busy="busy || moriSession.checking"
-                          action="edit"
-                          :error="error"
                           @cancel="resetEditor"
                           @submit="submitEditor"
                         />
@@ -302,13 +274,7 @@
         "
         v-model="editor.body"
         class="shrink-0"
-        :compact="compactEditor"
-        :return-hash="returnHash"
-        :login-action="auth.login"
-        :authenticated="moriSession.authenticated"
         :loading="showPlaceholder"
-        :busy="busy || moriSession.checking"
-        :error="error"
         @submit="submitEditor"
       />
     </Teleport>
@@ -321,6 +287,7 @@ import {
   nextTick,
   onBeforeUnmount,
   onMounted,
+  provide,
   reactive,
   ref,
   useId,
@@ -337,8 +304,10 @@ import CommentsPlaceholder from "@/components/reader/feedback/CommentsPlaceholde
 import { useMoriAuth } from "@/composables/auth/useMoriAuth";
 import { useLocale } from "@/i18n";
 import { useToast } from "@/composables/useToast";
-import { useCommentCountsStore } from "@/stores/commentCountsStore";
+import { useCommentCountsStore } from "@/stores/comment-counts";
 import { githubDiscussionUrl } from "@/utils/github-discussion-url";
+import { MARKDOWN_RESOURCE_OVERRIDES } from "@/constants/markdown";
+import { COMMENT_THREAD_CONTEXT } from "./context";
 import CommentEntry from "./display/CommentEntry.vue";
 import ReactionButtons from "./display/ReactionButtons.vue";
 import CommentEditor from "./interaction/CommentEditor.vue";
@@ -392,6 +361,24 @@ const replyLimits = reactive(new Map());
 const postedReplies = reactive(new Map());
 const replyRequests = reactive(new Map());
 const replyErrors = reactive(new Set());
+const privateAttachmentPreviews = computed(() => {
+  const previews = new Map();
+  const collect = (comment) => {
+    for (const [url, preview] of Object.entries(comment.attachmentPreviews || {})) previews.set(url, preview);
+    for (const reply of comment.replies?.nodes || []) collect(reply);
+  };
+  for (const comment of comments.value) collect(comment);
+  for (const replies of postedReplies.values()) for (const reply of replies) collect(reply);
+  return previews;
+});
+let refreshingAttachmentPreviews;
+provide(MARKDOWN_RESOURCE_OVERRIDES, {
+  get: (url) => privateAttachmentPreviews.value.get(url),
+  refresh() {
+    refreshingAttachmentPreviews ??= load().finally(() => { refreshingAttachmentPreviews = null; });
+    return refreshingAttachmentPreviews;
+  },
+});
 const count = ref(0);
 const commentCount = ref(0);
 const replyCount = ref(0);
@@ -400,6 +387,28 @@ const permissions = ref(false);
 const emptyEditor = () => ({ id: null, action: "post", body: "" });
 const editor = ref(emptyEditor());
 const draftKey = computed(() => `mori:comments:${props.scope}:${props.target}`);
+const attachmentTarget = computed(() => ({
+  scope: props.scope, target: props.target, editor: editor.value.id || editor.value.action,
+  account: moriSession.profile?.id || moriSession.profile?.login || "",
+}));
+provide(COMMENT_THREAD_CONTEXT, {
+  authorLogin,
+  viewerLogin: computed(() => moriSession.profile?.login),
+  now,
+  loadHistory: loadEditHistory,
+  historyRevision: computed(() => moriSession.revision),
+  permissions,
+  authenticated: computed(() => Boolean(moriSession.authenticated)),
+  busy,
+  editorBusy: computed(() => Boolean(busy.value || moriSession.checking)),
+  error,
+  compactEditor: computed(() => Boolean(props.compactEditor)),
+  returnHash,
+  loginAction: auth.login,
+  discussionUrl,
+  attachmentTarget,
+  prepareDiscussion: prepareAttachmentDiscussion,
+});
 const threadReactions = computed(() =>
   discussion.value?.reactionGroups?.map((group) => ({
     ...group,
@@ -481,6 +490,19 @@ async function request(parameters, options) {
     throw Object.assign(new Error(result.error), { status: response.status });
   }
   return result;
+}
+
+async function prepareAttachmentDiscussion() {
+  if (discussionUrl.value) return discussionUrl.value;
+  const result = await request({}, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "discussion", requestId: crypto.randomUUID() }),
+  });
+  const url = githubDiscussionUrl(result.discussionUrl);
+  if (!url) throw new Error("ATTACHMENT_DISCUSSION_UNAVAILABLE");
+  void load();
+  return url;
 }
 
 function loadEditHistory(id, cursor, signal) {
@@ -696,7 +718,9 @@ function focusInlineEditor() {
       "[data-inline-comment-editor]:not([inert]) :is(input[type=text], textarea)",
     );
     if (fields)
-      Array.from(fields).find((field) => field.getClientRects().length)?.focus();
+      Array.from(fields)
+        .find((field) => field.getClientRects().length)
+        ?.focus();
   });
 }
 

@@ -1,3 +1,4 @@
+import { sha256Hex } from "../lib/crypto.js";
 import { readGithubCache, writeGithubCache } from "./cache.js";
 
 const API_ORIGIN = "https://api.github.com";
@@ -62,11 +63,11 @@ async function fetchGithub(path, options) {
 }
 
 export function createGithubClient(request, env, { account } = {}) {
-  const accountKey = account && crypto.subtle.digest("SHA-256", new TextEncoder().encode(account));
+  const accountKey = account && sha256Hex(account);
   const cooldownKey = async (scope) => {
     const url = new URL(COOLDOWN_PATHS[scope], request.url);
     if (accountKey && scope !== "secondary") {
-      url.pathname += "/" + Array.from(new Uint8Array(await accountKey), (byte) => byte.toString(16).padStart(2, "0")).join("");
+      url.pathname += "/" + await accountKey;
     }
     return new Request(url);
   };

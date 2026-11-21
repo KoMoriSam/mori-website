@@ -529,17 +529,17 @@
     "editor": {
       "post": {
         "label": "Add a comment",
-        "placeholder": "Write a comment",
+        "placeholder": "Write your comment here...",
         "submit": "Comment"
       },
       "reply": {
         "label": "Reply",
-        "placeholder": "Write a reply",
+        "placeholder": "Write your reply here...",
         "submit": "Reply"
       },
       "edit": {
         "label": "Edit comment",
-        "placeholder": "Write a comment",
+        "placeholder": "Edit your comment here...",
         "submit": "Update comment"
       }
     },
@@ -549,7 +549,24 @@
     "preview": "Preview",
     "expandEditor": "Expand comment editor",
     "collapseEditor": "Collapse comment editor",
-    "markdownHelp": "Styling with Markdown is supported",
+    "markdownHelp": "Markdown is supported",
+    "attachments": "Add attachments",
+    "attachmentMedia": "Images or videos",
+    "attachmentOther": "Other files",
+    "attachmentUseGithub": "Upload these files in the corresponding GitHub Discussion: {files}",
+    "attachmentTooLarge": "The file exceeds the size limit",
+    "attachmentInvalid": "Invalid file contents or format",
+    "attachmentRejected": "GitHub rejected this file",
+    "attachmentUnavailable": "Uploads are temporarily unavailable. Try again later",
+    "attachmentFailed": "Upload failed. Try again",
+    "attachmentBodyTooLong": "Shorten the comment and retry insertion. The attachment is already uploaded",
+    "attachmentStatus": {
+      "queued": "Waiting to upload",
+      "uploading": "Uploading",
+      "inserting": "Inserting",
+      "success": "Uploaded and inserted",
+      "cancelled": "Cancelled"
+    },
     "cancel": "Cancel",
     "loadMoreComments": "Load more…",
     "loadMoreReplies": "Load more replies",

@@ -5,6 +5,7 @@ import { ViteSSG } from "vite-ssg";
 import { createPinia } from "pinia";
 import App from "./App.vue";
 import { routes, scrollBehavior } from "./router";
+import { installLegacyRedirects } from "./router/legacy-redirects";
 import {
   generatedBlogPagePaths,
   installArticleMetadata,
@@ -18,7 +19,7 @@ export {
   trackImageReads,
   stopTrackingImageReads,
 } from "./utils/images/responsive-images";
-export { normalizeArticleDate } from "./composables/blog/useArticleFilter";
+export { normalizeArticleDate } from "./utils/blog/article-fields";
 import { installPageData } from "./utils/ssg/page-data";
 import { useNovelStore } from "./stores/novel";
 import { rememberBlogListScroll } from "./utils/blog/list-scroll";
@@ -39,6 +40,7 @@ function configureApp(articles, snapshot) {
       scrollBehavior,
     },
     async ({ app, router, initialState }) => {
+      installLegacyRedirects(router);
       installPageData(router, initialState, {
         snapshot,
         isServer: import.meta.env.SSR,

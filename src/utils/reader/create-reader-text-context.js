@@ -1,4 +1,5 @@
 import { createReaderShareContent } from "@/utils/reader/create-reader-share-content";
+import { rangeIntersectsNode } from "./dom.js";
 import {
   getLatexFormula,
   getLatexSelection,
@@ -117,13 +118,7 @@ const extractRangeText = (range) => {
     pieces.push(value);
     if (block) lastBlock = block;
   };
-  const intersects = (node) => {
-    try {
-      return range.intersectsNode(node);
-    } catch {
-      return false;
-    }
-  };
+  const intersects = (node) => rangeIntersectsNode(range, node);
   const appendNode = (node) => {
     if (node instanceof Element) {
       const formula = getLatexFormula(node);

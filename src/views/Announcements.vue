@@ -164,7 +164,7 @@ import { storeToRefs } from "pinia";
 import NoticeTitle from "@/components/announcement/display/NoticeTitle.vue";
 import ContentPage from "@/components/layout/ContentPage.vue";
 import Renderer from "@/components/markdown/Renderer.vue";
-import { useAnnouncementStore } from "@/stores/announcementStore";
+import { useAnnouncementStore } from "@/stores/announcements";
 import { formatAnnouncementDate } from "@/utils/announcement/format";
 
 const store = useAnnouncementStore();

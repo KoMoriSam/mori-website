@@ -81,13 +81,13 @@
                     {{ progressLabel }}
                   </small>
                 </span>
-                <span
+                <Tooltip overflow-only placement="bottom" align="start" as="span" trigger-class=""
                   v-if="currentLabel"
-                  class="mt-0.5 block truncate text-left font-medium leading-tight text-base-content/80"
-                  :title="currentLabel"
-                >
+                  class="min-w-0 mt-0.5 block text-left font-medium leading-tight text-base-content/80"
+                  :text="currentLabel" :aria-label="currentLabel"
+                ><span class="block min-w-0 truncate">
                   {{ currentLabel }}
-                </span>
+                </span></Tooltip>
               </span>
               <i
                 class="ri-arrow-down-s-line shrink-0 transition-transform"
@@ -154,6 +154,8 @@
 </template>
 
 <script setup>
+import Tooltip from "@/components/display/Tooltip.vue";
+
 import { useLocale } from '@/i18n';
 const { t: translate } = useLocale();
 

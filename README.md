@@ -27,7 +27,7 @@
 </p>
 
 <p align="center">
-  当前版本：<strong>2.21.2</strong>
+  当前版本：<strong>2.22.0</strong>
 </p>
 
 ## 关于远方之森

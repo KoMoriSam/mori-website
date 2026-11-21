@@ -1,5 +1,5 @@
 import { nextTick, onMounted, onScopeDispose, watch } from "vue";
-import { useThemeStore } from "@/stores/themeStore";
+import { useThemeStore } from "@/stores/theme";
 
 export function useThemeTransition() {
   const themes = useThemeStore();
@@ -9,7 +9,6 @@ export function useThemeTransition() {
   // Storage restores before this hook. Keep the head script's first-paint theme
   // until the real preference is ready, without animating initialization.
   onMounted(() => watch(() => themes.resolvedTheme, (theme, previous) => {
-    if (typeof document === "undefined") return;
     const root = document.documentElement;
     const currentRevision = ++revision;
     transition?.skipTransition();

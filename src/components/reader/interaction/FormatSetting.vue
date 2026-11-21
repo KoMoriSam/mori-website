@@ -83,9 +83,14 @@
             >
               <span class="label block text-xs md:text-sm">
                 {{ translate("reader.format.textFont") }}
-                <small :title="translate('reader.format.sessionFontHint')">
+                <Tooltip
+                  as="small"
+                  trigger-class="inline"
+                  :text="translate('reader.format.sessionFontHint')"
+                  :aria-label="translate('reader.format.sessionFontHint')"
+                >
                   {{ translate("reader.format.savedFontHint") }}
-                </small>
+                </Tooltip>
               </span>
               <FontSelect
                 ref="readerFontSelect"
@@ -229,7 +234,7 @@
                         styleConfigs.backgroundImage === image.id,
                     }"
                     :style="{
-                      backgroundImage: cssBackgroundImage(
+                      backgroundImage: formatCssBackgroundImage(
                         getReaderBackgroundImageUrl(image.id),
                       ),
                     }"
@@ -258,7 +263,7 @@
               {{ translate("reader.format.siteTheme") }}
             </legend>
             <div class="mt-2 grid grid-cols-5 gap-2">
-              <button
+              <Tooltip as="button" trigger-class="inline-flex"
                 v-for="theme in siteThemeOptions"
                 :key="theme.value"
                 type="button"
@@ -270,7 +275,7 @@
                 :data-theme="
                   theme.value === 'default' ? systemTheme : theme.value
                 "
-                :title="localizeText(theme.description)"
+                :text="localizeText(theme.description)"
                 :aria-label="
                   translate('reader.format.switchTheme', {
                     p0: localizeText(theme.label),
@@ -284,136 +289,39 @@
                 <span class="max-w-full truncate text-[0.625rem]">
                   {{ localizeText(theme.label) }}
                 </span>
-              </button>
+              </Tooltip>
             </div>
           </fieldset>
         </div>
       </ScrollableContainer>
 
-      <footer
-        class="shrink-0 border-t border-base-300 px-3 pt-2"
-        :class="
-          mobile ? 'pb-[max(0.75rem,env(safe-area-inset-bottom))]' : 'pb-3'
-        "
-      >
-        <ScrollableContainer>
-          <div
-            class="flex gap-3 overflow-x-auto px-1 py-1.5 scrollbar-thin"
-            :aria-label="translate('reader.format.presetsHint')"
-          >
-            <button
-              v-for="{ preset, label } in systemPresets"
-              :key="preset.id"
-              type="button"
-              class="btn btn-circle shrink-0 flex-col gap-1 border-base-300 size-12 p-1 leading-tight shadow-sm"
-              :class="[
-                preset.styles.fontStyle,
-                mobile ? '' : presetSiteTheme(preset) ? 'bg-base-100' : '',
-                {
-                  'btn-active outline-2 outline-primary outline-offset-2':
-                    isPresetActive(preset),
-                },
-              ]"
-              :data-theme="
-                (mobile ? presetTheme(preset) : presetDisplayTheme(preset)) ||
-                undefined
-              "
-              :style="presetSampleStyle(preset)"
-              :title="localizeText(preset.description)"
-              :aria-label="
-                translate('reader.format.applyDefaultPreset', {
-                  p0: localizeText(preset.name),
-                  p1: localizeText(preset.description),
-                })
-              "
-              :aria-pressed="isPresetActive(preset)"
-              @click="applyPreset(preset)"
-            >
-              <span class="font-sans text-[0.5rem]">{{ label }}</span>
-              <span class="max-w-11 truncate text-[0.75rem]">
-                {{ localizeText(preset.name) }}
-              </span>
-            </button>
-            <div
-              v-for="preset in readerLayoutPresets"
-              :key="preset.id"
-              class="relative shrink-0"
-            >
-              <button
-                type="button"
-                class="btn btn-circle size-12 border-base-300 p-1 text-[0.625rem] leading-tight shadow-sm"
-                :class="[
-                  preset.styles.fontStyle,
-                  mobile ? '' : presetSiteTheme(preset) ? 'bg-base-100' : '',
-                  {
-                    'btn-active outline-2 outline-primary outline-offset-2':
-                      isPresetActive(preset),
-                  },
-                ]"
-                :data-theme="
-                  (mobile ? presetTheme(preset) : presetDisplayTheme(preset)) ||
-                  undefined
-                "
-                :style="presetSampleStyle(preset)"
-                :title="localizeText(preset.name)"
-                :aria-label="
-                  translate('reader.format.applySavedPreset', {
-                    p0: localizeText(preset.name),
-                  })
-                "
-                :aria-pressed="isPresetActive(preset)"
-                @click="applyPreset(preset)"
-              >
-                <span class="line-clamp-2 max-w-11 whitespace-normal break-all">
-                  {{ localizeText(preset.name) }}
-                </span>
-              </button>
-              <button
-                type="button"
-                class="btn btn-circle btn-xs absolute -right-1 -top-1 size-5 min-h-0 border-base-300 bg-base-100 p-0 shadow-sm"
-                :aria-label="
-                  translate('reader.format.deletePreset', {
-                    p0: localizeText(preset.name),
-                  })
-                "
-                @click="store.removeReaderLayoutPreset(preset.id)"
-              >
-                <i class="ri-close-line" aria-hidden="true"></i>
-              </button>
-            </div>
-          </div>
-        </ScrollableContainer>
-
-        <form class="join mt-1 flex" @submit.prevent="savePreset">
-          <input
-            v-model="presetName"
-            class="input input-sm join-item min-w-0 flex-1"
-            maxlength="24"
-            :placeholder="translate('reader.format.savePreset')"
-            :aria-label="translate('reader.format.presetName')"
-          />
-          <button class="btn btn-sm join-item" type="submit">
-            {{ translate("reader.format.save") }}
-          </button>
-        </form>
-      </footer>
+      <FormatPresetBar
+        :mobile="mobile"
+        :system-theme="systemTheme"
+        @apply="handlePresetApply"
+      />
     </section>
   </client-only>
 </template>
 
 <script setup>
-import ScrollableContainer from "@/components/layout/ScrollableContainer.vue";
-import { useLocale } from "@/i18n";
-const { t: translate, text: localizeText } = useLocale();
-
 import { computed, ref } from "vue";
 import { storeToRefs } from "pinia";
 import { usePreferredDark } from "@vueuse/core";
 
+import Tooltip from "@/components/display/Tooltip.vue";
+import ScrollableContainer from "@/components/layout/ScrollableContainer.vue";
 import FontSelect from "@/components/interaction/controls/FontSelect.vue";
-import { useReaderStore } from "@/stores/readerStore";
+import FormatPresetBar from "@/components/reader/interaction/FormatPresetBar.vue";
+import { useLocale } from "@/i18n";
+import { useReaderStore } from "@/stores/reader";
+import { useThemeStore } from "@/stores/theme";
 import { readerTypographyMetrics } from "@/utils/reader/reader-typography";
-import { useThemeStore } from "@/stores/themeStore";
+import {
+  formatCssBackgroundImage,
+  getReaderSurfaceStyle,
+  resolveReaderAppearance,
+} from "@/utils/reader/reader-appearance";
 import {
   FONTS,
   MOBILE_READING_MODE_OPTIONS,
@@ -421,13 +329,8 @@ import {
   getReaderBackgroundImage,
   getReaderBackgroundImageUrl,
   READER_BACKGROUND_IMAGES,
-  READER_LAYOUT_STYLE_KEYS,
-  READER_SYSTEM_PRESETS,
   READER_TYPOGRAPHY_CONTROLS,
-  STYLE_CONFIG_KEYS,
-  READER_STYLE_DEFAULTS,
   DEFAULT_READER_FALLBACK_FONT,
-  getReaderPresetAppearance,
 } from "@/constants/reader";
 
 const props = defineProps({
@@ -445,22 +348,22 @@ const props = defineProps({
   },
 });
 
+const { t: translate, text: localizeText } = useLocale();
 const store = useReaderStore();
 const themeStore = useThemeStore();
 const {
   styleConfigs,
   mobileReadingMode,
-  readerLayoutPresets,
   isMobileLayoutDefault,
   isReaderLayoutDefault,
 } = storeToRefs(store);
 const { theme: selectedSiteTheme, themeList: siteThemeList } =
   storeToRefs(themeStore);
 const prefersDark = usePreferredDark();
-const presetName = ref("");
 const readerFontSelect = ref(null);
 const readerFallbackFontId = ref(DEFAULT_READER_FALLBACK_FONT);
 let readerFontRequestId = 0;
+
 const readerWebsiteFonts = FONTS.map(({ name, style }) => ({
   id: style,
   label: name,
@@ -507,14 +410,6 @@ const siteThemeOptions = computed(() => [
 const isLayoutDefault = computed(() =>
   props.mobile ? isMobileLayoutDefault.value : isReaderLayoutDefault.value,
 );
-const systemPresets = computed(() =>
-  READER_SYSTEM_PRESETS.map((preset, index) => ({
-    preset,
-    get label() {
-      return translate("reader.format.preset", { p0: index + 1 });
-    },
-  })),
-);
 
 const formatNumericValue = (control) => {
   const value = Number(styleConfigs.value[control.key]);
@@ -525,54 +420,24 @@ const formatNumericValue = (control) => {
     : `${count} ${localizeText(control.unit)}`;
 };
 
-const semanticReaderThemes = new Set(
-  MOBILE_READER_COLOR_THEMES.map(({ value }) => value).filter(
-    (value) => value !== "site",
-  ),
+const readerAppearance = computed(() =>
+  resolveReaderAppearance(styleConfigs.value),
 );
-const selectedColorTheme = computed(() => {
-  const theme = styleConfigs.value.colorTheme;
-  if (theme === "custom" || semanticReaderThemes.has(theme)) return theme;
-  return READER_STYLE_DEFAULTS.colorTheme;
-});
-const selectedBackgroundImage = computed(() =>
-  getReaderBackgroundImage(styleConfigs.value.backgroundImage),
+const selectedColorTheme = computed(() => readerAppearance.value.colorTheme);
+const selectedBackgroundType = computed(
+  () => readerAppearance.value.backgroundType,
 );
-const selectedBackgroundType = computed(() =>
-  styleConfigs.value.backgroundType === "image" && selectedBackgroundImage.value
-    ? "image"
-    : READER_STYLE_DEFAULTS.backgroundType,
-);
-const previewTheme = computed(() => {
-  const theme =
-    selectedBackgroundType.value === "image"
-      ? selectedBackgroundImage.value?.colorTheme
-      : selectedColorTheme.value;
-  return semanticReaderThemes.has(theme) ? theme : "";
-});
+const previewTheme = computed(() => readerAppearance.value.semanticTheme);
 
-const previewTypography = computed(() => readerTypographyMetrics(styleConfigs.value));
+const previewTypography = computed(() =>
+  readerTypographyMetrics(styleConfigs.value),
+);
 const previewStyle = computed(() => ({
   ...(props.mobile
-    ? {
-        backgroundColor:
-          selectedBackgroundType.value === "color"
-            ? styleConfigs.value.backgroundColor || undefined
-            : undefined,
-        backgroundImage:
-          selectedBackgroundType.value === "image"
-            ? cssBackgroundImage(
-                getReaderBackgroundImageUrl(selectedBackgroundImage.value?.id),
-              )
-            : undefined,
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
-        backgroundSize: "cover",
-        color:
-          styleConfigs.value.textColor ||
-          selectedBackgroundImage.value?.textColor ||
-          "var(--color-base-content)",
-      }
+    ? getReaderSurfaceStyle(styleConfigs.value, {
+        fallbackTextColor: "var(--color-base-content)",
+        alwaysApplyBackgroundImageProps: true,
+      })
     : {}),
   fontFamily: styleConfigs.value.fontFamily || undefined,
   fontSize: `${previewTypography.value.fontSize}px`,
@@ -580,111 +445,18 @@ const previewStyle = computed(() => ({
   lineHeight: previewTypography.value.lineHeight,
   "--para-text-indent": previewTypography.value.textIndent,
 }));
-const previewParagraphGap = computed(() => `${previewTypography.value.paragraphGap}px`);
+const previewParagraphGap = computed(
+  () => `${previewTypography.value.paragraphGap}px`,
+);
 
-const presetBackgroundImageTheme = (preset) => {
-  const styles = preset?.styles || {};
-  if (styles.backgroundType !== "image") return "";
-  return getReaderBackgroundImage(styles.backgroundImage)?.colorTheme || "";
-};
-const presetTheme = (preset) => {
-  const theme =
-    presetBackgroundImageTheme(preset) || preset?.styles?.colorTheme;
-  return semanticReaderThemes.has(theme) ? theme : "";
-};
-const presetSiteTheme = (preset) => {
-  const theme =
-    presetBackgroundImageTheme(preset) || preset?.styles?.colorTheme;
-  if (theme === "site") return "default";
-  return siteThemeList.value.some(({ value }) => value === theme) ? theme : "";
-};
-const presetDisplayTheme = (preset) => {
-  const theme = presetSiteTheme(preset);
-  return theme === "default" ? systemTheme.value : theme;
-};
-const presetSampleStyle = (preset) => {
-  const sample = {
-    letterSpacing: `${(preset?.styles?.fontGap ?? READER_STYLE_DEFAULTS.fontGap) * 0.125}rem`,
-  };
-  if (!props.mobile) return sample;
-
-  const styles = preset?.styles || {};
-  const backgroundImageConfig =
-    styles.backgroundType === "image"
-      ? getReaderBackgroundImage(styles.backgroundImage)
-      : undefined;
-  const backgroundImage = backgroundImageConfig?.id
-    ? getReaderBackgroundImageUrl(backgroundImageConfig.id)
-    : "";
-  return {
-    ...sample,
-    backgroundColor:
-      styles.backgroundType !== "image"
-        ? styles.backgroundColor || undefined
-        : undefined,
-    color:
-      styles.textColor ||
-      backgroundImageConfig?.textColor ||
-      "var(--color-base-content)",
-    backgroundImage: cssBackgroundImage(backgroundImage),
-    backgroundPosition: "center",
-    backgroundRepeat: "no-repeat",
-    backgroundSize: "cover",
-  };
-};
-
-const isPresetActive = (preset) => {
-  const appearance = getReaderPresetAppearance(preset?.styles);
-  const expectedStyles = { ...preset?.styles, ...appearance };
-  const includesMobileAppearance = Object.hasOwn(appearance, "colorTheme");
-  const comparedKeys =
-    props.mobile && includesMobileAppearance
-      ? STYLE_CONFIG_KEYS.map(({ key }) => key)
-      : READER_LAYOUT_STYLE_KEYS;
-  const modeMatches =
-    !props.mobile ||
-    preset?.mode === undefined ||
-    preset.mode === mobileReadingMode.value;
-  const siteTheme = presetSiteTheme(preset);
-  const siteThemeMatches =
-    props.mobile || !siteTheme || selectedSiteTheme.value === siteTheme;
-
-  return (
-    modeMatches &&
-    siteThemeMatches &&
-    comparedKeys.every((key) => {
-      const defaultValue = READER_STYLE_DEFAULTS[key];
-      const expected = expectedStyles[key];
-      if (expected === undefined) return false;
-      return typeof defaultValue === "number"
-        ? Number(styleConfigs.value[key]) === Number(expected)
-        : Object.is(styleConfigs.value[key], expected);
-    })
-  );
-};
-
-const applyPreset = (preset) => {
+const handlePresetApply = (preset) => {
   if (preset?.styles?.fontStyle !== undefined) readerFontRequestId += 1;
-  if (props.mobile) {
-    store.applyMobileLayoutPreset(preset);
-    return;
-  }
+};
 
-  store.applyReaderLayoutPreset(preset);
-  const siteTheme = presetSiteTheme(preset);
-  if (siteTheme) themeStore.setTheme(siteTheme);
-};
-const savePreset = () => {
-  const saved = props.mobile
-    ? store.saveMobileLayoutPreset(presetName.value)
-    : store.saveReaderLayoutPreset(presetName.value);
-  if (saved) presetName.value = "";
-};
 const resetLayout = () => {
   readerFallbackFontId.value = DEFAULT_READER_FALLBACK_FONT;
   readerFontRequestId += 1;
-  if (props.mobile) store.resetMobileLayout();
-  else store.resetReaderLayout();
+  store.resetReaderLayout({ mobile: props.mobile });
 };
 const selectReaderFont = async (fontId) => {
   const requestId = ++readerFontRequestId;
@@ -728,8 +500,6 @@ const setCustomColor = (key, value) => {
   }
   store.setStyle(key, value);
 };
-const cssBackgroundImage = (value) =>
-  value ? `url("${String(value).replaceAll('"', '\\"')}")` : undefined;
 const selectBackgroundImage = (image) => {
   store.setStyle("colorTheme", "custom");
   store.setStyle("backgroundType", "image");

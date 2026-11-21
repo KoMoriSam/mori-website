@@ -35,11 +35,11 @@
       </div>
     </ScrollableContainer>
     <ul class="menu w-full gap-1 p-0 lg:is-drawer-open:hidden">
-      <li
+      <Tooltip as="li" trigger-class="" activation-class="lg:is-drawer-close:tooltip"
         v-for="item in items"
         :key="item.id"
-        class="lg:is-drawer-close:tooltip lg:is-drawer-close:tooltip-left lg:is-drawer-close:flex! lg:is-drawer-close:items-center"
-        :data-tip="t(item.label)"
+        class="lg:is-drawer-close:tooltip-left lg:is-drawer-close:flex! lg:is-drawer-close:items-center"
+        :text="t(item.label)"
       >
         <button
           :id="`${panelId}-menu-${item.id}-collapsed`"
@@ -66,11 +66,13 @@
           <span class="lg:is-drawer-close:hidden">{{ t(item.label) }}</span
           ><span v-if="item.badge" class="sr-only">{{ item.badgeLabel }}</span>
         </button>
-      </li>
+      </Tooltip>
     </ul>
   </nav>
 </template>
 <script setup>
+import Tooltip from "@/components/display/Tooltip.vue";
+
 import ScrollableContainer from "@/components/layout/ScrollableContainer.vue";
 import { useLocale } from "@/i18n";
 defineProps({

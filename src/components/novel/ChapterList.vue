@@ -28,9 +28,9 @@
         </div>
       </div>
       <div class="flex shrink-0 items-center gap-1">
-        <div
-          class="tooltip tooltip-left"
-          :data-tip="translate('reader.chapters.refresh')"
+        <Tooltip as="div" trigger-class="" activation-class="tooltip"
+          class="tooltip-left"
+          :text="translate('reader.chapters.refresh')"
         >
           <button
             type="button"
@@ -47,10 +47,10 @@
               aria-hidden="true"
             ></i>
           </button>
-        </div>
-        <div
-          class="tooltip tooltip-left"
-          :data-tip="translate('reader.chapters.clearHistory')"
+        </Tooltip>
+        <Tooltip as="div" trigger-class="" activation-class="tooltip"
+          class="tooltip-left"
+          :text="translate('reader.chapters.clearHistory')"
         >
           <button
             type="button"
@@ -61,7 +61,7 @@
           >
             <i class="ri-delete-bin-6-line" aria-hidden="true"></i>
           </button>
-        </div>
+        </Tooltip>
       </div>
     </header>
 
@@ -254,6 +254,8 @@
   </section>
 </template>
 <script setup>
+import Tooltip from "@/components/display/Tooltip.vue";
+
 import { useLocale } from "@/i18n";
 const {
   t: translate,
@@ -264,8 +266,8 @@ const {
 import { storeToRefs } from "pinia";
 
 import { useNovelStore } from "@/stores/novel";
-import { useAnalyticsStore } from "@/stores/analyticsStore";
-import { useCommentCountsStore } from "@/stores/commentCountsStore";
+import { useAnalyticsStore } from "@/stores/analytics";
+import { useCommentCountsStore } from "@/stores/comment-counts";
 
 import { useChapters } from "@/composables/novel/useChapters";
 import { useClickLimit } from "@/composables/useClickLimit";

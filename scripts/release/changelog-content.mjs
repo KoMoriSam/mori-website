@@ -6,6 +6,17 @@ import frontMatter from "front-matter";
 import yaml from "js-yaml";
 import MarkdownIt from "markdown-it";
 
+import {
+  CHANGELOG_SCHEMA_VERSION,
+  CHANGELOG_TEXT_LIMITS,
+  CHANGELOG_TYPE_ORDER,
+  CHANGELOG_TYPES,
+  CHANGELOG_VERSION_PATTERN,
+  compareVersions,
+  isValidDate,
+} from "../../shared/changelog.js";
+import { formatLocalIso } from "../lib/release-utils.mjs";
+
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 export const PROJECT_ROOT = resolve(SCRIPT_DIR, "../..");
 export const CHANGELOG_DIR = join(PROJECT_ROOT, "changelog", "releases");
@@ -15,24 +26,6 @@ export const STATIC_CHANGELOG_PATH = join(
   "changelog",
   "changelog.json",
 );
-export const CHANGELOG_SCHEMA_VERSION = 1;
-
-export const CHANGELOG_TYPES = Object.freeze({
-  feature: "功能",
-  improve: "改进",
-  fix: "修复",
-  performance: "优化",
-  refactor: "重构",
-  chore: "维护",
-});
-export const CHANGELOG_TYPE_ORDER = Object.freeze([
-  "feature",
-  "improve",
-  "fix",
-  "performance",
-  "refactor",
-  "chore",
-]);
 export const SEMVER_BUMPS = Object.freeze(["major", "minor", "patch"]);
 
 const SPECIAL_SECTIONS = Object.freeze({
@@ -43,8 +36,6 @@ const HEADING_TO_TYPE = new Map(
   Object.entries(CHANGELOG_TYPES).map(([type, label]) => [label, type]),
 );
 const MARKDOWN = new MarkdownIt({ html: false });
-const VERSION_PATTERN = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
-const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const RELEASE_STATUSES = new Set(["draft", "released"]);
 const PLACEHOLDERS = [
   "请填写本次更新摘要",
@@ -52,25 +43,8 @@ const PLACEHOLDERS = [
   "请填写更新内容。",
   "请说明破坏性变化和升级方式。",
 ];
-const TEXT_LIMITS = {
-  summary: 320,
-  section: 30000,
-};
 
-export const formatLocalIso = (date = new Date()) => {
-  const offsetMinutes = -date.getTimezoneOffset();
-  const sign = offsetMinutes >= 0 ? "+" : "-";
-  const absoluteOffset = Math.abs(offsetMinutes);
-  const pad = (value) => String(value).padStart(2, "0");
-
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
-    date.getDate(),
-  )}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(
-    date.getSeconds(),
-  )}${sign}${pad(Math.floor(absoluteOffset / 60))}:${pad(
-    absoluteOffset % 60,
-  )}`;
-};
+export { formatLocalIso };
 
 export const formatLocalDate = (date = new Date()) => {
   const pad = (value) => String(value).padStart(2, "0");
@@ -92,33 +66,12 @@ const normalizeText = (value, limit = Infinity) => {
   return text && text.length <= limit ? text : "";
 };
 
-const isValidDate = (value) => {
-  if (!DATE_PATTERN.test(value)) return false;
-  const timestamp = Date.parse(`${value}T00:00:00.000Z`);
-  return (
-    Number.isFinite(timestamp) &&
-    new Date(timestamp).toISOString().slice(0, 10) === value
-  );
-};
-
 const versionParts = (version) => {
   const [core, prerelease = ""] = String(version).split("-", 2);
   return {
     core: core.split(".").map(Number),
     prerelease,
   };
-};
-
-export const compareVersions = (left, right) => {
-  const a = versionParts(left);
-  const b = versionParts(right);
-  for (let index = 0; index < 3; index += 1) {
-    const difference = (a.core[index] || 0) - (b.core[index] || 0);
-    if (difference !== 0) return difference;
-  }
-  if (!a.prerelease && b.prerelease) return 1;
-  if (a.prerelease && !b.prerelease) return -1;
-  return a.prerelease.localeCompare(b.prerelease, "en", { numeric: true });
 };
 
 const countTopLevelListItems = (markdown) => {
@@ -170,7 +123,7 @@ const splitReleaseBody = (body, source) => {
     if (!markdown) {
       throw new Error(`${source} 的“${heading.label}”内容不能为空。`);
     }
-    if (markdown.length > TEXT_LIMITS.section) {
+    if (markdown.length > CHANGELOG_TEXT_LIMITS.markdown) {
       throw new Error(`${source} 的“${heading.label}”内容过长。`);
     }
 
@@ -217,22 +170,28 @@ const splitReleaseBody = (body, source) => {
 
 export const validateRelease = (release, source = "更新日志") => {
   const errors = [];
-  const version = normalizeText(release?.version, 80);
+  const version = normalizeText(
+    release?.version,
+    CHANGELOG_TEXT_LIMITS.version,
+  );
   const status = normalizeText(release?.status, 20);
-  const summary = normalizeText(release?.summary, TEXT_LIMITS.summary);
+  const summary = normalizeText(
+    release?.summary,
+    CHANGELOG_TEXT_LIMITS.summary,
+  );
   const date = normalizeDate(release?.date);
   const breaking = release?.breaking ?? false;
 
-  if (!VERSION_PATTERN.test(version)) errors.push("version 必须是有效的语义版本号");
+  if (!CHANGELOG_VERSION_PATTERN.test(version)) errors.push("version 必须是有效的语义版本号");
   if (!RELEASE_STATUSES.has(status)) errors.push("status 必须是 draft 或 released");
-  if (!summary) errors.push(`summary 必须是 1-${TEXT_LIMITS.summary} 个字符`);
+  if (!summary) errors.push(`summary 必须是 1-${CHANGELOG_TEXT_LIMITS.summary} 个字符`);
   if (date && !isValidDate(date)) errors.push("date 必须是 YYYY-MM-DD 格式的有效日期");
   if (status === "released" && !date) errors.push("正式版本必须提供 date");
   if (typeof breaking !== "boolean") errors.push("breaking 必须是布尔值");
   if (!Array.isArray(release?.groups) || !release.groups.length) {
     errors.push("至少需要一个更新分类");
   }
-  if (breaking && !normalizeText(release.warning, TEXT_LIMITS.section)) {
+  if (breaking && !normalizeText(release.warning, CHANGELOG_TEXT_LIMITS.markdown)) {
     errors.push("破坏性版本必须提供“升级前请注意”");
   }
 
@@ -246,10 +205,10 @@ export const validateRelease = (release, source = "更新日志") => {
     ...(date ? { date } : {}),
     summary,
     breaking,
-    intro: normalizeText(release.intro, TEXT_LIMITS.section),
+    intro: normalizeText(release.intro, CHANGELOG_TEXT_LIMITS.markdown),
     groups: release.groups,
-    note: normalizeText(release.note, TEXT_LIMITS.section),
-    warning: normalizeText(release.warning, TEXT_LIMITS.section),
+    note: normalizeText(release.note, CHANGELOG_TEXT_LIMITS.markdown),
+    warning: normalizeText(release.warning, CHANGELOG_TEXT_LIMITS.markdown),
   };
 };
 
@@ -427,85 +386,6 @@ export const createChangelogPayload = (
     updatedAt: updatedAt || deterministicTime,
     ...(serverTime ? { serverTime } : {}),
     items,
-  };
-};
-
-export const validateChangelogPayload = (
-  payload,
-  { requireServerTime = false, source = "更新日志数据" } = {},
-) => {
-  if (
-    !payload ||
-    typeof payload !== "object" ||
-    payload.schemaVersion !== CHANGELOG_SCHEMA_VERSION ||
-    !Array.isArray(payload.items) ||
-    typeof payload.updatedAt !== "string" ||
-    !Number.isFinite(Date.parse(payload.updatedAt)) ||
-    (requireServerTime &&
-      (typeof payload.serverTime !== "string" ||
-        !Number.isFinite(Date.parse(payload.serverTime))))
-  ) {
-    throw new Error(`${source} 不是有效的 changelog:v1 数据。`);
-  }
-
-  const seenVersions = new Set();
-  const items = payload.items.map((item, index) => {
-    const itemSource = `${source}#items[${index}]`;
-    if (
-      !item ||
-      typeof item !== "object" ||
-      !VERSION_PATTERN.test(String(item.version || "")) ||
-      !isValidDate(String(item.date || "")) ||
-      !normalizeText(item.summary, TEXT_LIMITS.summary) ||
-      typeof item.intro !== "string" ||
-      !Array.isArray(item.groups) ||
-      !item.groups.length ||
-      (item.note != null && typeof item.note !== "string") ||
-      (item.warning != null && typeof item.warning !== "string")
-    ) {
-      throw new Error(`${itemSource} 结构无效。`);
-    }
-    if (seenVersions.has(item.version)) {
-      throw new Error(`${source} 包含重复版本：${item.version}`);
-    }
-    seenVersions.add(item.version);
-    const seenTypes = new Set();
-    const groups = item.groups.map((group) => {
-      if (
-        !group ||
-        !Object.hasOwn(CHANGELOG_TYPES, group.type) ||
-        seenTypes.has(group.type) ||
-        !normalizeText(group.markdown, TEXT_LIMITS.section) ||
-        !Number.isSafeInteger(group.count) ||
-        group.count < 1
-      ) {
-        throw new Error(`${itemSource} 包含无效或重复的更新分类。`);
-      }
-      seenTypes.add(group.type);
-      return {
-        type: group.type,
-        markdown: group.markdown.trim(),
-        count: group.count,
-      };
-    });
-    return {
-      version: item.version,
-      date: item.date,
-      summary: item.summary.trim(),
-      intro: item.intro.trim(),
-      groups,
-      ...(item.note?.trim() ? { note: item.note.trim() } : {}),
-      ...(item.warning?.trim() ? { warning: item.warning.trim() } : {}),
-    };
-  });
-
-  return {
-    schemaVersion: CHANGELOG_SCHEMA_VERSION,
-    updatedAt: new Date(Date.parse(payload.updatedAt)).toISOString(),
-    ...(payload.serverTime
-      ? { serverTime: new Date(Date.parse(payload.serverTime)).toISOString() }
-      : {}),
-    items: items.sort((left, right) => compareVersions(right.version, left.version)),
   };
 };
 

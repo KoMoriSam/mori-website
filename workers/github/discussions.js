@@ -6,6 +6,11 @@ import { githubErrorHeaders } from "./client.js";
 const FRESH_MS = 5 * 60_000;
 const RETAIN_MS = 60 * 60_000;
 
+function clampCount(value) {
+  const count = Number(value);
+  return Number.isFinite(count) ? Math.max(0, count) : 0;
+}
+
 function getSourceConfig(env, sourceType, scope = "paragraph") {
   const novel = sourceType === "novel";
   const configuration = configuredDiscussionScopes(env)[scope === "paragraph"
@@ -104,10 +109,10 @@ async function fetchDiscussionCommentPage({ github, discussionId, cursor }) {
 }
 
 function sumReplyCounts(comments) {
-  return (comments?.nodes || []).reduce((total, comment) => {
-    const count = Number(comment?.replies?.totalCount ?? 0);
-    return total + (Number.isFinite(count) ? Math.max(0, count) : 0);
-  }, 0);
+  return (comments?.nodes || []).reduce(
+    (total, comment) => total + clampCount(comment?.replies?.totalCount),
+    0,
+  );
 }
 
 async function fetchDiscussionReplyCount({ github, discussionId, comments }) {
@@ -161,7 +166,7 @@ async function fetchAllDiscussionCounts({
     for (const node of nodes) {
       if (!node?.title) continue;
 
-      const commentCount = Number(node?.comments?.totalCount ?? 0);
+      const commentCount = clampCount(node?.comments?.totalCount);
       const replyCount = node?.id
         ? await fetchDiscussionReplyCount({
             github,
@@ -169,11 +174,8 @@ async function fetchAllDiscussionCounts({
             comments: node.comments,
           })
         : 0;
-      const count =
-        (Number.isFinite(commentCount) ? Math.max(0, commentCount) : 0) +
-        replyCount;
 
-      counts[node.title] = Number.isFinite(count) ? Math.max(0, count) : 0;
+      counts[node.title] = commentCount + replyCount;
     }
 
     if (!discussions?.pageInfo?.hasNextPage) {
@@ -190,8 +192,7 @@ async function fetchAllDiscussionCounts({
   return counts;
 }
 
-function countsCacheKey(env, sourceType, scope) {
-  const { owner, repo, maxPages, categoryId, privateRepository, repositoryId } = getSourceConfig(env, sourceType, scope);
+function countsCacheKey({ owner, repo, maxPages, categoryId, privateRepository, repositoryId }) {
   const identifier = encodeURIComponent(JSON.stringify([owner, repo, categoryId, maxPages, privateRepository, repositoryId]));
   return new Request(`https://api.komori.cc/__cache/github-discussions/v2/${identifier}`);
 }
@@ -204,16 +205,16 @@ export async function countDiscussion(github, discussionId) {
 }
 
 export async function updateDiscussionCount(env, target, title, count) {
-  const key = countsCacheKey(env, target.sourceType, target.countScope);
+  const key = countsCacheKey(getSourceConfig(env, target.sourceType, target.countScope));
   const cached = await readGithubCache(key);
   if (!cached?.counts) return;
   cached.counts = { ...cached.counts, [title]: count, [target.term]: count };
   await writeGithubCache(key, cached, cached.retainUntil);
 }
 
-async function getCountsMap(env, github, sourceType, scope = "paragraph") {
-  const { owner, repo, maxPages, categoryId, privateRepository, repositoryId } = getSourceConfig(env, sourceType, scope);
-  const key = countsCacheKey(env, sourceType, scope);
+async function getCountsMap(github, config) {
+  const { owner, repo, maxPages, categoryId, privateRepository, repositoryId } = config;
+  const key = countsCacheKey(config);
   const cached = await readGithubCache(key);
   if (cached?.counts && cached.refreshAt > Date.now()) return cached.counts;
 
@@ -263,11 +264,11 @@ function getParagraphContentId(paragraphTerm) {
   return term.slice(0, separatorIndex);
 }
 
-async function getContentCommentTotals(env, github, sourceType, contentItems) {
-  const primaryScope = sourceType === "novel" ? "chapter" : "content";
+async function getContentCommentTotals(env, github, sourceType, primaryConfig, contentItems) {
+  const paragraphConfig = getSourceConfig(env, sourceType, "paragraph");
   const [primaryCounts, paragraphCounts] = await Promise.all([
-    getCountsMap(env, github, sourceType, primaryScope),
-    getCountsMap(env, github, sourceType, "paragraph"),
+    getCountsMap(github, primaryConfig),
+    getCountsMap(github, paragraphConfig),
   ]);
   const targetContentIds = new Set(
     contentItems.map(({ contentId }) => contentId),
@@ -280,21 +281,17 @@ async function getContentCommentTotals(env, github, sourceType, contentItems) {
     const contentId = getParagraphContentId(paragraphTerm);
     if (!targetContentIds.has(contentId)) continue;
 
-    const normalizedCount = Number(count);
-    if (Number.isFinite(normalizedCount) && normalizedCount > 0) {
-      paragraphTotals[contentId] += normalizedCount;
-    }
+    paragraphTotals[contentId] += clampCount(count);
   }
 
   return Object.fromEntries(
     contentItems.map(({ contentId, discussionTerm }) => {
-      const primaryCount = Number(Object.hasOwn(primaryCounts, discussionTerm) ? primaryCounts[discussionTerm] : 0);
-      const normalizedPrimaryCount = Number.isFinite(primaryCount)
-        ? Math.max(0, primaryCount)
+      const primaryCount = Object.hasOwn(primaryCounts, discussionTerm)
+        ? clampCount(primaryCounts[discussionTerm])
         : 0;
       return [
         contentId,
-        normalizedPrimaryCount + paragraphTotals[contentId],
+        primaryCount + paragraphTotals[contentId],
       ];
     }),
   );
@@ -344,22 +341,28 @@ export async function handleDiscussionCounts(request, env, corsHeaders, createCl
       return respond({ sourceType, scope, counts: {}, cachedAt: Date.now() });
     }
 
-    const { owner, repo } = getSourceConfig(env, sourceType, scope);
+    const primaryScope =
+      scope === "content-total"
+        ? sourceType === "novel"
+          ? "chapter"
+          : "content"
+        : scope;
+    const config = getSourceConfig(env, sourceType, primaryScope);
     let client;
     const github = {
       async graphql(query, variables) {
-        client ||= createClient(env, `${owner}/${repo}`);
+        client ||= createClient(env, `${config.owner}/${config.repo}`);
         return (await client).graphql(query, variables);
       },
     };
     const allCounts =
       scope === "content-total"
-        ? await getContentCommentTotals(env, github, sourceType, contentItems)
-        : await getCountsMap(env, github, sourceType, scope);
-    const counts = Object.fromEntries(identifiers.map((id) => {
-      const value = Number(Object.hasOwn(allCounts, id) ? allCounts[id] : 0);
-      return [id, Number.isFinite(value) ? Math.max(0, value) : 0];
-    }));
+        ? await getContentCommentTotals(env, github, sourceType, config, contentItems)
+        : await getCountsMap(github, config);
+    const counts = Object.fromEntries(identifiers.map((id) => [
+      id,
+      Object.hasOwn(allCounts, id) ? clampCount(allCounts[id]) : 0,
+    ]));
 
     return respond({ sourceType, scope, counts, cachedAt: Date.now() });
   } catch (error) {

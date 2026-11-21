@@ -23,6 +23,7 @@ export const GAMES = [
     titleKey: "avalon.title",
     descriptionKey: "avalon.description",
     playerProgress: getPlayerProgress,
+    fullscreenPhases: ["opening", "night"],
     minPlayers: 5,
     maxPlayers: 10,
     metadata: [{ icon: "ri-spy-line", labelKey: "avalon.genre" }],

@@ -1,29 +1,17 @@
+import {
+  compositeBackdropLayer,
+  mixGoldWithInk,
+  mixRgb,
+  paintEllipticalGlow,
+  prepareBackdropLayer,
+} from "../canvas/backdrop.js";
+
 function createPalette({ info, gold, ink }, lightTheme) {
-  const coolWeight = lightTheme ? 0.7 : 0.85;
-  const goldWeight = lightTheme ? 0.55 : 0.7;
   return {
-    cool: info.map((value, index) => Math.round(value * coolWeight + ink[index] * (1 - coolWeight))),
-    gold: gold.map((value, index) => Math.round(value * goldWeight + ink[index] * (1 - goldWeight))),
+    cool: mixRgb(info, ink, lightTheme ? 0.7 : 0.85),
+    gold: mixGoldWithInk(gold, ink, lightTheme),
     ink,
   };
-}
-
-function paintGlow(context, rgba, x, y, radiusX, radiusY, color, opacity) {
-  context.save();
-  context.translate(x, y);
-  context.scale(radiusX, radiusY);
-  const gradient = context.createRadialGradient(0, 0, 0, 0, 0, 1);
-  gradient.addColorStop(0, rgba(color, opacity));
-  gradient.addColorStop(0.5, rgba(color, opacity * 0.5));
-  gradient.addColorStop(1, rgba(color, 0));
-  context.fillStyle = gradient;
-  context.fillRect(-1, -1, 2, 2);
-  context.restore();
-}
-
-function prepareLayer(context, { width, height, layerScale }) {
-  context.setTransform(layerScale, 0, 0, layerScale, 0, 0);
-  context.clearRect(0, 0, width, height);
 }
 
 export function createMoonMist({ context, layer, layerContext, state, rgba }) {
@@ -31,12 +19,26 @@ export function createMoonMist({ context, layer, layerContext, state, rgba }) {
     createPalette,
     paint() {
       const { width, height, time } = state;
-      prepareLayer(layerContext, state);
-      paintGlow(layerContext, rgba, width * 0.87, height * 0.04, width * 0.62, height * 0.58, "cool", 0.21);
+      prepareBackdropLayer(layerContext, state);
+      paintEllipticalGlow(layerContext, rgba, {
+        x: width * 0.87,
+        y: height * 0.04,
+        radiusX: width * 0.62,
+        radiusY: height * 0.58,
+        color: "cool",
+        opacity: 0.21,
+      });
       for (let index = 0; index < 7; index++) {
         const x = width * (0.2 + index * 0.15) + Math.sin(time * 0.1 + index) * width * 0.1;
         const y = height * (0.4 + (index % 3) * 0.17);
-        paintGlow(layerContext, rgba, x, y, width * 0.38, height * 0.13, "cool", 0.045);
+        paintEllipticalGlow(layerContext, rgba, {
+          x,
+          y,
+          radiusX: width * 0.38,
+          radiusY: height * 0.13,
+          color: "cool",
+          opacity: 0.045,
+        });
       }
       const beam = layerContext.createLinearGradient(width * 0.9, 0, width * 0.3, height);
       beam.addColorStop(0, rgba("cool", 0.12));
@@ -49,7 +51,7 @@ export function createMoonMist({ context, layer, layerContext, state, rgba }) {
       layerContext.lineTo(width * 0.02, height);
       layerContext.closePath();
       layerContext.fill();
-      context.drawImage(layer, 0, 0, layer.width, layer.height, 0, 0, width, height);
+      compositeBackdropLayer(context, layer, state);
     },
   };
 }
@@ -66,14 +68,28 @@ export function createFurnaceDust({ context, layer, layerContext, state, rgba })
     createPalette,
     paint() {
       const { width, height, time } = state;
-      prepareLayer(layerContext, state);
-      paintGlow(layerContext, rgba, width * 0.92, height * 0.82, width * 0.47, height * 0.48, "gold", 0.23);
+      prepareBackdropLayer(layerContext, state);
+      paintEllipticalGlow(layerContext, rgba, {
+        x: width * 0.92,
+        y: height * 0.82,
+        radiusX: width * 0.47,
+        radiusY: height * 0.48,
+        color: "gold",
+        opacity: 0.23,
+      });
       for (let index = 0; index < 6; index++) {
         const progress = (time * 0.017 + index * 0.18) % 1;
         const x = width * (0.65 + Math.sin(index + time * 0.08) * 0.19);
-        paintGlow(layerContext, rgba, x, height * (1 - progress), width * (0.16 + progress * 0.14), height * 0.18, "ink", 0.05 * (1 - progress));
+        paintEllipticalGlow(layerContext, rgba, {
+          x,
+          y: height * (1 - progress),
+          radiusX: width * (0.16 + progress * 0.14),
+          radiusY: height * 0.18,
+          color: "ink",
+          opacity: 0.05 * (1 - progress),
+        });
       }
-      context.drawImage(layer, 0, 0, layer.width, layer.height, 0, 0, width, height);
+      compositeBackdropLayer(context, layer, state);
       for (const particle of particles) {
         const x = width * particle.x + Math.sin(time * 0.25 + particle.phase) * 8;
         const y = (((particle.y - time * 0.009) % 1.2 + 1.2) % 1.2 - 0.1) * height;

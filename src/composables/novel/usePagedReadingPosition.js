@@ -1,4 +1,8 @@
 import { onBeforeUnmount, ref } from "vue";
+import { decodeAnchor } from "@/utils/reader/dom";
+
+const DEFAULT_LEGACY_PARAGRAPH_ID_PATTERN =
+  /^([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})-\d+-(\d+)$/i;
 
 export const usePagedReadingPosition = ({
   route,
@@ -10,7 +14,7 @@ export const usePagedReadingPosition = ({
   getElementPage,
   getState,
   setState,
-  legacyParagraphIdPattern,
+  legacyParagraphIdPattern = DEFAULT_LEGACY_PARAGRAPH_ID_PATTERN,
   persistDelay = 240,
 }) => {
   const restoredChapterUuid = ref("");
@@ -30,13 +34,7 @@ export const usePagedReadingPosition = ({
 
   const getInitialAnchor = () => {
     const chapterUuid = String(chapter.value?.uuid || "");
-    const rawHash = String(route.hash || "").replace(/^#/, "");
-    let decodedHash = rawHash;
-    try {
-      decodedHash = decodeURIComponent(rawHash);
-    } catch {
-      // Keep malformed legacy hashes usable as-is.
-    }
+    const decodedHash = decodeAnchor(route.hash);
 
     if (decodedHash) return normalizeAnchor(decodedHash, chapterUuid);
 

@@ -12,8 +12,6 @@ import { createMarkdownSearchBlocks } from "../../src/utils/markdown/search-anch
 import { fetchContent } from "../lib/content-source.mjs";
 import { buildCache, digest } from "../lib/build-cache.mjs";
 import { buildEvent, observeBuild } from "../lib/build-report.mjs";
-// 小说索引按整章 Markdown 生成，不再使用固定字数分页。
-// import { splitMarkdown } from "../../src/utils/markdown/split-markdown.js";
 
 dotenv.config({ path: ".env.production", quiet: true });
 

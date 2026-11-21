@@ -22,6 +22,12 @@ const generators = {
   "pdf-glyphs": [["python", "scripts/sinhala/generate-pdf-glyphs.py"]],
 };
 const deployments = {
+  "test-all": [
+    script("release/bootstrap-test.mjs", "--apply"),
+    seedDev,
+    script("preview/build.mjs"),
+    script("preview/deploy-test.mjs"),
+  ],
   test: [
     seedDev,
     script("preview/build.mjs"),
@@ -153,6 +159,52 @@ async function main() {
     );
     tasks.games.push(script("checks/room-dissolution.mjs"));
     tasks["site-perf"].unshift(assets);
+    tasks["auth-dev"] = ["env", "dev", "github-access", "github-profile"].map(
+      (name) => script(`checks/${name}.mjs`),
+    );
+    tasks.content = [
+      "blog-translations",
+      "blog-translations-runtime",
+      "blog-translations-ssr",
+      "blog-build",
+      "markdown-xss",
+      "markdown-styles",
+      "markdown-avatars",
+      "content-licenses",
+      "rss",
+    ].map((name) => script(`checks/${name}.mjs`));
+    tasks["i18n-all"] = [
+      "i18n",
+      "i18n-loading",
+      "i18n-quantities",
+      "i18n-runtime",
+    ].map((name) => script(`checks/${name}.mjs`));
+    tasks["games-all"] = [
+      "games",
+      "game-room-client",
+      "room-dissolution",
+      "avalon",
+      "avalon-extensions",
+      "avalon-knowledge",
+      "fogport",
+    ].map((name) => script(`checks/${name}.mjs`));
+    tasks.tools = [
+      "responsive-images",
+      "image-converter",
+      "sinhala",
+      "sinhala-documents",
+    ].map((name) => script(`checks/${name}.mjs`));
+    tasks.release = [
+      changelog("check"),
+      assets,
+      ...[
+        "announcements",
+        "release-deploy",
+        "build-assets",
+        "content-build",
+        "site-perf",
+      ].map((name) => script(`checks/${name}.mjs`)),
+    ];
     const target = args.shift();
     const steps = select(tasks, target, "check", args);
     if (steps) console.log(`正在检查：${descriptions.check[target]}…`);
@@ -166,8 +218,13 @@ async function main() {
       name,
       args,
     );
-    if (steps && command === "deploy" && target === "test" && args.length)
-      throw new Error("用法：pnpm run deploy test。");
+    if (
+      steps &&
+      command === "deploy" &&
+      ["test", "test-all"].includes(target) &&
+      args.length
+    )
+      throw new Error(`用法：pnpm run deploy ${target}。`);
     if (steps) console.log(`正在${descriptions[name][target]}…`);
     if (steps) await sequence(steps, args);
     if (steps && command === "deploy")

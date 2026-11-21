@@ -1,8 +1,20 @@
 import { readFile } from "node:fs/promises";
 import { snapshotStore } from "../build/snapshot-store.mjs";
 
+export function stripJsonComments(text) {
+  return String(text || "").replace(
+    /("(?:\\.|[^"\\])*")|(\/\/[^\r\n]*)|(\/\*[\s\S]*?\*\/)/g,
+    (match, stringGroup) => (stringGroup ? match : ""),
+  );
+}
+
+export function parseJsonc(text) {
+  const stripped = stripJsonComments(text).replace(/,(\s*[}\]])/g, "$1");
+  return JSON.parse(stripped);
+}
+
 export async function readWorkerConfig(file = "wrangler.jsonc") {
-  return JSON.parse((await readFile(file, "utf8")).replace(/,(\s*[}\]])/g, "$1"));
+  return parseJsonc(await readFile(file, "utf8"));
 }
 
 export function publishStores(config, { snapshotOnly = false } = {}) {

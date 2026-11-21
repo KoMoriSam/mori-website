@@ -14,7 +14,7 @@ export async function pruneBuildAssets(directory) {
   const dist = await realpath(directory);
   const candidates = [
     ".vite/ssr-manifest.json",
-    ...["pagefind", "pagefind-novel"].flatMap((bundle) => unusedPagefindFiles.map((file) => `${bundle}/${file}`)),
+    ...unusedPagefindFiles.map((file) => `pagefind/${file}`),
   ];
   // Only discard the old duplicate when it is byte-for-byte identical.
   try {

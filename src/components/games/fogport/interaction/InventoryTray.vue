@@ -29,15 +29,14 @@
         </button>
       </div>
       <div class="flex shrink-0 items-center gap-1">
-        <span
-          class="tooltip tooltip-bottom flex items-center gap-1 px-1 text-xs tabular-nums text-base-content/60"
+        <Tooltip as="span" trigger-class="" activation-class="tooltip"
+          class="tooltip-bottom flex items-center gap-1 px-1 text-xs tabular-nums text-base-content/60"
           tabindex="0"
-          :data-tip="t('fogport.info.deckHint', { n: game.deckCount })"
+          :text="t('fogport.info.deckHint', { n: game.deckCount })"
           :aria-label="t('fogport.deckCount', { n: game.deckCount })"
           ><i class="ri-stack-line" aria-hidden="true"></i
           ><b>{{ game.deckCount }}</b
-          ><span class="sr-only">{{ t("fogport.info.deckLabel") }}</span></span
-        >
+          ><span class="sr-only">{{ t("fogport.info.deckLabel") }}</span></Tooltip>
         <div v-if="!compact" class="flex shrink-0 gap-1">
           <button
             class="btn btn-square btn-xs"
@@ -55,6 +54,13 @@
         </div>
       </div>
     </div>
+    <Tooltip
+      as="div"
+      trigger-class="block"
+      class="min-h-0 min-w-0"
+      :class="compact ? '' : 'flex-1'"
+      :text="t(compact ? 'fogport.visual.swipeHint' : 'fogport.dragHint')"
+    >
     <div
       :id="`${trayId}-content`"
       ref="scroller"
@@ -69,13 +75,12 @@
               tray === 'cards' ? 'h-24' : 'h-28',
             ]
           : [
-              'grid min-h-0 flex-1 auto-rows-min touch-pan-y overflow-y-auto overscroll-contain scrollbar-thin',
+              'grid h-full min-h-0 flex-1 auto-rows-min touch-pan-y overflow-y-auto overscroll-contain scrollbar-thin',
               !detail && tray === 'cards'
                 ? 'grid-cols-[repeat(auto-fill,minmax(min(100%,6.5rem),1fr))]'
                 : 'grid-cols-2',
             ]
       "
-      :title="t(compact ? 'fogport.visual.swipeHint' : 'fogport.dragHint')"
     >
       <template v-if="tray === 'cards'">
         <button
@@ -196,9 +201,12 @@
         </button>
       </template>
     </div>
+    </Tooltip>
   </section>
 </template>
 <script setup>
+import Tooltip from "@/components/display/Tooltip.vue";
+
 import { computed, ref, useId } from "vue";
 import {
   INDUSTRIES,

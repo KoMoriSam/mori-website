@@ -1,3 +1,4 @@
+import { normalizeGithubImageUrl } from "../lib/http.js";
 import { getGame } from "./registry.js";
 import { ensure, randomInt } from "./utils.js";
 import {
@@ -22,6 +23,29 @@ function compactSeats(room) {
   room.players.forEach((player, index) => {
     player.seat = index;
   });
+}
+function startGameRound(
+  room,
+  definition,
+  rng = randomInt,
+  { resetReady = false } = {},
+) {
+  compactSeats(room);
+  room.gameState = definition.create(
+    participants(room),
+    rng,
+    room.gameConfig ?? undefined,
+  );
+  if (resetReady) {
+    room.players.forEach((p) => {
+      p.ready = false;
+    });
+  }
+  room.messages = [];
+  room.status = "playing";
+  room.lobbyStartsAt = null;
+  room.round++;
+  room.stage++;
 }
 const readyToStart = (room, definition) =>
   room.players.length >= definition.minPlayers &&
@@ -74,27 +98,12 @@ export function normalizePlayerProfile(nickname, profile) {
   );
   let avatarUrl = null;
   if (source === "github" && profile?.avatarUrl) {
-    ensure(
-      typeof profile.avatarUrl === "string" && profile.avatarUrl.length <= 512,
-      "PROFILE",
-    );
-    let url;
-    try {
-      url = new URL(profile.avatarUrl);
-    } catch {
-      ensure(false, "PROFILE");
-    }
-    ensure(
-      url.protocol === "https:" &&
-        url.hostname === "avatars.githubusercontent.com" &&
-        !url.port &&
-        !url.username &&
-        !url.password &&
-        !url.hash &&
-        /^\/u\/\d+$/.test(url.pathname),
-      "PROFILE",
-    );
-    avatarUrl = url.href;
+    avatarUrl =
+      normalizeGithubImageUrl(profile.avatarUrl, {
+        maxLength: 512,
+        pathnamePattern: /^\/u\/\d+$/,
+      }) || null;
+    ensure(avatarUrl, "PROFILE");
   }
   return { nickname, avatarUrl, profileSource: source };
 }
@@ -280,17 +289,7 @@ export function applyRoomAction(
           room.players.every((p) => p.ready && p.online),
         "NOT_READY",
       );
-      compactSeats(room);
-      room.gameState = definition.create(
-        participants(room),
-        rng,
-        room.gameConfig ?? undefined,
-      );
-      room.messages = [];
-      room.status = "playing";
-      room.lobbyStartsAt = null;
-      room.round++;
-      room.stage++;
+      startGameRound(room, definition, rng);
       break;
     case "end":
       host();
@@ -308,19 +307,7 @@ export function applyRoomAction(
           room.players.every((p) => p.online),
         "QUICK_NOT_READY",
       );
-      compactSeats(room);
-      room.gameState = definition.create(
-        participants(room),
-        rng,
-        room.gameConfig ?? undefined,
-      );
-      room.players.forEach((p) => {
-        p.ready = false;
-      });
-      room.messages = [];
-      room.status = "playing";
-      room.round++;
-      room.stage++;
+      startGameRound(room, definition, rng, { resetReady: true });
       break;
     case "restart":
       host();
@@ -377,19 +364,12 @@ export function advanceRoomTime(
     now >= source.lobbyStartsAt
   ) {
     const room = structuredClone(source);
-    if (readyToStart(room, resolveGame(room.gameType))) {
-      compactSeats(room);
-      room.gameState = resolveGame(room.gameType).create(
-        participants(room),
-        randomInt,
-        room.gameConfig ?? undefined,
-      );
-      room.messages = [];
-      room.status = "playing";
-      room.round++;
-      room.stage++;
+    const definition = resolveGame(room.gameType);
+    if (readyToStart(room, definition)) {
+      startGameRound(room, definition);
+    } else {
+      room.lobbyStartsAt = null;
     }
-    room.lobbyStartsAt = null;
     room.revision++;
     room.lastActivityAt = now;
     return { room, changed: true };

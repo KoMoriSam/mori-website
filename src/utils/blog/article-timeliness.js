@@ -1,3 +1,8 @@
+import {
+  getNormalizedTagSegments,
+  normalizeArticleTags,
+} from "./article-fields.js";
+
 const NOTICE_AFTER_DAYS = Object.freeze({
   technical: 180,
   reference: 365,
@@ -42,8 +47,9 @@ export function getArticleTimelinessDays(article = {}) {
   if (Object.hasOwn(REVIEWED_ARTICLE_TYPES, article.id)) {
     return NOTICE_AFTER_DAYS[REVIEWED_ARTICLE_TYPES[article.id]];
   }
-  const tags = (Array.isArray(article.tags) ? article.tags : [])
-    .flatMap((tag) => String(tag).normalize("NFKC").toLowerCase().split("/").map((part) => part.trim()));
+  const tags = normalizeArticleTags(article.tags).flatMap(
+    getNormalizedTagSegments,
+  );
   if (tags.some((tag) => EVERGREEN_TAGS.has(tag))) return NOTICE_AFTER_DAYS.evergreen;
   if (tags.some((tag) => TECHNICAL_TAGS.has(tag))) return NOTICE_AFTER_DAYS.technical;
   return NOTICE_AFTER_DAYS.reference;

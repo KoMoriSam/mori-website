@@ -17,13 +17,13 @@
               :title="translate('server.addressHint')"
               @keydown.enter="fetchInfo"
             />
-            <button
+            <Tooltip placement="bottom" align="start" as="button" trigger-class="inline-flex"
               class="btn btn-ghost btn-xs btn-square -mr-1"
-              :title="translate('common.actions.paste')"
+              :text="translate('common.actions.paste')" :aria-label="translate('common.actions.paste')"
               @click.prevent="pasteAndFetch"
             >
               <i class="ri-clipboard-line"></i>
-            </button>
+            </Tooltip>
           </label>
           <p class="label label-hint [grid-area:2/1]">
             <i class="ri-information-line"></i>
@@ -78,21 +78,29 @@
           <i class="ri-hard-drive-3-line"></i>
           {{ translate('server.server') }}
         </h3>
-        <img
+        <Tooltip
+          placement="bottom"
+          align="start"
           v-if="serverInfo.logo"
+          :text="translate('server.logo')"
+          trigger-class="block"
+          class="size-16"
+        >
+        <img
           :src="serverInfo.logo"
           :alt="translate('server.logoLabel')"
           class="mask mask-squircle w-16 h-16"
-          :title="translate('server.logo')"
           v-fade-in
         />
-        <div
+        </Tooltip>
+        <Tooltip placement="bottom" align="start" as="div"
           v-else
-          class="mask mask-squircle w-16 h-16 bg-base-300 flex items-center justify-center"
-          :title="translate('server.offline')"
+          class="w-16 h-16"
+          trigger-class="block"
+          :text="translate('server.offline')" :aria-label="translate('server.offline')"
         >
-          <i class="ri-server-fill text-3xl text-base-content/40"></i>
-        </div>
+          <span class="mask mask-squircle size-full bg-base-300 flex items-center justify-center"><i class="ri-server-fill text-3xl text-base-content/40"></i></span>
+        </Tooltip>
         <p class="text-sm text-base-content/75">
           <i class="ri-map-pin-line"></i>
           {{ serverInfo.city }}
@@ -200,6 +208,8 @@
 </template>
 
 <script setup>
+import Tooltip from "@/components/display/Tooltip.vue";
+
 import { useLocale } from '@/i18n';
 const { t: translate } = useLocale();
 

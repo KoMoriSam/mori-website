@@ -29,6 +29,7 @@
         v-if="open"
         :id="id"
         ref="panel"
+        popover="manual"
         class="popover-panel fixed z-[100] w-max overscroll-contain overflow-auto rounded-box border border-base-300 bg-base-100 p-2 shadow-lg"
         :class="panelClass"
         :role="popup || 'group'"
@@ -46,7 +47,10 @@
 </template>
 
 <script setup>
-import { nextTick, onBeforeUnmount, ref, shallowRef, useId } from "vue";
+import {
+  nextTick, onBeforeUnmount, ref, shallowRef, useId, watch,
+} from "vue";
+import { getFloatingSize, observeFloatingPosition } from "@/utils/layout/observe-floating-position";
 
 const props = defineProps({
   label: { type: String, required: true },
@@ -70,10 +74,12 @@ const id = `popover-${useId()}`;
 const trigger = ref(null);
 const panel = ref(null);
 const open = ref(false);
+watch(() => props.disabled, (disabled) => {
+  if (disabled) close({ restoreFocus: false });
+});
 const portal = shallowRef("body");
 let listeners;
-let resizeObserver;
-let frame;
+let stopFloatingPosition;
 
 let anchor;
 let source;
@@ -110,7 +116,8 @@ function scheduleHoverClose(event) {
   cancelHoverClose();
   hoverTimer = setTimeout(() => {
     if (!panel.value?.contains(document.activeElement) &&
-        !trigger.value?.matches(":focus-visible")) close();
+        !trigger.value?.matches(":focus-visible") &&
+        !trigger.value?.querySelector(":focus-visible")) close();
   }, 100);
 }
 
@@ -148,7 +155,7 @@ function positionPanel() {
 
   if (props.placement === "side") {
     content.style.maxHeight = `${Math.max(0, bottom - top)}px`;
-    const width = content.offsetWidth;
+    const { width } = getFloatingSize(content);
     const rightX = Math.max(left, rect.right + gap);
     const leftEdge = Math.min(right, rect.left - gap);
     const rightSpace = Math.max(0, right - rightX);
@@ -157,16 +164,17 @@ function positionPanel() {
       ? leftSpace < width && rightSpace > leftSpace
       : rightSpace >= width || rightSpace >= leftSpace;
     content.style.maxWidth = `${placeRight ? rightSpace : leftSpace}px`;
-    const x = placeRight ? rightX : leftEdge - content.offsetWidth;
-    const y = Math.max(top, Math.min(bottom - content.offsetHeight, rect.top));
-    placePanel(content, x, y);
+    const size = getFloatingSize(content);
+    const x = placeRight ? rightX : leftEdge - size.width;
+    const y = Math.max(top, Math.min(bottom - size.height, rect.top));
+    placePanel(content, x, y, `${placeRight ? 0 : size.width}px ${Math.max(0, Math.min(size.height, rect.top - y))}px`);
     return;
   }
 
   const below = Math.max(0, bottom - Math.max(top, rect.bottom + gap));
   const above = Math.max(0, Math.min(bottom, rect.top - gap) - top);
   content.style.maxHeight = "none";
-  const naturalHeight = content.offsetHeight;
+  const naturalHeight = getFloatingSize(content).height;
   const preferAbove = props.placement === "top";
   const preferredSpace = preferAbove ? above : below;
   const oppositeSpace = preferAbove ? below : above;
@@ -176,56 +184,41 @@ function positionPanel() {
       : !preferAbove;
   content.style.maxHeight = `${placeAbove ? above : below}px`;
 
-  const width = content.offsetWidth;
-  const height = content.offsetHeight;
+  const { width, height } = getFloatingSize(content);
   const alignLeft = (props.align === "start") !== rtl;
   let x = alignLeft ? rect.left : rect.right - width;
   if (props.align === "center") x = (rect.left + rect.right - width) / 2;
   const y = placeAbove ? rect.top - gap - height : rect.bottom + gap;
-  placePanel(
-    content,
-    Math.max(left, Math.min(right - width, x)),
-    Math.max(top, Math.min(bottom - height, y)),
-  );
+  const placedX = Math.max(left, Math.min(right - width, x));
+  const placedY = Math.max(top, Math.min(bottom - height, y));
+  const originX = props.align === "center" ? (rect.left + rect.right) / 2 : alignLeft ? rect.left : rect.right;
+  placePanel(content, placedX, placedY, `${Math.max(0, Math.min(width, originX - placedX))}px ${placeAbove ? height : 0}px`);
 }
 
-function placePanel(content, x, y) {
+function placePanel(content, x, y, origin) {
   content.style.left = `${x}px`;
   content.style.top = `${y}px`;
   content.style.visibility = "visible";
-}
-
-function schedulePosition() {
-  if (frame != null) return;
-  frame = requestAnimationFrame(() => {
-    frame = undefined;
-    positionPanel();
-  });
+  content.style.transformOrigin = origin;
 }
 
 function stopPositioning() {
   listeners?.abort();
   listeners = undefined;
-  resizeObserver?.disconnect();
-  if (frame != null) cancelAnimationFrame(frame);
-  frame = undefined;
+  stopFloatingPosition?.();
+  stopFloatingPosition = undefined;
 }
 
 function observePosition() {
   positionPanel();
   listeners = new AbortController();
-  const options = { passive: true, signal: listeners.signal };
-  window.addEventListener("resize", schedulePosition, options);
-  window.addEventListener("scroll", schedulePosition, {
-    ...options,
-    capture: true,
+  stopFloatingPosition = observeFloatingPosition({
+    anchor: () => anchor ?? trigger.value,
+    reference: () => source ?? trigger.value,
+    floating: () => panel.value,
+    update: positionPanel,
+    unavailable: () => close({ restoreFocus: false }),
   });
-  window.visualViewport?.addEventListener("resize", schedulePosition, options);
-  window.visualViewport?.addEventListener("scroll", schedulePosition, options);
-  resizeObserver = new ResizeObserver(schedulePosition);
-  const target = anchor ?? trigger.value;
-  if (target instanceof Element) resizeObserver.observe(target);
-  resizeObserver.observe(panel.value);
   document.addEventListener("keydown", handleEscape, { signal: listeners.signal });
   if (!props.hover)
     document.addEventListener("pointerdown", handleOutsidePointerDown, {
@@ -263,12 +256,18 @@ async function show(target, invoker) {
   portal.value =
     dialog?.querySelector(".modal-box") ?? dialog ?? document.fullscreenElement ?? "body";
   if (open.value && panel.value) {
+    await nextTick();
+    if (!open.value || !panel.value) return;
+    if (!panel.value.matches(":popover-open")) panel.value.showPopover();
     positionPanel();
     return;
   }
   open.value = true;
   await nextTick();
-  if (open.value && panel.value && !listeners) observePosition();
+  if (open.value && panel.value && !listeners) {
+    panel.value.showPopover();
+    observePosition();
+  }
 }
 
 function close({ restoreFocus = true } = {}) {
@@ -288,6 +287,7 @@ onBeforeUnmount(() => {
   cancelHoverClose();
   stopPositioning();
 });
+watch(() => [props.placement, props.align, props.gap], positionPanel, { flush: "post" });
 defineExpose({ show, close, isOpen, panel });
 </script>
 

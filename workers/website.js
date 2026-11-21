@@ -103,7 +103,7 @@ export default {
         if (!session.canReadNovel) return json({ error: "READING_FORBIDDEN" }, 403);
         return await serveNovel(request, env, path.slice("/api/novel/".length));
       }
-      if (path === "/api/comments" && ["GET", "POST"].includes(request.method)) {
+      if (["/api/comments", "/api/comments/attachments"].includes(path) && ["GET", "POST"].includes(request.method)) {
         const index = await env.ASSETS.fetch(new Request(`${siteOrigin}/${discussionRegistry}`));
         if (!index.ok) return json({ error: "COMMENTS_UNAVAILABLE" }, 503);
         const target = discussionTarget(await index.json(), url.searchParams.get("scope"), url.searchParams.get("target"), env);

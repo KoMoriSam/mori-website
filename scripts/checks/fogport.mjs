@@ -2,8 +2,9 @@ import assert from 'node:assert/strict';
 import { reactive, ref, createRenderer } from 'vue';
 import { useActionMode } from '../../src/composables/games/fogport/useActionMode.js';
 import { usePointerDrag } from '../../src/composables/games/fogport/usePointerDrag.js';
+import { useBoardViewport } from '../../src/composables/games/fogport/useBoardViewport.js';
 import { legalActions,completeAction,extensions,resourceSteps,bonusChoices,unavailableReason,liquidationOptions } from '../../shared/games/fogport/options.js';
-import { MAP_POINTS,routeBranches,routeSegments,routeHitIds,displayedLinks,displayEra } from '../../src/games/fogport/map-layout.js';
+import { MAP_POINTS,routeBranches,routePath,routeSegments,routeMark,routeHitIds,displayedLinks,displayEra } from '../../src/games/fogport/map-layout.js';
 import { TILES, TILE_BY_ID, LINKS, LINK_BY_ID, CITIES, PLACES, INCOME, deckFor, merchantMix,MARKET_PRICES,BOARD_VERSION,linkKind } from '../../shared/games/fogport/data.js';
 import { createGame, applyGameAction, previewAction, publicView, actorId, network, distances, resourceOptions, normalizeConfig, abortGame,buildingTargets } from '../../shared/games/fogport/engine.js';
 import { createRoom, createPlayer, applyRoomAction, roomView } from '../../workers/games/state.js';
@@ -124,7 +125,7 @@ assert.throws(()=>createGame(people(5),rng(1),{mode:'full'}),e=>e.code==='PLAYER
  rejects(s,'scout',{cards:[c,c,c]},'CARD');
 }
 {
- const s=fixture();links(s,'l30');eq([...network(s,'a')],['d9','d20']);eq(distances(s,['d9']),{d9:0,d20:1});
+ const s=fixture();links(s,'l30');eq([...network(s,'a')],['d9','d20','f2']);eq(distances(s,['d9']),{d9:0,d20:1,f2:1});
  const mine=building(s,'coal',2,'d20','b',1);const far=building(s,'coal',2,'d5','b',2);links(s,'l20');
  eq(resourceOptions(s,'a','coal',['d9']).map(t=>t.id),[mine.id,far.id]);
  const near=building(s,'coal',2,'d9','b',1);eq(resourceOptions(s,'a','coal',['d9']).map(t=>t.id),[near.id]);
@@ -147,7 +148,7 @@ assert.throws(()=>createGame(people(5),rng(1),{mode:'full'}),e=>e.code==='PLAYER
 }
 {
  const s=fixture();s.era='rail';s.markets.coal=14;links(s,'l21');const brewery=building(s,'beer',2,'d1','a',2);
- const n=apply(s,'network',{links:['l20','l30'],resources:['market','market',brewery.id]});eq(player(n).money,83);eq(n.buildings[0].resources,1);eq(n.links.length,4);
+ const n=apply(s,'network',{links:['l20','l30'],resources:['market','market',brewery.id]});eq(player(n).money,83);eq(n.buildings[0].resources,1);eq(n.links.length,3);
  rejects(s,'network',{links:['l20','l30'],resources:['market','market','missing']},'RESOURCE');
  rejects(s,'network',{links:['l20','l3']},'LINK');
  rejects(s,'network',{links:['l30','l20']},'NETWORK');
@@ -467,5 +468,49 @@ for(const era of ['canal','rail']) for(const link of LINKS.filter(l=>l[era])) {
  eq(roomView(room,'b').game.settlement,{playerId:'a'});eq(roomView(room,'a').game.settlement.debt,10);
 }
 // End private liquidation checks.
+
+// Board geometry cache & viewport pan/zoom behavior.
+{
+ const firstLink=LINKS[0];
+ eq(routePath(firstLink,'canal')===routePath(firstLink,'canal'),true);
+ eq(routeSegments(firstLink,'canal')===routeSegments(firstLink,'canal'),true);
+ eq(routeMark(firstLink,'canal')===routeMark(firstLink,'canal'),true);
+
+ const dragging=ref(false);
+ let captures=0;
+ const captured=new Set();
+ const svg=ref({
+  getScreenCTM:()=>({a:2,d:2,e:0,f:0}),
+  hasPointerCapture:id=>captured.has(id),
+  setPointerCapture(id){captures++;captured.add(id);},
+ });
+ let viewport;
+ const renderer=createRenderer({createComment:()=>({}),insert(){},remove(){},parentNode:()=>null,nextSibling:()=>null,setText(){},setComment(){}});
+ const app=renderer.createApp({setup(){viewport=useBoardViewport(svg,{isDragging:dragging});return ()=>null;}});
+ app.mount({});
+ try {
+  viewport.zoom(10);eq(viewport.scale.value,3);
+  viewport.zoom(-10);eq(viewport.scale.value,0.7);
+  viewport.reset();eq(viewport.scale.value,1);eq(viewport.offset.value,{x:0,y:0});
+  viewport.wheel({deltaY:-100});eq(Math.abs(viewport.scale.value-1.1)<1e-10,true);
+  viewport.reset();
+  viewport.panStart({button:0,pointerId:1,clientX:10,clientY:20});
+  viewport.panMove({pointerId:1,clientX:30,clientY:60});
+  viewport.panMove({pointerId:1,clientX:50,clientY:80});
+  eq(viewport.offset.value,{x:20,y:30});
+  eq(captures,1);
+  eq(viewport.clickAllowed(),false);
+  viewport.panEnd({pointerId:1});
+  eq(viewport.clickAllowed(),false);
+  await new Promise(resolve=>setTimeout(resolve,0));
+  eq(viewport.clickAllowed(),true);
+  dragging.value=true;
+  viewport.panStart({button:0,pointerId:2,clientX:0,clientY:0});
+  viewport.panMove({pointerId:2,clientX:100,clientY:100});
+  eq(viewport.offset.value,{x:20,y:30});
+ } finally {
+  app.unmount();
+ }
+}
 
 console.log(`检查通过：雾港商纪规则、资源、结算与完整对局，共 ${checks} 项。`);

@@ -180,7 +180,6 @@
       </template>
       <template #description>
         <Thread
-          v-if="dialogOpen"
           :key="threadKey"
           :scope="scene.scope"
           :target="target"

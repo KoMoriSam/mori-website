@@ -4,25 +4,25 @@
     class="grid shrink-0 grid-cols-5 gap-2"
     :aria-label="t('avalon.quests')"
   >
-    <div
+    <Tooltip
+      as="div"
+      trigger-class=""
+      content-tag="div"
+      content-class="quest-tooltip fixed! bottom-auto! right-auto! hidden max-h-[min(24rem,50dvh)] w-80! max-w-[calc(100vw-2rem)]! transform-none! overflow-y-auto overscroll-contain border border-base-300 bg-base-100! p-3! text-left! text-base-content! shadow-lg scrollbar-thin group-hover:block group-focus-within:block group-hover:pointer-events-auto! group-focus-within:pointer-events-auto!"
+      :content-attrs="{ id: `${questTooltipId}-${index}` }"
       v-for="(size, index) in teamSizes"
       :key="index"
-      class="tooltip tooltip-bottom group min-w-0 [--tt-bg:var(--color-base-100)] after:hidden! hover:z-30 focus-within:z-30"
-      :class="openQuest === index ? 'tooltip-open' : ''"
-      @mouseenter="alignQuestTooltip"
+      class="tooltip-bottom group min-w-0 [--tt-bg:var(--color-base-100)] after:hidden! hover:z-30 focus-within:z-30"
+      :open="openQuest === index"
+      @position="alignQuestTooltip"
       @focusin="
         openQuest = index;
-        alignQuestTooltip($event);
       "
       @focusout="closeQuestTooltip"
     >
-      <div
-        :id="`${questTooltipId}-${index}`"
-        role="tooltip"
-        class="tooltip-content quest-tooltip fixed! bottom-auto! right-auto! hidden max-h-[min(24rem,50dvh)] w-80! max-w-[calc(100vw-2rem)]! transform-none! overflow-y-auto overscroll-contain border border-base-300 bg-base-100! p-3! text-left! text-base-content! shadow-lg scrollbar-thin group-hover:block group-focus-within:block group-hover:pointer-events-auto! group-focus-within:pointer-events-auto!"
-      >
+      <template #tooltip-content>
         <QuestHistory :room="room" :quest="index" :player-count="participantCount" />
-      </div>
+      </template>
       <button
         type="button"
         class="relative block h-full w-full min-w-0 wrap-break-word rounded-box border p-2 text-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:p-3"
@@ -49,12 +49,14 @@
           <span class="sr-only">{{ t("avalon.twoFails") }}</span>
         </span>
       </button>
-    </div>
+    </Tooltip>
   </div>
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, useId, watch } from "vue";
+import Tooltip from "@/components/display/Tooltip.vue";
+
+import { computed, ref, useId, watch } from "vue";
 import { useLocale } from "@/i18n";
 import { QUEST_TEAMS } from "../../../../../shared/games/avalon/index.js";
 import QuestHistory from "./QuestHistory.vue";
@@ -100,9 +102,7 @@ function questIcon(index) {
     ? result.success ? "ri-checkbox-circle-line" : "ri-close-circle-line"
     : "ri-group-line";
 }
-function alignQuestTooltip(event) {
-  const wrapper = event.currentTarget;
-  const content = wrapper.querySelector(".tooltip-content");
+function alignQuestTooltip({ trigger: wrapper, content }) {
   const bounds = wrapper.getBoundingClientRect();
   const viewportWidth = document.documentElement.clientWidth;
   const viewportHeight = window.innerHeight;
@@ -146,35 +146,20 @@ function alignQuestTooltip(event) {
 function closeQuestTooltip(event) {
   if (!event.currentTarget.contains(event.relatedTarget)) openQuest.value = null;
 }
-function realignQuestTooltip() {
-  for (const wrapper of questProgress.value?.querySelectorAll(".tooltip") ?? []) {
-    if (wrapper.matches(":hover, :focus-within")) {
-      alignQuestTooltip({ currentTarget: wrapper });
-    }
-  }
-}
 watch(participantCount, () => {
   openQuest.value = null;
   questProgress.value?.querySelector("button:focus")?.blur();
-});
-onMounted(() => {
-  window.addEventListener("resize", realignQuestTooltip);
-  window.addEventListener("scroll", realignQuestTooltip, true);
-});
-onBeforeUnmount(() => {
-  window.removeEventListener("resize", realignQuestTooltip);
-  window.removeEventListener("scroll", realignQuestTooltip, true);
 });
 </script>
 
 <style scoped>
 @media (prefers-reduced-motion: no-preference) {
-  .quest-tooltip {
+  :deep(.quest-tooltip) {
     transition-property: opacity, transform, display;
     transition-behavior: allow-discrete;
   }
   @starting-style {
-    .quest-tooltip {
+    :deep(.quest-tooltip) {
       opacity: 0;
       --tt-pos: 0.25rem;
     }

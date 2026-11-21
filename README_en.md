@@ -27,7 +27,7 @@
 </p>
 
 <p align="center">
-  Current version: <strong>2.21.2</strong>
+  Current version: <strong>2.22.0</strong>
 </p>
 
 ## About 远方之森

@@ -21,27 +21,15 @@
         :to="tool.to"
         :title="translate(tool.titleKey)"
         :description="translate(tool.descriptionKey)"
-        :icon="tool.icon"
-        :cover="tool.cover"
-        cover-class="min-h-44 flex-1 sm:min-h-56"
-        compact-on-mobile
+        :cover="{
+          src: tool.cover,
+          icon: tool.icon,
+          class: 'min-h-44 flex-1 sm:min-h-56',
+        }"
+        :tags="[translate(tool.categoryKey)]"
+        layout="responsive"
         :action="translate('tools.open')"
-      >
-        <template #tags="{ coverLoaded }">
-          <span
-            class="badge badge-sm h-auto min-h-5 max-w-full py-0.5 transition-colors duration-300 motion-reduce:transition-none"
-            :class="
-              coverLoaded
-                ? 'border-white/20 bg-black/20 text-white backdrop-blur-sm'
-                : 'badge-primary badge-soft'
-            "
-          >
-            <span class="min-w-0 break-words">{{
-              translate(tool.categoryKey)
-            }}</span>
-          </span>
-        </template>
-      </CatalogCard>
+      />
     </section>
   </ContentPage>
 </template>

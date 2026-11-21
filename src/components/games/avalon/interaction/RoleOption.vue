@@ -22,7 +22,7 @@
             t("avalon.config.lancelots")
           }}</span>
           <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <button
+            <Tooltip as="button" trigger-class="block"
               v-for="member in LANCELOTS"
               :key="member"
               type="button"
@@ -33,14 +33,14 @@
                   name: t(`avalon.roles.${member}`),
                 })
               "
-              :title="t(`avalon.roles.${member}`)"
+              :text="t(`avalon.roles.${member}`)"
               @click="emit('details', member)"
             >
               {{
                 t(isEvil(member) ? "avalon.night.evil" : "avalon.night.good")
               }}
               <span class="font-mono">× 1</span>
-            </button>
+            </Tooltip>
           </div>
         </div>
       </div>
@@ -98,6 +98,8 @@
   </article>
 </template>
 <script setup>
+import Tooltip from "@/components/display/Tooltip.vue";
+
 import { useLocale } from "@/i18n";
 import { ROLE_ICONS } from "@/games/avalon/presentation";
 import { isEvil, LANCELOTS } from "../../../../../shared/games/avalon/index.js";

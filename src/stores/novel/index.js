@@ -1,7 +1,9 @@
 import { defineStore } from "pinia";
-import { useNovelState } from "./state";
+import { DEFAULT_NOVEL_CHAPTER_UUID, useNovelState } from "./state";
 import { useNovelGetters } from "./getters";
-import { useNovelActions } from "./actions";
+import { isNovelReaderRoute, useNovelActions } from "./actions";
+
+export { DEFAULT_NOVEL_CHAPTER_UUID, isNovelReaderRoute };
 
 export const useNovelStore = defineStore("novel", () => {
   const state = useNovelState();

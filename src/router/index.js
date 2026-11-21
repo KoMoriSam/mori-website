@@ -1,34 +1,16 @@
-import {
-  createRouter,
-  createWebHistory,
-  createMemoryHistory,
-} from "vue-router";
 import { gameRoutes } from "@/games/catalog";
 import { getBlogListScroll } from "@/utils/blog/list-scroll";
+import {
+  installModalHistoryDispatcher,
+  isModalFallbackRestoring,
+} from "@/utils/layout/modal-history";
 import { getNavbarScrollOffset } from "@/utils/layout/navbar";
 
 const testRoutes = import.meta.env.DEV
   ? (await import("./test-routes")).testRoutes
   : [];
 
-if (
-  !import.meta.env.SSR &&
-  typeof window !== "undefined" &&
-  !globalThis.__moriModalFallbackDispatcherInstalled
-) {
-  globalThis.__moriModalFallbackDispatcherInstalled = true;
-  window.addEventListener(
-    "popstate",
-    (event) => {
-      const handleModalFallback = globalThis.__moriModalFallbackPopstateHandler;
-      if (typeof handleModalFallback !== "function") return;
-
-      event.stopImmediatePropagation();
-      handleModalFallback(event);
-    },
-    { capture: true },
-  );
-}
+installModalHistoryDispatcher();
 
 export const routes = [
   {
@@ -200,117 +182,34 @@ export const routes = [
   },
 ];
 
-const router = createRouter({
-  history: import.meta.env.SSR ? createMemoryHistory() : createWebHistory(),
-  routes,
-  scrollBehavior(to, from, savedPosition) {
-    if (globalThis.__moriModalFallbackRestoring) return false;
-    if (savedPosition) return savedPosition;
-    if (
-      to.meta.blogList &&
-      !to.hash &&
-      (from.params.articleId || from.meta.article)
-    ) {
-      const position = getBlogListScroll(to);
-      if (position) return position;
+export function scrollBehavior(to, from, savedPosition) {
+  if (isModalFallbackRestoring()) return false;
+  if (savedPosition) return savedPosition;
+  if (
+    to.meta.blogList &&
+    !to.hash &&
+    (from.params.articleId || from.meta.article)
+  ) {
+    const position = getBlogListScroll(to);
+    if (position) return position;
+  }
+  if (to.hash && !import.meta.env.SSR) {
+    const rawHash = to.hash.slice(1);
+    let anchorId = rawHash;
+
+    try {
+      anchorId = decodeURIComponent(rawHash);
+    } catch {
+      // 非法转义交给原始 ID 尝试匹配。
     }
-    if (to.hash && typeof document !== "undefined") {
-      const rawHash = to.hash.slice(1);
-      let anchorId = rawHash;
 
-      try {
-        anchorId = decodeURIComponent(rawHash);
-      } catch {
-        // 非法转义交给原始 ID 尝试匹配。
-      }
-
-      const target =
-        document.getElementById(anchorId) || document.getElementById(rawHash);
-      if (target) return { el: target, top: getNavbarScrollOffset() };
-    }
-    const articleId = (route) =>
-      String(route.params.articleId || route.meta.article?.id || "");
-    if (articleId(to) && articleId(to) === articleId(from)) return false;
-    if (to.path !== from.path) return { top: 0 };
-    return false;
-  },
-});
-
-export default router;
-export const scrollBehavior = router.options.scrollBehavior;
-
-router.beforeEach((to, from, next) => {
-  // 兼容旧的 .html 地址
-  if (to.path === "/index.html") {
-    next({
-      path: "/",
-      query: to.query,
-      hash: to.hash,
-      replace: true,
-    });
-    return;
+    const target =
+      document.getElementById(anchorId) || document.getElementById(rawHash);
+    if (target) return { el: target, top: getNavbarScrollOffset() };
   }
-
-  if (/\.html$/i.test(to.path)) {
-    const normalizedPath = to.path.replace(/\.html$/i, "") || "/";
-
-    next({
-      path: normalizedPath,
-      query: to.query,
-      hash: to.hash,
-      replace: true,
-    });
-    return;
-  }
-
-  const legacyArticleId =
-    typeof to.query.article === "string" ? to.query.article.trim() : "";
-  if (!to.params.articleId && legacyArticleId && to.path === "/blog") {
-    const nextQuery = { ...to.query };
-    delete nextQuery.article;
-    next({
-      name: "blog-article",
-      params: { articleId: legacyArticleId },
-      query: nextQuery,
-      hash: to.hash,
-      replace: true,
-    });
-    return;
-  }
-
-  const currentPath = to.fullPath.split("#")[0];
-  const previousPath = from.fullPath.split("#")[0];
-
-  if (currentPath === previousPath && to.hash !== from.hash) {
-    next();
-    return;
-  }
-
-  if (to.path === "/novel" || to.path.startsWith("/novel/")) {
-    next();
-    return;
-  }
-
-  if (typeof document !== "undefined") {
-    document.title = to.meta.title || "Welcome KoMoriSam's Website!";
-  }
-
-  next();
-});
-
-router.afterEach((to, from) => {
-  const currentPath = to.fullPath.split("#")[0];
-  const previousPath = from.fullPath.split("#")[0];
-
-  if (currentPath === previousPath && to.hash !== from.hash) {
-    return;
-  }
-
-  if (to.path === "/novel" || to.path.startsWith("/novel/")) {
-    return;
-  }
-
-  if (typeof document !== "undefined") {
-    document.title = to.meta.title || "Welcome KoMoriSam's Website!";
-  }
-});
+  const articleId = (route) =>
+    String(route.params.articleId || route.meta.article?.id || "");
+  if (articleId(to) && articleId(to) === articleId(from)) return false;
+  if (to.path !== from.path) return { top: 0 };
+  return false;
+}

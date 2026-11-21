@@ -86,7 +86,7 @@ const comment = createMarkdownRenderer({
 const commentOutput = comment(
   'first\nsecond <span>HTML</span>\n\n[tip]{.custom #unique data-tip="hint"}[^a]\n\n[^a]: note',
 );
-assert.match(commentOutput, /first<br>\nsecond &lt;span&gt;/u);
+assert.match(commentOutput, /first<br>\nsecond <span>HTML<\/span>/u);
 assert.match(commentOutput, /<span data-tip="hint">tip<\/span>/u);
 assert.doesNotMatch(commentOutput, /class="custom"|id="unique"/u);
 for (const anchorScope of ["preview-", "published-"]) {
@@ -97,6 +97,42 @@ for (const anchorScope of ["preview-", "published-"]) {
   assert.match(output, new RegExp(`href="#${anchorScope}fn1"`, "u"));
   assert.match(output, new RegExp(`id="${anchorScope}fn1"`, "u"));
 }
+
+const imageSrc = "https://example.com/image.png";
+const imageTag = `<img width="807" height="207" alt="Screenshot &amp; notes" src="${imageSrc}" onerror="alert(1)" />`;
+const commentWithImage = await renderToString(createSSRApp({
+  render: () => h("div", renderHtmlFragment(parseHtmlFragment(comment(imageTag)))),
+}));
+assert.ok(commentWithImage.includes(`src="${imageSrc}"`));
+assert.match(commentWithImage, /<img[^>]*width="807"[^>]*height="207"/u);
+assert.match(commentWithImage, /alt="Screenshot &amp; notes"/u);
+assert.doesNotMatch(commentWithImage, /onerror/u);
+
+const attachmentVideoUrl = "https://github.com/user-attachments/assets/12345678-1234-1234-1234-123456789012";
+const renderedComment = (source) => renderToString(createSSRApp({
+  render: () => h("div", renderHtmlFragment(parseHtmlFragment(comment(source)))),
+}));
+const attachmentVideo = await renderedComment(attachmentVideoUrl);
+assert.match(attachmentVideo, /<video[^>]*controls/u);
+assert.ok(attachmentVideo.includes(`src="${attachmentVideoUrl}"`));
+for (const source of [`inline ${attachmentVideoUrl}`, `![picture](${attachmentVideoUrl})`, `[video](${attachmentVideoUrl})`, "```\n" + attachmentVideoUrl + "\n```", '[report.pdf](https://github.com/user-attachments/files/123/report.pdf)', 'https://github.com.evil.example/user-attachments/assets/12345678-1234-1234-1234-123456789012']) {
+  assert.doesNotMatch(await renderedComment(source), /<video/u);
+}
+assert.match(await renderedComment('[report.pdf](https://github.com/user-attachments/files/123/report.pdf)'), /href="https:\/\/github.com\/user-attachments\/files\/123\/report.pdf"/u);
+
+const previewSource = "blob:attachment-preview";
+const previewResources = new Map([[attachmentVideoUrl, previewSource]]);
+const renderPreview = (source) => renderToString(createSSRApp({
+  render: () => h("div", renderHtmlFragment(parseHtmlFragment(comment(source)), null, null, previewResources)),
+}));
+assert.match(await renderPreview(attachmentVideoUrl), /<video[^>]*src="blob:attachment-preview"/u);
+assert.match(await renderPreview(`![preview](${attachmentVideoUrl})`), /<img[^>]*src="blob:attachment-preview"/u);
+assert.ok((await renderedComment(attachmentVideoUrl)).includes(`src="${attachmentVideoUrl}"`));
+const signedPreview = "https://private-user-images.githubusercontent.com/123/456-12345678-1234-1234-1234-123456789012.png?jwt=fixture";
+previewResources.set(attachmentVideoUrl, signedPreview);
+assert.ok((await renderPreview(`![preview](${attachmentVideoUrl})`)).includes('src="' + signedPreview + '"'));
+previewResources.set(attachmentVideoUrl, "https://example.com/private.png");
+assert.ok((await renderPreview(`![preview](${attachmentVideoUrl})`)).includes(`src="${attachmentVideoUrl}"`));
 
 const xssPayloads = [
   "<script>console.log('XSS-1')</script>",
@@ -136,12 +172,13 @@ const blockedProtocols = /(?:javascript|data:text\/html)\s*:/iu;
 const rawHtmlMarkdown = new MarkdownIt({ html: true });
 
 for (const payload of [...xssPayloads, ...dangerousVariants]) {
-  for (const html of [payload, rawHtmlMarkdown.render(payload)]) {
+  for (const html of [payload, rawHtmlMarkdown.render(payload), comment(payload)]) {
     const sanitized = sanitizeMarkdownHtml(html);
     assert.doesNotMatch(sanitized, blockedTags, payload);
     assert.doesNotMatch(sanitized, blockedAttributes, payload);
     assert.doesNotMatch(sanitized, blockedProtocols, payload);
   }
+
 }
 
 const safeHtml = sanitizeMarkdownHtml(`

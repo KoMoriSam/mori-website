@@ -1,23 +1,12 @@
 import { computed, nextTick, onBeforeUnmount, ref, unref } from "vue";
 
-const valueOf = (source) =>
-  typeof source === "function" ? source() : unref(source);
-
 export const usePagedChapterTransition = ({
   chapterSnapshotRef,
   getArticleElement,
-  pageGap,
-  pageVerticalPadding,
-  pageWidth,
-  pageHeight,
-  pageLineHeight,
-  paragraphGap,
-  footnoteReserve,
-  renderedPageOffset,
+  getSnapshotStyles,
   pageStride,
-  fontSize,
   paginationReady,
-  canCapture = () => true,
+  canCapture = true,
   revealDuration = 150,
   slideDuration = 220,
 }) => {
@@ -38,16 +27,16 @@ export const usePagedChapterTransition = ({
     ) {
       return 0;
     }
-    return chapterTransitionDirection.value * valueOf(pageStride);
+    return chapterTransitionDirection.value * unref(pageStride);
   });
 
   const chapterSnapshotTransform = computed(() => {
     if (!chapterSnapshotLeaving.value) return "translate3d(0, 0, 0)";
     if (chapterTransitionDirection.value > 0) {
-      return `translate3d(${-valueOf(pageStride)}px, 0, 0)`;
+      return `translate3d(${-unref(pageStride)}px, 0, 0)`;
     }
     if (chapterTransitionDirection.value < 0) {
-      return `translate3d(${valueOf(pageStride)}px, 0, 0)`;
+      return `translate3d(${unref(pageStride)}px, 0, 0)`;
     }
     return "translate3d(0, 0, 0)";
   });
@@ -61,7 +50,7 @@ export const usePagedChapterTransition = ({
       chapterSnapshotLeaving.value = false;
       return;
     }
-    if (!snapshotLayer || !article || !valueOf(canCapture)) return;
+    if (!snapshotLayer || !article || !unref(canCapture)) return;
 
     const snapshot = article.cloneNode(true);
     snapshot.removeAttribute("id");
@@ -69,19 +58,7 @@ export const usePagedChapterTransition = ({
       element.removeAttribute("id");
     });
 
-    const properties = {
-      "--reader-page-gap": `${pageGap}px`,
-      "--reader-page-width": `${valueOf(pageWidth)}px`,
-      "--reader-page-height": `${valueOf(pageHeight)}px`,
-      "--reader-page-line-height": `${valueOf(pageLineHeight)}px`,
-      "--reader-paragraph-gap": `${valueOf(paragraphGap)}px`,
-      "--reader-footnote-reserve": `${valueOf(footnoteReserve)}px`,
-      "--reader-page-font-size": `${valueOf(fontSize)}px`,
-      "--reader-page-padding-block": `${pageVerticalPadding}px`,
-      "--reader-page-offset": `${valueOf(renderedPageOffset)}px`,
-      "--reader-chapter-offset": "0px",
-    };
-    Object.entries(properties).forEach(([name, value]) => {
+    Object.entries(getSnapshotStyles()).forEach(([name, value]) => {
       snapshotLayer.style.setProperty(name, value);
     });
     snapshotLayer.replaceChildren(snapshot);
@@ -90,7 +67,7 @@ export const usePagedChapterTransition = ({
   };
 
   const revealMeasuredChapter = async () => {
-    if (!valueOf(paginationReady)) return;
+    if (!unref(paginationReady)) return;
     chapterLoadingOverlayVisible.value = false;
     if (!chapterSnapshotVisible.value || chapterSnapshotLeaving.value) {
       chapterNavigationPending.value = false;
@@ -104,13 +81,16 @@ export const usePagedChapterTransition = ({
       totalReadingProgress.value = pendingReadingProgress.value;
       chapterSnapshotLeaving.value = true;
       window.clearTimeout(revealTimer);
-      revealTimer = window.setTimeout(() => {
-        chapterSnapshotVisible.value = false;
-        chapterSnapshotLeaving.value = false;
-        chapterTransitionDirection.value = 0;
-        chapterNavigationPending.value = false;
-        chapterSnapshotRef.value?.replaceChildren();
-      }, chapterTransitionDirection.value === 0 ? revealDuration : slideDuration);
+      revealTimer = window.setTimeout(
+        () => {
+          chapterSnapshotVisible.value = false;
+          chapterSnapshotLeaving.value = false;
+          chapterTransitionDirection.value = 0;
+          chapterNavigationPending.value = false;
+          chapterSnapshotRef.value?.replaceChildren();
+        },
+        chapterTransitionDirection.value === 0 ? revealDuration : slideDuration,
+      );
     });
   };
 

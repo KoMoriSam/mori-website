@@ -210,22 +210,23 @@
       v-if="compact && !catalog && faceUp && self.role"
       class="absolute inset-x-2 bottom-3 z-20 flex flex-wrap items-center justify-center gap-2"
     >
-      <div
+      <Tooltip
+        as="div"
+        trigger-class=""
+        content-tag="div"
+        :content-class="[&quot;max-h-[65dvh] overflow-y-auto overscroll-contain space-y-2 text-left! leading-6! scrollbar-thin&quot;, (detailsOpen ? 'pointer-events-auto!' : 'hidden')]"
+        :content-attrs="{ id: detailsId }"
         ref="detailsTooltip"
-        class="tooltip group"
-        :class="{ 'tooltip-open': detailsOpen }"
+        @position="alignDetails"
+        class="group"
+        v-model:open="detailsOpen"
         @mouseenter="openDetails"
         @mouseleave="leaveDetails"
         @focusin="openDetails"
         @focusout="detailsOpen = false"
         @keydown.esc="closeDetails"
       >
-        <div
-          :id="detailsId"
-          role="tooltip"
-          class="tooltip-content max-h-[65dvh] overflow-y-auto overscroll-contain space-y-2 text-left! leading-6! scrollbar-thin"
-          :class="detailsOpen ? 'pointer-events-auto!' : 'hidden'"
-        >
+        <template #tooltip-content>
           <p>
             {{ t(roleHintKey(self.role, self.lancelotMode, self.recruited)) }}
           </p>
@@ -245,7 +246,7 @@
               </p>
             </div>
           </section>
-        </div>
+        </template>
         <button
           type="button"
           class="btn btn-ghost btn-xs"
@@ -255,15 +256,16 @@
           <i class="ri-information-line" aria-hidden="true"></i>
           {{ t("avalon.roleDetails") }}
         </button>
-      </div>
+      </Tooltip>
     </div>
   </div>
 </template>
 <script setup>
+import Tooltip from "@/components/display/Tooltip.vue";
+
 import { getImageAttrs } from "@/utils/images/responsive-images";
 import {
   computed,
-  nextTick,
   onBeforeUnmount,
   onMounted,
   ref,
@@ -311,7 +313,7 @@ const detailsId = `identity-details-${useId()}`;
 const detailsTooltip = ref(null);
 const detailsOpen = ref(false);
 function alignDetails() {
-  const wrapper = detailsTooltip.value;
+  const wrapper = detailsTooltip.value?.element;
   if (!wrapper || !detailsOpen.value) return;
   const content = wrapper.querySelector(".tooltip-content");
   const viewportWidth = document.documentElement.clientWidth;
@@ -328,29 +330,26 @@ function alignDetails() {
 }
 function openDetails() {
   detailsOpen.value = true;
-  void nextTick(alignDetails);
 }
 function leaveDetails() {
-  if (!detailsTooltip.value?.contains(document.activeElement))
+  if (!detailsTooltip.value?.element?.contains(document.activeElement))
     detailsOpen.value = false;
 }
 function closeDetails() {
   detailsOpen.value = false;
-  detailsTooltip.value?.querySelector("button")?.blur();
+  detailsTooltip.value?.element?.querySelector("button")?.blur();
 }
 function dismissDetails(event) {
-  if (detailsOpen.value && !detailsTooltip.value?.contains(event.target))
+  if (detailsOpen.value && !detailsTooltip.value?.element?.contains(event.target))
     closeDetails();
 }
 watch([() => props.faceUp, () => props.self.role], () => {
   detailsOpen.value = false;
 });
 onMounted(() => {
-  window.addEventListener("resize", alignDetails);
   document.addEventListener("pointerdown", dismissDetails);
 });
 onBeforeUnmount(() => {
-  window.removeEventListener("resize", alignDetails);
   document.removeEventListener("pointerdown", dismissDetails);
 });
 const companions = computed(() =>
@@ -436,12 +435,12 @@ function flip() {
 </script>
 <style scoped>
 @media (prefers-reduced-motion: no-preference) {
-  .tooltip-content {
+  :deep(.tooltip-content) {
     transition-property: opacity, transform, display;
     transition-behavior: allow-discrete;
   }
   @starting-style {
-    .tooltip-content {
+    :deep(.tooltip-content) {
       opacity: 0;
       --tt-pos: 0.25rem;
     }

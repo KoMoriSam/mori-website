@@ -230,9 +230,7 @@
           scroll-within
           root-tag="section"
           :show-footer="false"
-          page-class=""
-          container-class=""
-          toc-class="max-h-[45dvh]"
+          :classes="previewLayoutClasses"
           sticky-top="0"
         >
           <Renderer
@@ -265,9 +263,9 @@
         </ReadingLayout>
       </div>
 
-      <ContextMenu
-        v-if="ContextMenuMounted"
-        v-model="textContextOpen"
+      <ReaderContextMenu
+        v-if="contextMenuMounted"
+        v-model="contextMenuOpen"
         :context="textContext"
         :share-meta="shareMeta"
         @search="openContextSearch"
@@ -279,7 +277,6 @@
 <script setup>
 import {
   computed,
-  defineAsyncComponent,
   provide,
   reactive,
   ref,
@@ -288,13 +285,16 @@ import {
   watchPostEffect,
 } from "vue";
 import { useResizeObserver } from "@vueuse/core";
-import { useRoute, useRouter } from "vue-router";
-import { useReaderStore } from "@/stores/readerStore";
-import { useReaderTextContext } from "@/composables/reader/useReaderTextContext";
+import { useRoute } from "vue-router";
+import { useReaderStore } from "@/stores/reader";
+import {
+  ReaderContextMenu,
+  useReaderContextMenu,
+} from "@/composables/reader/useReaderShell";
 import Renderer from "@/components/markdown/Renderer.vue";
 import FormatSetting from "@/components/reader/interaction/FormatSetting.vue";
 import ReadingLayout from "@/components/reader/layout/ReadingLayout.vue";
-import { useParagraphCommentsStorage } from "@/composables/storage/useParagraphCommentsStorage";
+import { useParagraphCommentsCache } from "@/composables/reader/useParagraphCommentsCache";
 import { useArticleApi } from "@/services/api-articles";
 import { createArticleWikiLinkResolver } from "@/utils/blog/article-wiki-links";
 import { WIKI_LINK_RESOLVER } from "@/utils/markdown/markdown-it-wikilink";
@@ -307,20 +307,17 @@ import {
 import PageShell from "./PageShell.vue";
 import { MARKDOWN_SAMPLES as markdownSamples } from "./markdown-samples";
 
-const ContextMenu = defineAsyncComponent(
-  () => import("@/components/reader/interaction/ContextMenu.vue"),
-);
-
 const readerStore = useReaderStore();
 const route = useRoute();
-const router = useRouter();
-const { setCount } = useParagraphCommentsStorage();
+const { setCount } = useParagraphCommentsCache();
 const markdownPreviewRef = ref(null);
 const sampleTabs = ref(null);
 const previewLayout = ref(null);
-const ContextMenuMounted = ref(false);
-const textContextOpen = ref(false);
-const textContext = ref({});
+const previewLayoutClasses = {
+  page: "",
+  container: "",
+  toc: "max-h-[45dvh]",
+};
 const modeOptions = [
   { value: MARKDOWN_MODE_STANDARD, label: "标准" },
   { value: MARKDOWN_MODE_READER, label: "阅读器" },
@@ -544,28 +541,20 @@ const shareMeta = computed(() => ({
   path: route.path,
 }));
 
-function openContextMenu(context) {
-  if (!context) {
-    textContextOpen.value = false;
-    textContext.value = {};
-    return;
-  }
-
-  ContextMenuMounted.value = true;
-  textContext.value = context;
-  textContextOpen.value = true;
-}
-
 const {
+  contextMenuMounted,
+  contextMenuOpen,
+  textContext,
+  openContextMenu,
+  openContextSearch,
   handleContextMenu: handleMarkdownContextMenu,
   handlePointerCancel: handleMarkdownPointerCancel,
   handlePointerDown: handleMarkdownPointerDown,
   handlePointerMove: handleMarkdownPointerMove,
   handlePointerUp: handleMarkdownPointerUp,
-} = useReaderTextContext({
-  getRoot: () => (isReaderPreview.value ? markdownPreviewRef.value : null),
-  emit: (_eventName, context) =>
-    openContextMenu(isReaderPreview.value ? context : null),
+} = useReaderContextMenu({
+  getRoot: () => markdownPreviewRef.value,
+  enabled: isReaderPreview,
 });
 
 watch(isReaderPreview, (active) => {
@@ -574,14 +563,4 @@ watch(isReaderPreview, (active) => {
     openContextMenu(null);
   }
 });
-
-function openContextSearch(keyword) {
-  void router.replace({
-    query: {
-      ...route.query,
-      search: "1",
-      q: String(keyword || "").trim() || undefined,
-    },
-  });
-}
 </script>

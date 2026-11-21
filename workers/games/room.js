@@ -13,17 +13,10 @@ import {
   syncLobbyStart,
   transferHost,
 } from "./state.js";
+import { sha256Hex } from "../lib/crypto.js";
 import { getGame } from "./registry.js";
 
-export async function hashToken(token) {
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(token),
-  );
-  return [...new Uint8Array(digest)]
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
+export const hashToken = sha256Hex;
 const secret = () =>
   crypto.randomUUID().replaceAll("-", "") +
   crypto.randomUUID().replaceAll("-", "");

@@ -1,7 +1,4 @@
 import { getImageUrl } from "../utils/images/responsive-images.js";
-export const MOBILE_READER_NAVBAR_SHOW_EVENT = "mobile-reader:show-navbar";
-export const MOBILE_READER_NAVBAR_HIDE_EVENT = "mobile-reader:hide-navbar";
-export const MOBILE_READER_VOLUME_KEY_EVENT = "mobile-reader:volume-key";
 
 export const MOBILE_READING_MODES = Object.freeze({
   PAGED: "paged",
@@ -201,7 +198,7 @@ export const READER_TYPOGRAPHY_CONTROLS = Object.freeze([
     key: "lineHeight",
     label: "行间距",
     shortLabel: "行距",
-    storageKey: "CONTENT_LINE_HEIGHT",
+    storageKey: "STYLE_LINE_HEIGHT",
     default: 1.6,
     min: 1,
     max: 3,
@@ -213,7 +210,7 @@ export const READER_TYPOGRAPHY_CONTROLS = Object.freeze([
     key: "paraHeight",
     label: "段间距",
     shortLabel: "段距",
-    storageKey: "CONTENT_PARA_HEIGHT",
+    storageKey: "STYLE_PARA_HEIGHT",
     default: 0.5,
     min: 0,
     max: 2,

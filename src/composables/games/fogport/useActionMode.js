@@ -4,7 +4,7 @@ import { ACTIONS, legalActions, extensions, completeAction, liquidationOptions }
 const INPUTS={build:['card','industry'],network:['card','link'],develop:['card','industry'],sell:['card','building']};
 const TARGETS={build:['slot','place'],network:['link'],develop:['develop'],sell:['building','merchant','place'],liquidate:['building']};
 const idle=()=>({kind:'idle',phase:'idle',selection:null,menu:null,draft:null,hover:null,dragTarget:null});
-const filterFor=(kind,payload)=>payload?.kind==='card' ? {card:payload.id} : payload?.kind==='industry' && INPUTS[kind]?.includes('industry') ? {industry:payload.industry} : payload?.kind==='building' && kind==='sell' ? {building:payload.id} : {};
+export const actionFilterFor=(kind,payload)=>payload?.kind==='card' ? {card:payload.id} : payload?.kind==='industry' && INPUTS[kind]?.includes('industry') ? {industry:payload.industry} : payload?.kind==='building' && kind==='sell' ? {building:payload.id} : {};
 
 // One context owns the action, object selection, menu/editor and drag lifetime.
 // Map clicks and drops consume the same fully simulated legal commands.
@@ -89,7 +89,7 @@ export function useActionMode(game,selfId) {
     if(!acceptsPayload(payload)) return false;
     const kind=mode.value?.kind ?? ({card:'build',industry:'build',building:'sell',link:'network'})[payload.kind];
     if(!kind) return false;
-    const m=mode.value,filter={...(m?.filter??{}),...filterFor(kind,payload)};
+    const m=mode.value,filter={...(m?.filter??{}),...actionFilterFor(kind,payload)};
     // Extending a compound action keeps its prefix; it never starts a different action.
     if(m?.adding) {
       state.value={...m,origin:'drag',phase:'drag',selection:payload,hover:null,dragTarget:null};

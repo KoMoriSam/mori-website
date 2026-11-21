@@ -75,7 +75,7 @@
 <script setup>
 import { computed } from 'vue';
 import { readerTypographyMetrics } from '@/utils/reader/reader-typography';
-import { useReaderStore } from '@/stores/readerStore';
+import { useReaderStore } from '@/stores/reader';
 
 const props = defineProps({
   kind: { type: String, default: 'article' },

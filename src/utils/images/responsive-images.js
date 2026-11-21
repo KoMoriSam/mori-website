@@ -1,7 +1,10 @@
 import { shallowRef } from "vue";
+import {
+  canonicalAssetUrl,
+  createManifestRegistry,
+} from "./create-manifest-registry.js";
 
 const entries = shallowRef(new Map());
-const requests = new Map();
 let imageReads;
 export function trackImageReads() {
   imageReads = new Set();
@@ -14,110 +17,59 @@ export function imageDependency(src) {
   return entries.value.get(src) || null;
 }
 const DEFAULT_SIZES = "(max-width: 768px) calc(100vw - 2rem), 960px";
-const SITE_ORIGIN = "https://local.invalid";
-const canonical = (src) => {
-  try {
-    const url = new URL(src, SITE_ORIGIN);
-    if (!["http:", "https:"].includes(url.protocol)) return "";
-    return url.origin === SITE_ORIGIN
-      ? `${url.pathname}${url.search}`
-      : `${url.origin}${url.pathname}${url.search}`;
-  } catch {
-    return "";
-  }
-};
+
+const registry = createManifestRegistry({
+  manifestPath: "_optimized/manifest.json",
+  field: "images",
+  applyManifest({ base, records, resolveAsset }) {
+    const next = new Map(
+      [...entries.value].filter(([key]) => !key.startsWith(base)),
+    );
+    for (const [source, entry] of Object.entries(records)) {
+      const original = resolveAsset(source);
+      if (
+        !original ||
+        !Number.isInteger(entry?.width) ||
+        entry.width <= 0 ||
+        !Number.isInteger(entry.height) ||
+        entry.height <= 0 ||
+        !Array.isArray(entry.variants)
+      )
+        continue;
+      const variants = entry.variants
+        .flatMap((variant) => {
+          const src = resolveAsset(variant?.src);
+          return src &&
+            Number.isInteger(variant.width) &&
+            variant.width > 0 &&
+            variant.width <= entry.width
+            ? [{ src, width: variant.width }]
+            : [];
+        })
+        .sort((a, b) => a.width - b.width);
+      if (variants.length) {
+        const value = {
+          original,
+          width: entry.width,
+          height: entry.height,
+          variants,
+        };
+        next.set(original, value);
+        variants.forEach(({ src }) => next.set(src, value));
+      }
+    }
+    entries.value = next;
+  },
+});
 
 export function registerImageManifest(manifest, base) {
-  if (
-    manifest?.version !== 1 ||
-    !manifest.images ||
-    typeof manifest.images !== "object"
-  )
-    return;
-  const root = new URL(base.endsWith("/") ? base : `${base}/`, SITE_ORIGIN);
-  const resolve = (src) => {
-    if (typeof src !== "string" || !src || /[\s,\\\u0000-\u001f]/u.test(src))
-      return "";
-    try {
-      const url = new URL(src, root);
-      if (
-        url.origin !== root.origin ||
-        !url.pathname.startsWith(root.pathname) ||
-        url.search ||
-        url.hash
-      )
-        return "";
-      return canonical(url.href);
-    } catch {
-      return "";
-    }
-  };
-  const prefix = canonical(root.href);
-  const next = new Map(
-    [...entries.value].filter(([key]) => !key.startsWith(prefix)),
-  );
-  for (const [source, entry] of Object.entries(manifest.images)) {
-    const original = resolve(source);
-    if (
-      !original ||
-      !Number.isInteger(entry?.width) ||
-      entry.width <= 0 ||
-      !Number.isInteger(entry.height) ||
-      entry.height <= 0 ||
-      !Array.isArray(entry.variants)
-    )
-      continue;
-    const variants = entry.variants
-      .flatMap((variant) => {
-        const src = resolve(variant?.src);
-        return src &&
-          Number.isInteger(variant.width) &&
-          variant.width > 0 &&
-          variant.width <= entry.width
-          ? [{ src, width: variant.width }]
-          : [];
-      })
-      .sort((a, b) => a.width - b.width);
-    if (variants.length) {
-      const value = {
-        original,
-        width: entry.width,
-        height: entry.height,
-        variants,
-      };
-      next.set(original, value);
-      variants.forEach(({ src }) => next.set(src, value));
-    }
-  }
-  entries.value = next;
+  registry.register(base, manifest);
 }
 
-export function loadImageManifest(contentBase) {
-  if (!contentBase) return Promise.resolve();
-  const base = `${String(contentBase)
-    .replace(/\/+$/, "")
-    .replace(/\/images$/iu, "")}/images/`;
-  if (requests.has(base)) return requests.get(base);
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5000);
-  const request = Promise.resolve()
-    .then(() =>
-      fetch(`${base}_optimized/manifest.json`, { signal: controller.signal }),
-    )
-    .then(async (response) => {
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      registerImageManifest(await response.json(), base);
-    })
-    .catch(() => {
-      requests.delete(base);
-    })
-    .finally(() => clearTimeout(timeout));
-  requests.set(base, request);
-  return request;
-}
+export const loadImageManifest = registry.load;
 
 export function getImageAttrs(src, sizes = DEFAULT_SIZES) {
-  const key = canonical(src);
+  const key = canonicalAssetUrl(src);
   imageReads?.add(key);
   const entry = entries.value.get(key);
   if (!entry) return { src };
@@ -149,8 +101,9 @@ export function restoreOriginalImage(event) {
 }
 
 export function getImageUrl(src, width = 1440) {
-  imageReads?.add(canonical(src));
-  const entry = entries.value.get(canonical(src));
+  const key = canonicalAssetUrl(src);
+  imageReads?.add(key);
+  const entry = entries.value.get(key);
   return entry
     ? (
         entry.variants.find((variant) => variant.width >= width) ||

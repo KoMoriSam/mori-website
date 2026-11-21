@@ -15,9 +15,11 @@
           class="flex max-h-[82vh] w-full max-w-3xl flex-col rounded-box border border-base-300 bg-base-100 shadow-2xl"
           @keydown="handleDialogKeydown"
         >
-          <h2 id="global-search-title" class="sr-only">{{ translate('common.search.title') }}</h2>
+          <h2 id="global-search-title" class="sr-only">
+            {{ translate("common.search.title") }}
+          </h2>
 
-          <div class="border-base-300 pt-1 p-2 sm:pt-2 sm:p-4">
+          <div class="border-base-300 p-2 pt-1 sm:p-4 sm:pt-2">
             <div ref="searchBox" class="relative">
               <div
                 class="input input-lg flex h-auto min-h-12 w-full min-w-0 flex-wrap items-center gap-2 border-0 bg-transparent px-1 shadow-none focus-within:outline-0 sm:gap-3"
@@ -36,7 +38,11 @@
                     :key="`type-${type}`"
                     type="button"
                     class="badge badge-info pl-2.5 pr-1.5"
-                    :aria-label="translate('common.search.removeType', { p0: getTypeLabel(type) })"
+                    :aria-label="
+                      translate('common.search.removeType', {
+                        p0: getTypeLabel(type),
+                      })
+                    "
                     @click="removeSelectedType(type)"
                   >
                     <span class="truncate">{{ getTypeLabel(type) }}</span>
@@ -48,7 +54,11 @@
                     :key="`tag-${tag}`"
                     type="button"
                     class="badge badge-primary badge-soft pl-2.5 pr-1.5"
-                    :aria-label="translate('common.search.removeFilter', { p0: getSelectedTagLabel(tag) })"
+                    :aria-label="
+                      translate('common.search.removeFilter', {
+                        p0: getSelectedTagLabel(tag),
+                      })
+                    "
                     @click="removeSelectedTag(tag)"
                   >
                     <span class="truncate">{{ getSelectedTagLabel(tag) }}</span>
@@ -60,7 +70,9 @@
                     :key="`year-${year}`"
                     type="button"
                     class="badge badge-secondary badge-soft pl-2.5 pr-1.5"
-                    :aria-label="translate('common.search.removeYear', { p0: year })"
+                    :aria-label="
+                      translate('common.search.removeYear', { p0: year })
+                    "
                     @click="removeSelectedYear(year)"
                   >
                     {{ year }}
@@ -69,7 +81,7 @@
                 </div>
 
                 <label for="global-article-search" class="sr-only">
-                  {{ translate('common.search.placeholder') }}
+                  {{ translate("common.search.placeholder") }}
                 </label>
                 <input
                   id="global-article-search"
@@ -97,16 +109,16 @@
                         ? `global-search-result-${activeIndex}`
                         : null
                   "
-                  @input="handleSearchInput"
-                  @focus="updateFilterQuery"
-                  @click="updateFilterQuery"
-                  @keydown.down="handleSearchArrow($event, 1)"
-                  @keydown.up="handleSearchArrow($event, -1)"
-                  @keydown.enter="handleSearchEnter"
-                  @keydown.tab="handleSearchTab"
-                  @keydown.backspace="handleSearchBackspace"
-                  @keydown.esc="handleSearchEscape"
-                  @compositionstart="isComposing = true"
+                  @input="handleInput"
+                  @focus="updateFilterQuery()"
+                  @click="updateFilterQuery()"
+                  @keydown.down="handleArrow($event, 1)"
+                  @keydown.up="handleArrow($event, -1)"
+                  @keydown.enter="handleEnter"
+                  @keydown.tab="handleTab"
+                  @keydown.backspace="handleBackspace"
+                  @keydown.esc="handleEscape"
+                  @compositionstart="handleCompositionStart"
                   @compositionend="handleCompositionEnd"
                 />
 
@@ -123,339 +135,66 @@
                 <kbd class="kbd kbd-sm hidden sm:inline-flex">Esc</kbd>
               </div>
 
-              <div
+              <FilterTokenSuggestions
                 v-if="isFilterMenuOpen"
-                id="global-filter-suggestions"
-                class="absolute inset-x-0 top-full z-40 flex max-h-[calc(82vh-6rem)] flex-col overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-xl"
-                role="listbox"
-                :aria-label="
-                  activeFilterQuery.type === 'tag'
-                    ? translate('common.search.tagSuggestions')
-                    : activeFilterQuery.type === 'year'
-                      ? translate('common.search.yearSuggestions')
-                      : translate('common.search.typeSuggestions')
-                "
-              >
-                <div
-                  class="flex shrink-0 items-center justify-between gap-3 border-b border-base-300 bg-base-200/45 px-3 py-2 text-xs text-base-content/55"
-                >
-                  <span class="flex items-center gap-1.5">
-                    <i
-                      :class="
-                        activeFilterQuery.type === 'tag'
-                          ? 'ri-price-tag-3-line'
-                          : activeFilterQuery.type === 'year'
-                            ? 'ri-calendar-line'
-                            : 'ri-layout-grid-line'
-                      "
-                      aria-hidden="true"
-                    ></i>
-                    {{
-                      activeFilterQuery.type === "tag"
-                        ? translate('common.search.chooseCategory')
-                        : activeFilterQuery.type === "year"
-                          ? translate('common.search.chooseYear')
-                          : translate('common.search.chooseType')
-                    }}
-                  </span>
-                  <span class="hidden sm:inline">
-                    <kbd class="kbd kbd-xs">↑</kbd
-                    ><kbd class="kbd kbd-xs">↓</kbd> {{ translate('common.search.selectHint') }}
-                    <kbd class="kbd kbd-xs">Enter</kbd> {{ translate('common.search.confirmHint') }}
-                    <kbd class="kbd kbd-xs">Esc</kbd> {{ translate('common.modal.close') }}
-                  </span>
-                </div>
-
-                <ScrollableContainer class="flex-1" v-if="filteredFilterOptions.length">
-                  <ul
-                    class="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain p-1.5"
-                  >
-                    <li
-                      v-for="group in filterOptionGroups"
-                      :key="group.key"
-                      role="presentation"
-                    >
-                      <div
-                        v-if="group.label"
-                        class="flex items-center gap-2 px-3 pb-1 pt-2 text-xs font-semibold text-base-content/45"
-                      >
-                        <i class="ri-folder-3-line" aria-hidden="true"></i>
-                        <span class="min-w-0 flex-1 truncate">
-                          {{ group.label }}
-                        </span>
-                        <span class="shrink-0 font-normal text-base-content/40">
-                          {{ translate("common.counts.items", { count: group.count }, group.count) }}
-                        </span>
-                      </div>
-                      <ul
-                        class="space-y-0.5"
-                        :role="group.label ? 'group' : 'presentation'"
-                        :aria-label="group.label || null"
-                      >
-                        <li
-                          v-for="option in group.options"
-                          :key="`${option.type}-${option.value}`"
-                          role="presentation"
-                        >
-                          <button
-                            :id="`global-filter-option-${option.index}`"
-                            type="button"
-                            role="option"
-                            :aria-label="
-                              option.type === 'tag'
-                                ? `${option.typeLabel} ${option.fullLabel}`
-                                : option.type === 'year'
-                                  ? translate('common.search.year', { p0: option.label })
-                                  : translate('common.search.type', { p0: option.label })
-                            "
-                            :aria-selected="activeFilterIndex === option.index"
-                            class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors"
-                            :class="[
-                              activeFilterIndex === option.index
-                                ? 'bg-primary/10 text-primary'
-                                : 'hover:bg-base-200',
-                              group.label ? 'pl-5' : '',
-                            ]"
-                            @mouseenter="activeFilterIndex = option.index"
-                            @mousedown.prevent="selectFilterOption(option)"
-                          >
-                            <span
-                              class="flex size-7 shrink-0 items-center justify-center text-sm text-base-content/40"
-                              :class="
-                                group.label
-                                  ? ''
-                                  : 'rounded-md bg-base-200 font-mono text-base-content/55'
-                              "
-                              aria-hidden="true"
-                            >
-                              <i
-                                v-if="group.label"
-                                class="ri-corner-down-right-line"
-                              ></i>
-                              <template v-else>{{ option.prefix }}</template>
-                            </span>
-                            <span class="min-w-0 flex-1 truncate font-medium">
-                              {{ localizeText(option.label) }}
-                            </span>
-                            <span class="text-xs text-base-content/40">
-                              {{ translate("common.counts.items", { count: option.count }, option.count) }}
-                            </span>
-                          </button>
-                        </li>
-                      </ul>
-                    </li>
-                  </ul>
-                </ScrollableContainer>
-
-                <p
-                  v-else
-                  class="px-4 py-8 text-center text-sm text-base-content/50"
-                >
-                  {{
-                    activeFilterQuery.query
-                      ? translate('common.search.noOptions', { p0: activeFilterQuery.query })
-                      : translate('common.search.noFilters')
-                  }}
-                </p>
-              </div>
+                class="z-40 flex max-h-[calc(82vh-6rem)] flex-col"
+                id-prefix="global-filter"
+                :header="suggestionHeader"
+                :groups="suggestionGroups"
+                :active-index="activeFilterIndex"
+                :empty-text="suggestionEmptyText"
+                scrollable-class="flex-1"
+                list-class="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain p-1.5"
+                @update:active-index="activeFilterIndex = $event"
+                @select="selectFilterOption"
+              />
             </div>
 
             <p class="my-1 px-1 text-xs text-base-content/40">
-              {{ translate('common.search.enter') }} <kbd class="kbd kbd-xs">@</kbd> {{ translate('common.search.typeHint') }}
-              <kbd class="kbd kbd-xs">#</kbd> {{ translate('common.search.categoryHint') }}
-              <kbd class="kbd kbd-xs">/</kbd> {{ translate('common.search.yearHint') }}
+              {{ translate("common.search.enter") }}
+              <kbd class="kbd kbd-xs">@</kbd>
+              {{ translate("common.search.typeHint") }}
+              <kbd class="kbd kbd-xs">#</kbd>
+              {{ translate("common.search.categoryHint") }}
+              <kbd class="kbd kbd-xs">/</kbd>
+              {{ translate("common.search.yearHint") }}
             </p>
           </div>
 
-          <ScrollableContainer class="flex-1">
-            <div
-              id="global-search-results"
-              class="min-h-0 flex-1 overflow-y-auto overscroll-contain"
-            >
-              <template v-if="hasSearchCriteria">
-                <div
-                  v-if="isLoading"
-                  class="space-y-3 p-4 sm:p-5"
-                  :aria-label="translate('common.search.searching')"
-                >
-                  <div
-                    v-for="index in 4"
-                    :key="index"
-                    class="flex gap-3 rounded-box border border-base-300 p-4"
-                  >
-                    <div class="skeleton mt-1 size-8 shrink-0 rounded-full"></div>
-                    <div class="min-w-0 flex-1 space-y-2">
-                      <div class="skeleton h-5 w-2/5"></div>
-                      <div class="skeleton h-4 w-full"></div>
-                    </div>
-                  </div>
-                </div>
-                <div
-                  v-else-if="errorMessage"
-                  class="px-6 py-14 text-center"
-                  role="alert"
-                >
-                  <i
-                    class="ri-error-warning-line mb-3 block text-4xl text-error/65"
-                    aria-hidden="true"
-                  ></i>
-                  <p class="font-medium">{{ translate('common.search.indexUnavailable') }}</p>
-                  <p class="mt-1 text-sm text-base-content/50">
-                    {{ localizeText(errorMessage) }}
-                  </p>
-                  <button
-                    type="button"
-                    class="btn btn-outline btn-sm mt-5"
-                    @click="initializeSearch(true)"
-                  >
-                    {{ translate('announcements.retry') }}
-                  </button>
-                </div>
-                <ul
-                  v-else-if="results.length"
-                  class="menu w-full gap-1 p-2 sm:p-3"
-                  role="listbox"
-                  :aria-label="translate('common.search.resultsLabel')"
-                >
-                  <li v-for="(result, index) in results" :key="result.url">
-                    <button
-                      :id="`global-search-result-${index}`"
-                      type="button"
-                      role="option"
-                      :aria-selected="activeIndex === index"
-                      class="group block w-full rounded-box px-3 py-3 text-left sm:px-4"
-                      :class="{ 'bg-primary/10': activeIndex === index }"
-                      @mouseenter="activeIndex = index"
-                      @focus="activeIndex = index"
-                      @click="openResult(result)"
-                    >
-                      <span class="flex min-w-0 items-start gap-3">
-                        <span
-                          class="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"
-                        >
-                          <i :class="result.typeIcon" aria-hidden="true"></i>
-                        </span>
-                        <span class="min-w-0 flex-1">
-                          <span
-                            class="block text-balance font-serif text-base font-bold leading-snug sm:text-lg"
-                          >
-                            <template
-                              v-for="(part, partIndex) in highlightParts(
-                                result.type === 'licenses' ? localizeText(result.title) : result.title,
-                              )"
-                              :key="`${part.text}-${partIndex}`"
-                            >
-                              <mark
-                                v-if="part.match"
-                                class="rounded-sm bg-primary/75 px-0.5 text-primary-content"
-                              >
-                                {{ part.text }}
-                              </mark>
-                              <template v-else>{{ part.text }}</template>
-                            </template>
-                          </span>
-                          <span
-                            v-if="shouldShowResultSummary(result)"
-                            class="mt-1 line-clamp-2 text-pretty text-sm leading-relaxed text-base-content/60"
-                          >
-                            <template
-                              v-for="(part, partIndex) in highlightParts(
-                                getResultSummary(result),
-                              )"
-                              :key="`${part.text}-${partIndex}`"
-                            >
-                              <mark
-                                v-if="part.match"
-                                class="rounded-sm bg-primary/60 px-0.5 text-primary-content"
-                              >
-                                {{ part.text }}
-                              </mark>
-                              <template v-else>{{ part.text }}</template>
-                            </template>
-                          </span>
-                          <span
-                            class="mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-base-content/45"
-                          >
-                            <time
-                              v-if="
-                                result.date &&
-                                !result.metadata?.length &&
-                                !shouldMoveChangelogDateToSummary(result)
-                              "
-                            >
-                              {{ formatLocalizedDate(result.date) }}
-                            </time>
-                            <span
-                              v-for="tag in result.tags"
-                              :key="`${result.url}-${tag}`"
-                              class="badge badge-ghost badge-xs truncate"
-                            >
-                              #<template
-                                v-for="(part, partIndex) in highlightParts(
-                                  formatTag(tag),
-                                )"
-                                :key="`${part.text}-${partIndex}`"
-                              >
-                                <mark
-                                  v-if="part.match"
-                                  class="rounded-sm bg-primary/60 px-0.5 text-primary-content"
-                                >
-                                  {{ part.text }}
-                                </mark>
-                                <template v-else>{{ part.text }}</template>
-                              </template>
-                            </span>
-                            <span
-                              v-for="meta in result.metadata"
-                              :key="`${result.url}-${meta.key}`"
-                              class="inline-flex min-w-0 max-w-full items-center gap-1"
-                              :title="`${localizeText(meta.label)}: ${metadataValue(meta)}`"
-                            >
-                              <i
-                                class="shrink-0"
-                                :class="meta.icon"
-                                aria-hidden="true"
-                              ></i>
-                              <span class="shrink-0">{{ localizeText(meta.label) }}</span>
-                              <span class="max-w-48 truncate">
-                                {{ metadataValue(meta) }}
-                              </span>
-                            </span>
-                          </span>
-                        </span>
-                        <i
-                          class="ri-arrow-right-line mt-2 shrink-0 text-base-content/25 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-primary motion-reduce:transition-none"
-                          aria-hidden="true"
-                        ></i>
-                      </span>
-                    </button>
-                  </li>
-                </ul>
-                <div v-else class="px-6 py-16 text-center" role="status">
-                  <i
-                    class="ri-search-eye-line mb-3 block text-4xl text-base-content/20"
-                    aria-hidden="true"
-                  ></i>
-                  <p class="font-medium">{{ translate('common.search.noMatches') }}</p>
-                  <p class="mt-1 text-sm text-base-content/45">
-                    {{ translate('common.search.noMatchesHint') }}
-                  </p>
-                </div>
-              </template>
-            </div>
-          </ScrollableContainer>
+          <SearchResultList
+            :has-criteria="hasSearchCriteria"
+            :is-loading="isLoading"
+            :error-message="errorMessage"
+            :results="results"
+            :active-index="activeIndex"
+            :keyword="keyword"
+            :tag-only-search="isTagOnlySearch"
+            @retry="initializeSearch(true)"
+            @select="openResult"
+            @update:active-index="activeIndex = $event"
+          />
 
           <footer
             v-if="hasSearchCriteria"
             class="flex items-center justify-between gap-3 border-t border-base-300 bg-base-200/45 px-4 py-2 text-xs text-base-content/45"
           >
-            <span>{{ translate("common.counts.results", { count: results.length }, results.length) }}</span>
+            <span>{{
+              translate(
+                "common.counts.results",
+                { count: results.length },
+                results.length,
+              )
+            }}</span>
             <span class="hidden items-center gap-3 sm:flex">
-              <span
-                ><kbd class="kbd kbd-xs">↑</kbd>
-                <kbd class="kbd kbd-xs">↓</kbd> {{ translate('common.search.select') }}</span
-              >
-              <span><kbd class="kbd kbd-xs">Enter</kbd> {{ translate('common.search.open') }}</span>
+              <span>
+                <kbd class="kbd kbd-xs">↑</kbd>
+                <kbd class="kbd kbd-xs">↓</kbd>
+                {{ translate("common.search.select") }}
+              </span>
+              <span>
+                <kbd class="kbd kbd-xs">Enter</kbd>
+                {{ translate("common.search.open") }}
+              </span>
             </span>
           </footer>
         </section>
@@ -465,302 +204,18 @@
 </template>
 
 <script setup>
-import ScrollableContainer from "@/components/layout/ScrollableContainer.vue";
-import { useLocale } from '@/i18n';
-import { FULL_DATE_OPTIONS } from '@/i18n/format-date.js';
-const { t: translate, text: localizeText, message: localeMessage, date: formatLocalizedDate, number: formatNumber, locale: uiLocale } = useLocale();
-
-const metadataValue = (meta) => {
-  if (meta.rawValue != null && /^(date|created|updated|modified|modifiedDate|uploadDate)$/.test(meta.key)) {
-    const options = { ...FULL_DATE_OPTIONS };
-    if (/[T\s]\d{1,2}:\d{2}/.test(String(meta.rawValue))) Object.assign(options, { hour: '2-digit', minute: '2-digit' });
-    return formatLocalizedDate(meta.rawValue, options);
-  }
-  if (meta.key === 'length' && Number.isFinite(Number(meta.rawValue))) return translate("common.counts.characters", { count: formatNumber(Number(meta.rawValue)) }, Number(meta.rawValue));
-  return localizeText(meta.value);
-};
-
-import {
-  computed,
-  nextTick,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  watch,
-} from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { useLocale } from "@/i18n";
+import FilterTokenSuggestions from "@/components/interaction/controls/FilterTokenSuggestions.vue";
+import SearchResultList from "@/components/interaction/overlay/SearchResultList.vue";
+import { useFilterTokenInput } from "@/composables/useFilterTokenInput";
+import { useSiteSearchEngine } from "@/composables/useSiteSearchEngine";
+import { CONTENT_TYPES } from "@/services/search-content";
+import { buildSiteFilterOptions, sameList } from "@/utils/site-search";
 
-import {
-  formatArticleTag,
-  getArticleSearchScore,
-  normalizeArticleTag,
-  splitArticleHighlight,
-} from "@/composables/blog/useArticleFilter";
-import {
-  CONTENT_TYPES,
-  createSearchExcerpt,
-  fetchGlobalSearchIndex,
-  fetchNovelSearchCatalog,
-} from "@/services/search-content";
-
-import { useMoriAuth } from '@/composables/auth/useMoriAuth';
-import { searchPagefindBundle, segmentPagefindQuery } from '@/services/search-access';
-import { loadNovelPagefind } from "@/services/novel-release";
-const auth = useMoriAuth();
-const route = useRoute();
-const router = useRouter();
-const emit = defineEmits(["restore-focus"]);
-
-const dialogPanel = ref(null);
-const searchBox = ref(null);
-const searchInput = ref(null);
-const isOpen = ref(false);
-const isLoading = ref(false);
-const errorMessage = ref("");
-const keyword = ref("");
-const searchText = ref("");
-const selectedTypes = ref([]);
-const selectedTags = ref([]);
-const selectedYears = ref([]);
-const availableTypes = ref(
-  CONTENT_TYPES.map((type) => ({ ...type, count: 0 })),
-);
-const availableTags = ref([]);
-const availableYears = ref([]);
-const availableTagGroupCounts = ref(new Map());
-const results = ref([]);
-const activeIndex = ref(-1);
-const activeFilterQuery = ref(null);
-const activeFilterIndex = ref(0);
-const isComposing = ref(false);
-
-let searchEntries = [];
-let pagefindEngine = null;
-let novelPagefindEngine = null;
-let initializationId = 0;
-let engineType = "";
-let searchTimer;
-let urlSyncTimer;
-let searchRequestId = 0;
-let syncingFromRoute = false;
-let previousBodyOverflow = "";
-
-const hasFilters = computed(() => {
-  return (
-    selectedTypes.value.length > 0 ||
-    selectedTags.value.length > 0 ||
-    selectedYears.value.length > 0
-  );
-});
-
-const hasSearchCriteria = computed(() => {
-  return Boolean(keyword.value.trim()) || hasFilters.value;
-});
-
-const formatTag = formatArticleTag;
-const getTypeLabel = (type) => {
-  return (
-    localizeText(CONTENT_TYPES.find((option) => option.value === type)?.label) ||
-    String(type || "")
-  );
-};
-const getAvailableTag = (value) => {
-  return availableTags.value.find((tag) => tag.value === value);
-};
-const serializeSelectedTags = () => {
-  return [
-    ...new Set(
-      selectedTags.value
-        .map((value) => {
-          const tag = getAvailableTag(value);
-          return tag?.rawValue || String(value).replace(/^[^:]+:/, "");
-        })
-        .filter(Boolean),
-    ),
-  ];
-};
-const getSelectedTagLabel = (value) => {
-  const tag = getAvailableTag(value);
-
-  if (!tag) return formatTag(String(value).replace(/^[^:]+:/, ""));
-
-  const shouldShowType =
-    selectedTypes.value.length !== 1 ||
-    selectedTypes.value[0] !== tag.contentType;
-
-  return shouldShowType
-    ? `${getTypeLabel(tag.contentType)} · ${tag.label}`
-    : tag.label;
-};
-const highlightParts = (value) => {
-  return splitArticleHighlight(value, keyword.value);
-};
-const isTagOnlySearch = computed(() => {
-  return (
-    !keyword.value.trim() &&
-    selectedTags.value.length > 0 &&
-    selectedYears.value.length === 0
-  );
-});
-const shouldMoveChangelogDateToSummary = (result) => {
-  return (
-    result?.type === "changelog" &&
-    Boolean(result.date) &&
-    isTagOnlySearch.value
-  );
-};
-const getResultSummary = (result) => {
-  return shouldMoveChangelogDateToSummary(result)
-    ? formatLocalizedDate(result.date)
-    : result.type === 'licenses' ? localizeText(result.summary || '') : result?.summary || "";
-};
-const shouldShowResultSummary = (result) => {
-  if (shouldMoveChangelogDateToSummary(result)) return true;
-  if (!result?.summary) return false;
-  if (keyword.value.trim()) return true;
-  return !["novel", "changelog"].includes(result.type);
-};
-
-const isFilterMenuOpen = computed(() => activeFilterQuery.value !== null);
-
-const filteredFilterOptions = computed(() => {
-  const filterQuery = activeFilterQuery.value;
-
-  if (!filterQuery) return [];
-
-  const normalizedQuery = filterQuery.query
-    .normalize("NFKC")
-    .toLocaleLowerCase()
-    .trim();
-
-  if (filterQuery.type === "type") {
-    const selected = new Set(selectedTypes.value);
-
-    return availableTypes.value
-      .filter((type) => type.count > 0 && !selected.has(type.value))
-      .filter(
-        (type) =>
-          !normalizedQuery ||
-          localizeText(type.label)
-            .normalize("NFKC")
-            .toLocaleLowerCase()
-            .includes(normalizedQuery) ||
-          type.value.includes(normalizedQuery),
-      )
-      .map((type, index) => ({
-        type: "type",
-        value: type.value,
-        label: localizeText(type.label),
-        fullLabel: localizeText(type.label),
-        groupKey: "",
-        groupLabel: "",
-        prefix: "@",
-        count: type.count,
-        index,
-      }));
-  }
-
-  if (filterQuery.type === "tag") {
-    const selected = new Set(selectedTags.value);
-    const selectedTypeSet = new Set(selectedTypes.value);
-    const hasSingleType = selectedTypeSet.size === 1;
-
-    return availableTags.value
-      .filter((tag) => !selected.has(tag.value))
-      .filter(
-        (tag) =>
-          selectedTypeSet.size === 0 || selectedTypeSet.has(tag.contentType),
-      )
-      .filter((tag) => {
-        if (!normalizedQuery) return true;
-
-        return `${tag.label} ${tag.rawValue}`
-          .normalize("NFKC")
-          .toLocaleLowerCase()
-          .includes(normalizedQuery);
-      })
-      .map((tag, index) => {
-        const typeLabel = getTypeLabel(tag.contentType);
-        const tagSegments = tag.rawValue.split("/").filter(Boolean);
-        const optionLabel =
-          tag.contentType === "blog"
-            ? tagSegments.at(-1) || tag.label
-            : tag.label;
-        const groupLabelByType = {
-          get blog() { return translate('common.search.blogTags'); },
-          get novel() { return translate('common.search.novelVolumes'); },
-          get changelog() { return translate('common.search.changeTypes'); },
-          get licenses() { return translate('common.search.licenseTypes'); },
-        };
-        const nestedGroupLabel =
-          tag.contentType === "blog" && tag.groupPath
-            ? formatTag(tag.groupPath)
-            : groupLabelByType[tag.contentType];
-        const groupLabel =
-          hasSingleType || !nestedGroupLabel
-            ? nestedGroupLabel
-            : `${typeLabel} · ${nestedGroupLabel}`;
-
-        return {
-          type: "tag",
-          value: tag.value,
-          label: optionLabel,
-          fullLabel: tag.label,
-          contentType: tag.contentType,
-          typeLabel,
-          groupKey: tag.groupKey,
-          groupLabel,
-          prefix: "#",
-          count: tag.count,
-          index,
-        };
-      });
-  }
-
-  const selected = new Set(selectedYears.value);
-
-  return availableYears.value
-    .filter((year) => !selected.has(year.value))
-    .filter((year) => !normalizedQuery || year.value.includes(normalizedQuery))
-    .map((year, index) => ({
-      type: "year",
-      value: year.value,
-      label: year.value,
-      fullLabel: year.value,
-      groupKey: "",
-      groupLabel: "",
-      prefix: "/",
-      count: year.count,
-      index,
-    }));
-});
-
-const filterOptionGroups = computed(() => {
-  const groups = [];
-  const groupMap = new Map();
-
-  for (const option of filteredFilterOptions.value) {
-    const key = `${option.type}:${option.groupKey}`;
-    let group = groupMap.get(key);
-
-    if (!group) {
-      group = {
-        key,
-        label: option.groupLabel,
-        count: option.groupKey
-          ? availableTagGroupCounts.value.get(option.groupKey) || 0
-          : 0,
-        options: [],
-      };
-      groupMap.set(key, group);
-      groups.push(group);
-    }
-
-    group.options.push(option);
-  }
-
-  return groups;
-});
+const FILTER_TRIGGERS = { "@": "type", "#": "tag", "/": "year" };
+const VALID_CONTENT_TYPES = new Set(CONTENT_TYPES.map((type) => type.value));
 
 const queryList = (value) => {
   const values = Array.isArray(value) ? value : value ? [value] : [];
@@ -769,715 +224,73 @@ const queryList = (value) => {
   ];
 };
 
-const queryText = (value) => {
-  return Array.isArray(value)
+const queryText = (value) =>
+  Array.isArray(value)
     ? String(value[0] || "").trim()
     : String(value || "").trim();
-};
 
-const sameList = (left, right) => {
-  return (
-    left.length === right.length &&
-    left.every((item, index) => item === right[index])
-  );
-};
-
-const buildTagGroupCounts = (entries) => {
-  const counts = new Map();
-
-  for (const entry of entries) {
-    const entryGroups = new Set();
-
-    for (const tag of Array.isArray(entry.filterTags) ? entry.filterTags : []) {
-      entryGroups.add(`${tag.contentType}:__root`);
-
-      if (tag.contentType !== "blog") continue;
-
-      const segments = normalizeArticleTag(tag.value)
-        .split("/")
-        .filter(Boolean);
-
-      for (let depth = 1; depth < segments.length; depth += 1) {
-        entryGroups.add(`blog:${segments.slice(0, depth).join("/")}`);
-      }
-    }
-
-    for (const groupKey of entryGroups) {
-      counts.set(groupKey, (counts.get(groupKey) || 0) + 1);
-    }
-  }
-
-  return counts;
-};
-
-const reconcileSelectedTags = () => {
-  if (!availableTags.value.length || !selectedTags.value.length) return;
-
-  const validTags = new Set(availableTags.value.map((tag) => tag.value));
-  const selectedTypeSet = new Set(selectedTypes.value);
-  const nextTags = selectedTags.value
-    .flatMap((value) => {
-      if (validTags.has(value)) return [value];
-
-      const candidates = availableTags.value.filter(
-        (tag) =>
-          tag.rawValue === value &&
-          (selectedTypeSet.size === 0 || selectedTypeSet.has(tag.contentType)),
-      );
-
-      if (candidates.length === 1) return [candidates[0].value];
-      if (selectedTypeSet.size > 0) {
-        return candidates.map((candidate) => candidate.value);
-      }
-      return [];
-    })
-    .filter(Boolean);
-  const uniqueTags = [...new Set(nextTags)];
-
-  if (!sameList(selectedTags.value, uniqueTags)) {
-    selectedTags.value = uniqueTags;
-  }
-};
-
-const sortSearchResults = (items) => {
-  const query = keyword.value;
-  const isNovelOnly =
-    selectedTypes.value.length === 1 && selectedTypes.value[0] === "novel";
-
-  return items
-    .map((item, index) => {
-      const hasPagefindScore = Number.isFinite(item.pagefindScore);
-      const rawScore = hasPagefindScore
-        ? item.pagefindScore
-        : getArticleSearchScore(item, query);
-
-      return {
-        ...item,
-        summary: hasPagefindScore
-          ? item.summary
-          : createSearchExcerpt(item.content, query, item.summary),
-        originalIndex: index,
-        searchScore: Number.isFinite(rawScore) ? rawScore : 0,
-      };
-    })
-    .sort((a, b) => {
-      if (!query.trim() && isNovelOnly) {
-        return a.catalogOrder - b.catalogOrder;
-      }
-
-      return (
-        b.searchScore - a.searchScore ||
-        (isNovelOnly ? a.catalogOrder - b.catalogOrder : 0) ||
-        String(b.date).localeCompare(String(a.date)) ||
-        a.originalIndex - b.originalIndex
-      );
-    });
-};
-
-const parsePagefindMetadata = (value, fallback = []) => {
-  try {
-    const parsed = JSON.parse(String(value || ""));
-    return Array.isArray(parsed) ? parsed : fallback;
-  } catch {
-    return fallback;
-  }
-};
-
-const normalizePagefindExcerpt = (value) =>
-  String(value || "")
-    .replace(/([\p{Script=Han}])\s+(?=[\p{Script=Han}])/gu, "$1")
-    .replace(/\s+([，。！？；：、）】》])/gu, "$1")
-    .replace(/([（【《])\s+/gu, "$1");
-
-const loadPagefindEngine = async () => {
-  if (typeof window === "undefined") return null;
-
-  const baseUrl = String(import.meta.env.BASE_URL || "/").replace(/\/?$/, "/");
-  const module = await import(
-    /* @vite-ignore */ `${baseUrl}pagefind/pagefind.js?isolation=2`
-  );
-
-  const engine = module.createInstance({ basePath: `${baseUrl}pagefind/`, excerptLength: 42,
-    language: uiLocale.value === 'zh-CN' ? 'zh' : uiLocale.value });
-  try { await engine.init(); return engine; }
-  catch (error) { await engine.destroy(); throw error; }
-};
-
-const mapPagefindResult = async (result) => {
-  const data = await result.data();
-  const meta = data?.meta || {};
-  const type = String(meta.type || data?.filters?.type?.[0] || "blog");
-  const typeDefinition =
-    CONTENT_TYPES.find((definition) => definition.value === type) ||
-    CONTENT_TYPES[0];
-  const catalogOrder = Number(meta.catalogOrder);
-
-  const excerpt = normalizePagefindExcerpt(data?.plain_excerpt);
-  const summary = /[\p{Script=Han}]/u.test(keyword.value)
-    ? String(meta.summary || excerpt)
-    : excerpt || String(meta.summary || "");
-
-  return {
-    url: String(data?.url || result.url || "/"),
-    title: String(meta.title || translate('common.search.untitled')),
-    summary,
-    content: excerpt,
-    tags: parsePagefindMetadata(meta.tags),
-    filterTags: [],
-    metadata: parsePagefindMetadata(meta.metadata),
-    metadataText: "",
-    date: String(meta.date || ""),
-    year: String(meta.year || ""),
-    catalogOrder: Number.isFinite(catalogOrder) ? catalogOrder : 0,
-    type,
-    typeLabel: String(meta.typeLabel || typeDefinition.label),
-    typeIcon: String(meta.typeIcon || typeDefinition.icon),
-    pagefindScore: Number.isFinite(result.score) ? result.score : 0,
-  };
-};
-
-const searchPagefindIndex = async () => {
-  const query = keyword.value.trim();
-
-  // 没有关键词时只是浏览筛选结果，不需要启动全文检索。
-  if (!query) return searchIndex();
-
-  const filters = {};
-  if (selectedTypes.value.length) filters.type = [...selectedTypes.value];
-  if (selectedTags.value.length) filters.tag = [...selectedTags.value];
-  if (selectedYears.value.length) filters.year = [...selectedYears.value];
-
-  const segmentedQuery = segmentPagefindQuery(query);
-  const revision = auth.state.revision;
-  const canReadNovel = () => auth.state.canReadNovel && auth.state.revision === revision;
-  const selected = selectedTypes.value;
-  const searchPublic = !selected.length || selected.some(type => type !== 'novel');
-  const searchNovel = canReadNovel() && (!selected.length || selected.includes('novel'));
-  const responses = await Promise.all([
-    searchPublic ? searchPagefindBundle(pagefindEngine, segmentedQuery, filters) : [],
-    searchNovel ? searchPagefindBundle(novelPagefindEngine, segmentedQuery, filters, canReadNovel) : [],
-  ]);
-  const mappedResults = await Promise.all(responses.flat().map(mapPagefindResult));
-  // 某一个 bundle 不可用时，仅该内容类型使用本地回退。
-  const local = searchIndex().filter(entry => entry.type === 'novel' ? searchNovel && !novelPagefindEngine :
-    searchPublic && (!pagefindEngine || (uiLocale.value !== 'zh-CN' && (entry.type !== 'blog' || entry.lang !== uiLocale.value))));
-  mappedResults.push(...local);
-  const seenReaderPages = new Set();
-  const seenUrls = new Set();
-
-  return mappedResults.filter((result) => {
-    if (result.type === "novel" && !canReadNovel()) return false;
-    if (!["blog", "novel"].includes(result.type)) {
-      if (seenUrls.has(result.url)) return false;
-      seenUrls.add(result.url);
-      return true;
-    }
-
-    const resolved = router.resolve(result.url || "/");
-    const readerKey = result.type === 'blog' ? `blog:${resolved.path.split('/')[2]}` : `${result.type}:${resolved.path}`;
-    if (seenReaderPages.has(readerKey)) return false;
-
-    seenReaderPages.add(readerKey);
-    return true;
-  });
-};
-
-const loadSearchEngine = async () => {
-  const id = ++initializationId;
-  const revision = auth.state.revision;
-  const includeNovel = auth.state.canReadNovel;
-  const [entriesResult, pagefindResult, novelEntriesResult, novelPagefindResult] = await Promise.allSettled([
-    fetchGlobalSearchIndex(uiLocale.value),
-    loadPagefindEngine(),
-    includeNovel ? fetchNovelSearchCatalog() : [],
-    includeNovel ? loadNovelPagefind() : null,
-  ]);
-  const novelEntries = novelEntriesResult.status === 'fulfilled' ? novelEntriesResult.value : [];
-  if (id !== initializationId || revision !== auth.state.revision || includeNovel !== auth.state.canReadNovel) {
-    if (pagefindResult.status === 'fulfilled') void pagefindResult.value?.destroy();
-    return false;
-  }
-
-  searchEntries =
-    (entriesResult.status === "fulfilled" ? entriesResult.value : []).concat(novelEntries);
-  void pagefindEngine?.destroy();
-  pagefindEngine =
-    pagefindResult.status === "fulfilled" ? pagefindResult.value : null;
-
-  novelPagefindEngine = novelPagefindResult.status === 'fulfilled' ? novelPagefindResult.value : null;
-  if (!searchEntries.length && !pagefindEngine && !novelPagefindEngine) {
-    throw (
-      entriesResult.reason ||
-      pagefindResult.reason ||
-      new Error(translate('common.search.noIndex'))
-    );
-  }
-
-  const tagDefinitions = new Map();
-  const tagCounts = new Map();
-  const yearCounts = new Map();
-  const typeCounts = new Map();
-
-  for (const entry of searchEntries) {
-    typeCounts.set(entry.type, (typeCounts.get(entry.type) || 0) + 1);
-    const seenTags = new Set();
-
-    for (const tag of Array.isArray(entry.filterTags) ? entry.filterTags : []) {
-      if (!tag?.key || seenTags.has(tag.key)) continue;
-
-      seenTags.add(tag.key);
-      tagDefinitions.set(tag.key, tag);
-      tagCounts.set(tag.key, (tagCounts.get(tag.key) || 0) + 1);
-    }
-
-    const year = String(entry.year || "").trim();
-    if (year) yearCounts.set(year, (yearCounts.get(year) || 0) + 1);
-  }
-
-  availableTypes.value = CONTENT_TYPES.map((type) => ({
-    ...type,
-    count: typeCounts.get(type.value) || 0,
-  }));
-  availableTags.value = [...tagDefinitions.entries()]
-    .map(([value, tag]) => ({
-      value,
-      rawValue: tag.value,
-      label: tag.label,
-      contentType: tag.contentType,
-      groupPath: tag.groupPath,
-      groupKey: `${tag.contentType}:${tag.groupPath || "__root"}`,
-      order: Number.isFinite(tag.order) ? tag.order : Number.MAX_SAFE_INTEGER,
-      count: tagCounts.get(value) || 0,
-    }))
-    .sort(
-      (a, b) =>
-        CONTENT_TYPES.findIndex((type) => type.value === a.contentType) -
-          CONTENT_TYPES.findIndex((type) => type.value === b.contentType) ||
-        (a.contentType === "novel" ? a.order - b.order : 0) ||
-        a.label.localeCompare(b.label, "zh-Hans-CN"),
-    );
-  availableYears.value = [...yearCounts.entries()]
-    .map(([value, count]) => ({ value, count }))
-    .sort((a, b) => b.value.localeCompare(a.value));
-  availableTagGroupCounts.value = buildTagGroupCounts(searchEntries);
-  reconcileSelectedTags();
-  engineType = pagefindEngine || novelPagefindEngine ? "pagefind" : "local";
-  return true;
-};
-
-const initializeSearch = async (force = false) => {
-  if (engineType && !force) return;
-
-  errorMessage.value = "";
-  engineType = "";
-
-  try {
-    if (await loadSearchEngine() === false) return;
-  } catch (error) {
-    console.error("初始化全局搜索失败:", error);
-    errorMessage.value = localeMessage('common.search.retryHint');
-    return;
-  }
-
-  await runSearch();
-};
-
-const searchIndex = () => {
-  const typeSet = new Set(selectedTypes.value);
-  const tagSet = new Set(selectedTags.value);
-  const yearSet = new Set(selectedYears.value);
-  const query = keyword.value.trim();
-
-  return searchEntries.flatMap((entry) => {
-    if (entry.type === "novel" && !auth.state.authenticated) return [];
-    const matchesType = typeSet.size === 0 || typeSet.has(entry.type);
-    const entryTagSet = new Set(
-      (Array.isArray(entry.filterTags) ? entry.filterTags : []).map(
-        (tag) => tag.key,
-      ),
-    );
-    const matchesTag =
-      tagSet.size === 0 || [...tagSet].some((tag) => entryTagSet.has(tag));
-    const matchesYear = yearSet.size === 0 || yearSet.has(entry.year);
-
-    if (!matchesType || !matchesTag || !matchesYear) return [];
-    if (!query) return [entry];
-
-    const blockMatches = (
-      Array.isArray(entry.searchBlocks) ? entry.searchBlocks : []
-    )
-      .map((block, index) => {
-        const candidate = {
-          ...entry,
-          ...block,
-          metadataText: entry.metadataText,
-        };
-
-        return {
-          candidate,
-          index,
-          score: getArticleSearchScore(candidate, query),
-        };
-      })
-      .filter((match) => match.score !== Number.NEGATIVE_INFINITY)
-      .sort((a, b) => b.score - a.score || a.index - b.index);
-
-    if (blockMatches.length) return [blockMatches[0].candidate];
-
-    const score = getArticleSearchScore(entry, query);
-    return score === Number.NEGATIVE_INFINITY ? [] : [entry];
-  });
-};
-
-async function runSearch() {
-  if (!isOpen.value || !engineType) return;
-
-  const requestId = ++searchRequestId;
-
-  if (!hasSearchCriteria.value) {
-    isLoading.value = false;
-    errorMessage.value = "";
-    results.value = [];
-    activeIndex.value = -1;
-    return;
-  }
-
-  isLoading.value = true;
-  errorMessage.value = "";
-
-  try {
-    const matches =
-      engineType === "pagefind" ? await searchPagefindIndex() : searchIndex();
-
-    if (requestId !== searchRequestId) return;
-
-    results.value = sortSearchResults(matches);
-    activeIndex.value = results.value.length ? 0 : -1;
-  } catch (error) {
-    if (requestId !== searchRequestId) return;
-
-    console.error("全局搜索失败:", error);
-    errorMessage.value = localeMessage('common.search.loadFailed');
-    results.value = [];
-    activeIndex.value = -1;
-  } finally {
-    if (requestId === searchRequestId) isLoading.value = false;
-  }
-}
-
-const scheduleSearch = () => {
-  if (!isOpen.value || !engineType) return;
-
-  window.clearTimeout(searchTimer);
-
-  if (!hasSearchCriteria.value) {
-    runSearch();
-    return;
-  }
-
-  searchTimer = window.setTimeout(runSearch, 140);
-};
-
-const syncUrlState = () => {
-  if (syncingFromRoute || typeof window === "undefined") return;
-
-  window.clearTimeout(urlSyncTimer);
-  urlSyncTimer = window.setTimeout(() => {
-    const query = Object.fromEntries(
-      Object.entries(route.query).filter(
-        ([key]) => !["q", "type", "tag", "year"].includes(key),
-      ),
-    );
-    const serializedTags = serializeSelectedTags();
-
-    if (selectedTypes.value.length) query.type = [...selectedTypes.value];
-    if (serializedTags.length) query.tag = serializedTags;
-    if (selectedYears.value.length) query.year = [...selectedYears.value];
-    if (keyword.value.trim()) query.q = keyword.value.trim();
-
-    router.replace({ query });
-  }, 120);
-};
-
-const applyRouteState = () => {
-  const nextKeyword = queryText(route.query.q);
-  const validTypeSet = new Set(CONTENT_TYPES.map((type) => type.value));
-  const nextTypes = queryList(route.query.type).filter((type) =>
-    validTypeSet.has(type),
-  );
-  const nextTags = queryList(route.query.tag);
-  const nextYears = queryList(route.query.year);
-  const currentPlainText = getPlainSearchText(
-    searchText.value,
-    activeFilterQuery.value,
-  );
-
-  syncingFromRoute = true;
-
-  if (keyword.value !== nextKeyword) keyword.value = nextKeyword;
-  if (currentPlainText !== nextKeyword) {
-    searchText.value = nextKeyword;
-    closeFilterMenu();
-  }
-  if (!sameList(selectedTypes.value, nextTypes)) {
-    selectedTypes.value = nextTypes;
-  }
-  if (!sameList(selectedTags.value, nextTags)) selectedTags.value = nextTags;
-  if (!sameList(selectedYears.value, nextYears)) {
-    selectedYears.value = nextYears;
-  }
-
-  reconcileSelectedTags();
-  syncingFromRoute = false;
-};
-
-const getFilterQuery = (value, caretPosition = String(value || "").length) => {
-  const text = String(value || "");
-  const caret = Math.max(
-    0,
-    Math.min(caretPosition ?? text.length, text.length),
-  );
-  const beforeCaret = text.slice(0, caret);
-  const match = beforeCaret.match(/(^|\s)([@#\/])([^\s@#\/]*)$/u);
-
-  if (!match) return null;
-
-  const leadingWhitespace = match[1];
-  const trigger = match[2];
-
-  return {
-    type: trigger === "@" ? "type" : trigger === "#" ? "tag" : "year",
-    trigger,
-    query: match[3],
-    start: (match.index ?? 0) + leadingWhitespace.length,
-    end: caret,
-  };
-};
-
-const getPlainSearchText = (value, filterQuery) => {
-  const text = String(value || "");
-
-  if (!filterQuery) return text.trim().replace(/\s+/g, " ");
-
-  return `${text.slice(0, filterQuery.start)}${text.slice(filterQuery.end)}`
-    .trim()
-    .replace(/\s+/g, " ");
-};
-
-const syncKeywordFromSearch = () => {
-  const nextKeyword = getPlainSearchText(
-    searchText.value,
-    activeFilterQuery.value,
-  );
-
-  if (keyword.value !== nextKeyword) keyword.value = nextKeyword;
-};
-
-const updateFilterQuery = (target = searchInput.value) => {
-  const caretPosition = target?.selectionStart ?? searchText.value.length;
-  const nextQuery = getFilterQuery(searchText.value, caretPosition);
-  const queryChanged =
-    nextQuery?.type !== activeFilterQuery.value?.type ||
-    nextQuery?.query !== activeFilterQuery.value?.query ||
-    nextQuery?.start !== activeFilterQuery.value?.start;
-
-  activeFilterQuery.value = nextQuery;
-
-  if (queryChanged) activeFilterIndex.value = 0;
-};
-
-const handleSearchInput = (event) => {
-  if (isComposing.value) return;
-
-  updateFilterQuery(event.currentTarget);
-  syncKeywordFromSearch();
-};
-
-const handleCompositionEnd = (event) => {
-  isComposing.value = false;
-  updateFilterQuery(event.currentTarget);
-  syncKeywordFromSearch();
-};
-
-const closeFilterMenu = () => {
-  activeFilterQuery.value = null;
-  activeFilterIndex.value = 0;
-};
-
-const moveActiveFilter = (direction) => {
-  const optionCount = filteredFilterOptions.value.length;
-
-  if (!isFilterMenuOpen.value || !optionCount) return;
-
-  activeFilterIndex.value =
-    (activeFilterIndex.value + direction + optionCount) % optionCount;
-};
-
-const selectFilterOption = async (option) => {
-  const filterQuery = activeFilterQuery.value;
-
-  if (!filterQuery) return;
-
-  if (option.type === "type" && !selectedTypes.value.includes(option.value)) {
-    selectedTypes.value = [...selectedTypes.value, option.value];
-  }
-
-  if (option.type === "tag" && !selectedTags.value.includes(option.value)) {
-    selectedTags.value = [...selectedTags.value, option.value];
-
-    if (
-      selectedTypes.value.length === 0 &&
-      option.contentType &&
-      !selectedTypes.value.includes(option.contentType)
-    ) {
-      selectedTypes.value = [option.contentType];
-    }
-  }
-
-  if (option.type === "year" && !selectedYears.value.includes(option.value)) {
-    selectedYears.value = [...selectedYears.value, option.value];
-  }
-
-  const textBeforeQuery = searchText.value.slice(0, filterQuery.start);
-  const textAfterQuery = searchText.value.slice(filterQuery.end);
-  searchText.value = `${textBeforeQuery}${textAfterQuery}`.replace(
-    /\s{2,}/g,
-    " ",
-  );
-  const nextCaretPosition = Math.min(
-    filterQuery.start,
-    searchText.value.length,
-  );
-
-  closeFilterMenu();
-  syncKeywordFromSearch();
-
-  await nextTick();
-  searchInput.value?.focus();
-  searchInput.value?.setSelectionRange(nextCaretPosition, nextCaretPosition);
-};
-
-const selectActiveFilter = () => {
-  const option = filteredFilterOptions.value[activeFilterIndex.value];
-
-  if (!option) return false;
-
-  selectFilterOption(option);
-  return true;
-};
-
-const handleSearchArrow = (event, direction) => {
-  event.preventDefault();
-
-  if (isFilterMenuOpen.value) {
-    moveActiveFilter(direction);
-  } else {
-    moveActiveResult(direction);
-  }
-};
-
-const handleSearchEnter = (event) => {
-  event.preventDefault();
-
-  if (isFilterMenuOpen.value) {
-    selectActiveFilter();
-  } else {
-    openActiveResult();
-  }
-};
-
-const handleSearchTab = (event) => {
-  if (!isFilterMenuOpen.value || !selectActiveFilter()) return;
-
-  event.preventDefault();
-  event.stopPropagation();
-};
-
-const handleSearchBackspace = (event) => {
-  if (isComposing.value) return;
-
-  const target = event.currentTarget;
-  const caretAtStart = target.selectionStart === 0 && target.selectionEnd === 0;
-
-  if (!caretAtStart) return;
-
-  const lastYear = selectedYears.value.at(-1);
-  const lastTag = selectedTags.value.at(-1);
-  const lastType = selectedTypes.value.at(-1);
-
-  if (lastYear) {
-    removeSelectedYear(lastYear);
-  } else if (lastTag) {
-    removeSelectedTag(lastTag);
-  } else if (lastType) {
-    removeSelectedType(lastType);
-  } else {
-    return;
-  }
-
-  event.preventDefault();
-  closeFilterMenu();
-};
-
-const handleSearchEscape = (event) => {
-  if (!isFilterMenuOpen.value) return;
-
-  event.preventDefault();
-  event.stopPropagation();
-  closeFilterMenu();
-};
-
-const setBodyScrollLocked = (locked) => {
-  if (typeof document === "undefined") return;
-
-  if (locked) {
-    previousBodyOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-  } else {
-    document.body.style.overflow = previousBodyOverflow;
-  }
-};
-
-const openSearch = async () => {
-  if (isOpen.value) return;
-
-  isOpen.value = true;
-  setBodyScrollLocked(true);
-
-  const query = { ...route.query, search: "1" };
-  router.replace({ query });
-
-  await nextTick();
-  searchInput.value?.focus();
-  searchInput.value?.select();
-  await initializeSearch();
-};
-
-const activate = async () => {
-  if (isOpen.value) {
-    searchInput.value?.focus();
-    searchInput.value?.select();
-    return;
-  }
-
-  await openSearch();
-};
-
-const closeSearch = ({ restoreFocus = true } = {}) => {
-  if (!isOpen.value) return;
-
-  isOpen.value = false;
-  closeFilterMenu();
-  setBodyScrollLocked(false);
-
-  const query = { ...route.query };
-  delete query.search;
-  router.replace({ query });
-
-  if (restoreFocus) {
-    emit("restore-focus");
-  }
-};
+const { t: translate, text: localizeText } = useLocale();
+const route = useRoute();
+const router = useRouter();
+const emit = defineEmits(["restore-focus"]);
+
+const dialogPanel = ref(null);
+const searchBox = ref(null);
+const searchInput = ref(null);
+const isOpen = ref(false);
+const keyword = ref("");
+const selectedTypes = ref([]);
+const selectedTags = ref([]);
+const selectedYears = ref([]);
+
+let urlSyncTimer;
+let syncingFromRoute = false;
+let previousBodyOverflow = "";
+let bodyScrollLocked = false;
+
+const hasFilters = computed(
+  () =>
+    selectedTypes.value.length > 0 ||
+    selectedTags.value.length > 0 ||
+    selectedYears.value.length > 0,
+);
+
+const hasSearchCriteria = computed(
+  () => Boolean(keyword.value.trim()) || hasFilters.value,
+);
+
+const isTagOnlySearch = computed(
+  () =>
+    !keyword.value.trim() &&
+    selectedTags.value.length > 0 &&
+    selectedYears.value.length === 0,
+);
+
+const {
+  isLoading,
+  errorMessage,
+  results,
+  activeIndex,
+  availableTypes,
+  availableTags,
+  availableYears,
+  availableTagGroupCounts,
+  getTypeLabel,
+  getAvailableTag,
+  serializeSelectedTags,
+  getSelectedTagLabel,
+  reconcileSelectedTags,
+  initializeSearch,
+  scheduleSearch,
+  moveActiveResult,
+} = useSiteSearchEngine({
+  isOpen,
+  keyword,
+  selectedTypes,
+  selectedTags,
+  selectedYears,
+  hasSearchCriteria,
+});
 
 const removeSelectedTag = (tag) => {
   selectedTags.value = selectedTags.value.filter((item) => item !== tag);
@@ -1494,32 +307,216 @@ const removeSelectedYear = (year) => {
   selectedYears.value = selectedYears.value.filter((item) => item !== year);
 };
 
-const clearFilters = () => {
-  selectedTypes.value = [];
-  selectedTags.value = [];
-  selectedYears.value = [];
+const openActiveResult = () => {
+  const result = results.value[activeIndex.value];
+  if (result) openResult(result);
+};
+
+const {
+  searchText,
+  activeFilterQuery,
+  activeFilterIndex,
+  isFilterMenuOpen,
+  filteredFilterOptions,
+  filterOptionGroups,
+  updateFilterQuery,
+  closeFilterMenu,
+  syncSearchText,
+  resetSearchText,
+  selectFilterOption,
+  handleInput,
+  handleCompositionStart,
+  handleCompositionEnd,
+  handleArrow,
+  handleEnter,
+  handleTab,
+  handleBackspace,
+  handleEscape,
+} = useFilterTokenInput({
+  inputRef: searchInput,
+  containerRef: searchBox,
+  keyword,
+  triggers: FILTER_TRIGGERS,
+  getOptions: (filterQuery, normalizedQuery) =>
+    buildSiteFilterOptions({
+      filterQuery,
+      normalizedQuery,
+      availableTypes: availableTypes.value,
+      availableTags: availableTags.value,
+      availableYears: availableYears.value,
+      selectedTypes: selectedTypes.value,
+      selectedTags: selectedTags.value,
+      selectedYears: selectedYears.value,
+      translate,
+      localizeText,
+      getTypeLabel,
+    }),
+  getGroupCount: (groupKey) => availableTagGroupCounts.value.get(groupKey) || 0,
+  onSelectOption: (option) => {
+    if (option.type === "type" && !selectedTypes.value.includes(option.value)) {
+      selectedTypes.value = [...selectedTypes.value, option.value];
+    }
+
+    if (option.type === "tag" && !selectedTags.value.includes(option.value)) {
+      selectedTags.value = [...selectedTags.value, option.value];
+
+      if (
+        selectedTypes.value.length === 0 &&
+        option.contentType &&
+        !selectedTypes.value.includes(option.contentType)
+      ) {
+        selectedTypes.value = [option.contentType];
+      }
+    }
+
+    if (option.type === "year" && !selectedYears.value.includes(option.value)) {
+      selectedYears.value = [...selectedYears.value, option.value];
+    }
+  },
+  onBackspaceEmpty: () => {
+    const lastYear = selectedYears.value.at(-1);
+    const lastTag = selectedTags.value.at(-1);
+    const lastType = selectedTypes.value.at(-1);
+
+    if (lastYear) {
+      removeSelectedYear(lastYear);
+      return true;
+    }
+    if (lastTag) {
+      removeSelectedTag(lastTag);
+      return true;
+    }
+    if (lastType) {
+      removeSelectedType(lastType);
+      return true;
+    }
+    return false;
+  },
+  onArrowClosed: (event, direction) => {
+    event.preventDefault();
+    moveActiveResult(direction);
+  },
+  onEnterClosed: (event) => {
+    event.preventDefault();
+    openActiveResult();
+  },
+  preventEnterWhenMenuOpen: true,
+  stopTabPropagation: true,
+  stopEscapePropagation: true,
+});
+
+const suggestionHeader = computed(() => {
+  const type = activeFilterQuery.value?.type;
+  if (type === "tag") {
+    return {
+      icon: "ri-price-tag-3-line",
+      label: translate("common.search.chooseCategory"),
+      ariaLabel: translate("common.search.tagSuggestions"),
+    };
+  }
+  if (type === "year") {
+    return {
+      icon: "ri-calendar-line",
+      label: translate("common.search.chooseYear"),
+      ariaLabel: translate("common.search.yearSuggestions"),
+    };
+  }
+  return {
+    icon: "ri-layout-grid-line",
+    label: translate("common.search.chooseType"),
+    ariaLabel: translate("common.search.typeSuggestions"),
+  };
+});
+
+const suggestionGroups = computed(() =>
+  filterOptionGroups.value.map((group) => ({
+    ...group,
+    countText: translate(
+      "common.counts.items",
+      { count: group.count },
+      group.count,
+    ),
+  })),
+);
+
+const suggestionEmptyText = computed(() =>
+  activeFilterQuery.value?.query
+    ? translate("common.search.noOptions", {
+        p0: activeFilterQuery.value.query,
+      })
+    : translate("common.search.noFilters"),
+);
+
+const setBodyScrollLocked = (locked) => {
+  if (locked === bodyScrollLocked) return;
+  bodyScrollLocked = locked;
+
+  if (locked) {
+    previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+  } else {
+    document.body.style.overflow = previousBodyOverflow;
+  }
+};
+
+const enterOpenState = async ({
+  syncRoute = false,
+  selectInput = false,
+} = {}) => {
+  if (isOpen.value) return;
+
+  isOpen.value = true;
+  setBodyScrollLocked(true);
+
+  if (syncRoute) {
+    router.replace({ query: { ...route.query, search: "1" } });
+  }
+
+  await nextTick();
+  searchInput.value?.focus();
+  if (selectInput) searchInput.value?.select();
+  await initializeSearch();
+};
+
+const exitOpenState = ({ syncRoute = false, restoreFocus = false } = {}) => {
+  if (!isOpen.value) return;
+
+  isOpen.value = false;
+  closeFilterMenu();
+  setBodyScrollLocked(false);
+
+  if (syncRoute) {
+    const query = { ...route.query };
+    delete query.search;
+    router.replace({ query });
+  }
+
+  if (restoreFocus) {
+    emit("restore-focus");
+  }
+};
+
+const activate = async () => {
+  if (isOpen.value) {
+    searchInput.value?.focus();
+    searchInput.value?.select();
+    return;
+  }
+
+  await enterOpenState({ syncRoute: true, selectInput: true });
+};
+
+const closeSearch = ({ restoreFocus = true } = {}) => {
+  exitOpenState({ syncRoute: true, restoreFocus });
 };
 
 const resetSearch = () => {
   keyword.value = "";
-  searchText.value = "";
-  clearFilters();
-  closeFilterMenu();
+  selectedTypes.value = [];
+  selectedTags.value = [];
+  selectedYears.value = [];
+  resetSearchText();
   nextTick(() => searchInput.value?.focus());
-};
-
-const moveActiveResult = (direction) => {
-  if (!results.value.length) return;
-
-  const nextIndex =
-    (activeIndex.value + direction + results.value.length) %
-    results.value.length;
-  activeIndex.value = nextIndex;
-};
-
-const openActiveResult = () => {
-  const result = results.value[activeIndex.value];
-  if (result) openResult(result);
 };
 
 const openResult = (result) => {
@@ -1532,9 +529,7 @@ const openResult = (result) => {
   if (selectedYears.value.length) query.year = [...selectedYears.value];
   if (keyword.value.trim()) query.q = keyword.value.trim();
 
-  isOpen.value = false;
-  closeFilterMenu();
-  setBodyScrollLocked(false);
+  exitOpenState();
   router
     .push({
       path: destination.path || "/",
@@ -1575,43 +570,50 @@ const handleDialogKeydown = (event) => {
   }
 };
 
-const handleOutsidePointerDown = (event) => {
-  if (!searchBox.value?.contains(event.target)) closeFilterMenu();
+const syncUrlState = () => {
+  if (syncingFromRoute || import.meta.env.SSR) return;
+
+  clearTimeout(urlSyncTimer);
+  urlSyncTimer = setTimeout(() => {
+    const query = Object.fromEntries(
+      Object.entries(route.query).filter(
+        ([key]) => !["q", "type", "tag", "year"].includes(key),
+      ),
+    );
+    const serializedTags = serializeSelectedTags();
+
+    if (selectedTypes.value.length) query.type = [...selectedTypes.value];
+    if (serializedTags.length) query.tag = serializedTags;
+    if (selectedYears.value.length) query.year = [...selectedYears.value];
+    if (keyword.value.trim()) query.q = keyword.value.trim();
+
+    router.replace({ query });
+  }, 120);
 };
 
-watch(() => [auth.state.authenticated, auth.state.revision], () => {
-  initializationId++; searchRequestId++; window.clearTimeout(searchTimer);
-  novelPagefindEngine = null; searchEntries = searchEntries.filter(entry => entry.type !== 'novel');
-  results.value = results.value.filter(entry => entry.type !== 'novel');
-  selectedTags.value = selectedTags.value.filter(tag => !tag.startsWith('novel:'));
-  selectedYears.value = [];
-  availableTypes.value = CONTENT_TYPES.map(type => ({ ...type, count: 0 }));
-  availableTags.value = []; availableYears.value = []; availableTagGroupCounts.value = new Map();
-  activeIndex.value = -1; isLoading.value = false; engineType = '';
-  if (isOpen.value) void initializeSearch(true);
-}, { flush: 'sync' });
+const applyRouteState = () => {
+  const nextKeyword = queryText(route.query.q);
+  const nextTypes = queryList(route.query.type).filter((type) =>
+    VALID_CONTENT_TYPES.has(type),
+  );
+  const nextTags = queryList(route.query.tag);
+  const nextYears = queryList(route.query.year);
 
-watch(filteredFilterOptions, (options) => {
-  if (!options.length) {
-    activeFilterIndex.value = -1;
-    return;
+  syncingFromRoute = true;
+
+  if (keyword.value !== nextKeyword) keyword.value = nextKeyword;
+  syncSearchText(nextKeyword);
+  if (!sameList(selectedTypes.value, nextTypes)) {
+    selectedTypes.value = nextTypes;
+  }
+  if (!sameList(selectedTags.value, nextTags)) selectedTags.value = nextTags;
+  if (!sameList(selectedYears.value, nextYears)) {
+    selectedYears.value = nextYears;
   }
 
-  if (
-    activeFilterIndex.value < 0 ||
-    activeFilterIndex.value >= options.length
-  ) {
-    activeFilterIndex.value = 0;
-  }
-});
-
-watch(uiLocale, () => {
-  engineType = '';
-  initializationId++;
-  searchRequestId++;
-  results.value = [];
-  if (isOpen.value) void initializeSearch(true);
-});
+  reconcileSelectedTags();
+  syncingFromRoute = false;
+};
 
 watch(
   () => [
@@ -1624,17 +626,10 @@ watch(
   async () => {
     applyRouteState();
 
-    const shouldOpen = route.query.search === "1";
-    if (shouldOpen && !isOpen.value) {
-      isOpen.value = true;
-      setBodyScrollLocked(true);
-      await nextTick();
-      searchInput.value?.focus();
-      await initializeSearch();
-    } else if (!shouldOpen && isOpen.value) {
-      isOpen.value = false;
-      closeFilterMenu();
-      setBodyScrollLocked(false);
+    if (route.query.search === "1") {
+      await enterOpenState();
+    } else {
+      exitOpenState();
     }
   },
 );
@@ -1650,23 +645,14 @@ watch(
 
 onMounted(async () => {
   applyRouteState();
-  document.addEventListener("pointerdown", handleOutsidePointerDown);
 
   if (route.query.search === "1") {
-    isOpen.value = true;
-    setBodyScrollLocked(true);
-    await nextTick();
-    searchInput.value?.focus();
-    await initializeSearch();
+    await enterOpenState();
   }
 });
 
 onBeforeUnmount(() => {
-  initializationId++; searchRequestId++;
-  void pagefindEngine?.destroy();
-  document.removeEventListener("pointerdown", handleOutsidePointerDown);
-  window.clearTimeout(searchTimer);
-  window.clearTimeout(urlSyncTimer);
+  clearTimeout(urlSyncTimer);
   setBodyScrollLocked(false);
 });
 

@@ -1,17 +1,20 @@
-import { spawn } from "node:child_process";
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
-import { sameChangelog } from "../../shared/changelog.js";
+import {
+  compareVersions,
+  normalizeChangelogPayload,
+  sameChangelog,
+} from "../../shared/changelog.js";
 import { readWorkerConfig } from "../lib/worker-config.mjs";
 import { run } from "../lib/commands.mjs";
+import { openEditor, printDiff } from "../lib/release-utils.mjs";
 import { waitForPublishedContent } from "./verify-published.mjs";
 
 import {
   CHANGELOG_DIR,
   PROJECT_ROOT,
   SEMVER_BUMPS,
-  compareVersions,
   createChangelogPayload,
   formatLocalDate,
   nextVersion,
@@ -19,7 +22,6 @@ import {
   readReleaseFiles,
   releasePath,
   renderReleaseMarkdown,
-  validateChangelogPayload,
   validateReleaseChain,
   writeStaticChangelog,
 } from "./changelog-content.mjs";
@@ -77,54 +79,65 @@ const parseOptions = (args) => {
   return { positional, options };
 };
 
-const parseEditorCommand = (value) =>
-  String(value || "").match(/(?:[^\s"]+|"[^"]*")+/g)?.map((part) => part.replace(/^"|"$/g, "")) || [];
-
-const openEditor = async (path) => {
-  const configuredEditor = process.env.VISUAL || process.env.EDITOR;
-  const parts = configuredEditor
-    ? parseEditorCommand(configuredEditor)
-    : process.platform === "win32"
-      ? ["notepad.exe"]
-      : ["vi"];
-  const [command, ...args] = parts;
-  await new Promise((resolvePromise, rejectPromise) => {
-    const child = spawn(command, [...args, path], {
-      cwd: PROJECT_ROOT,
-      stdio: "inherit",
-      windowsHide: false,
-    });
-    child.on("error", rejectPromise);
-    child.on("exit", (code) =>
-      code === 0
-        ? resolvePromise()
-        : rejectPromise(new Error(`编辑器退出，状态码：${code}`)),
-    );
-  });
-};
-
 async function getRemotePayload(request = fetch) {
-  const { kv_namespaces: namespaces } = await readWorkerConfig(CONFIG_PATH);
-  const account = process.env.CLOUDFLARE_ACCOUNT_ID || (await readWorkerConfig()).account_id;
-  const namespace = namespaces?.find(({ binding }) => binding === KV_BINDING)?.id;
-  if (!namespace || !account || !process.env.CLOUDFLARE_API_TOKEN)
-    throw new Error("缺少更新日志 KV 配置或 Workers Builds API Token。");
-  const response = await request(
-    `https://api.cloudflare.com/client/v4/accounts/${account}/storage/kv/namespaces/${namespace}/values/${encodeURIComponent(KV_KEY)}`,
-    {
-      headers: { Authorization: `Bearer ${process.env.CLOUDFLARE_API_TOKEN}` },
-      signal: AbortSignal.timeout(15_000),
-    },
-  );
-  if (response.status === 404) return null;
-  if (!response.ok) throw new Error(`读取更新日志 KV 失败（HTTP ${response.status}）。`);
-  const raw = await response.text();
-  try {
-    return validateChangelogPayload(JSON.parse(raw), { source: "远端 KV" });
-  } catch {
-    console.warn("远端更新日志格式无效，将以已部署网站的 Markdown 数据为准。");
-    return null;
+  if (process.env.CLOUDFLARE_API_TOKEN) {
+    const { kv_namespaces: namespaces } = await readWorkerConfig(CONFIG_PATH);
+    const account = process.env.CLOUDFLARE_ACCOUNT_ID || (await readWorkerConfig()).account_id;
+    const namespace = namespaces?.find(({ binding }) => binding === KV_BINDING)?.id;
+    if (namespace && account) {
+      const response = await request(
+        `https://api.cloudflare.com/client/v4/accounts/${account}/storage/kv/namespaces/${namespace}/values/${encodeURIComponent(KV_KEY)}`,
+        {
+          headers: { Authorization: `Bearer ${process.env.CLOUDFLARE_API_TOKEN}` },
+          signal: AbortSignal.timeout(15_000),
+        },
+      );
+      if (response.status === 404) return null;
+      if (response.ok) {
+        const raw = await response.text();
+        try {
+          return normalizeChangelogPayload(JSON.parse(raw), {
+            requireServerTime: false,
+            strictItems: true,
+          });
+        } catch {
+          console.warn("远端更新日志格式无效，将以已部署网站的 Markdown 数据为准。");
+          return null;
+        }
+      }
+    }
   }
+
+  try {
+    const raw = await run(
+      ["wrangler", "kv", "key", "get", KV_KEY, "--binding", KV_BINDING, "--remote", "--config", CONFIG_PATH, "--text"],
+      { capture: true },
+    );
+    if (raw) {
+      return normalizeChangelogPayload(JSON.parse(raw), {
+        requireServerTime: false,
+        strictItems: true,
+      });
+    }
+  } catch {
+    try {
+      const response = await request(`${PUBLIC_ENDPOINT}?publish=${Date.now()}`, {
+        cache: "no-store",
+        headers: { Accept: "application/json" },
+        signal: AbortSignal.timeout(6000),
+      });
+      if (response.ok) {
+        return normalizeChangelogPayload(await response.json(), {
+          requireServerTime: false,
+          strictItems: true,
+        });
+      }
+    } catch {
+      // 公开接口回退仍不可用时，交由下方统一抛出明确的配置缺失错误。
+    }
+  }
+
+  throw new Error("缺少更新日志 KV 配置或 Workers Builds API Token，且无法通过 Wrangler 读取。");
 }
 
 const releaseMap = (items) => new Map(items.map((item) => [item.version, item]));
@@ -139,20 +152,6 @@ const diffPayloads = (localItems, remoteItems) => {
   };
 };
 
-const printDiff = ({ added, changed, removed }) => {
-  const print = (symbol, label, items) => {
-    if (!items.length) return;
-    console.log(`\n${label}（${items.length}）`);
-    items.forEach((item) => console.log(`  ${symbol} ${item.version} · ${item.summary}`));
-  };
-  print("+", "新增", added);
-  print("~", "修改", changed);
-  print("-", "移除", removed);
-  if (!added.length && !changed.length && !removed.length) {
-    console.log("更新日志内容已与网站一致。");
-  }
-};
-
 const verifyPublicEndpoint = async (expected, request) => {
   try {
     const response = await request(`${PUBLIC_ENDPOINT}?publish=${Date.now()}`, {
@@ -160,8 +159,9 @@ const verifyPublicEndpoint = async (expected, request) => {
       headers: { Accept: "application/json" },
       signal: AbortSignal.timeout(6000),
     });
-    return response.ok && sameChangelog(expected, validateChangelogPayload(await response.json(), {
-      requireServerTime: true, source: "公开接口",
+    return response.ok && sameChangelog(expected, normalizeChangelogPayload(await response.json(), {
+      requireServerTime: true,
+      strictItems: true,
     }));
   } catch {
     return false;
@@ -172,7 +172,10 @@ export const publishAllReleases = async ({ dryRun }) => {
   if (!dryRun) throw new Error("更新日志只在正式网站部署验证后自动同步；可用 --dry-run 查看差异。");
   const local = createChangelogPayload(await readReleaseFiles({ allowDraftPlaceholders: true }));
   const remote = await getRemotePayload();
-  printDiff(diffPayloads(local.items, remote?.items || []));
+  printDiff(diffPayloads(local.items, remote?.items || []), {
+    formatItem: (item) => `${item.version} · ${item.summary}`,
+    emptyMessage: "更新日志内容已与网站一致。",
+  });
 };
 
 export async function publishReleaseChangelog(versionId,

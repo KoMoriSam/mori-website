@@ -319,7 +319,7 @@ import { useRoute } from "vue-router";
 
 import ContentPage from "@/components/layout/ContentPage.vue";
 import Renderer from "@/components/markdown/Renderer.vue";
-import { useChangelogStore } from "@/stores/changelogStore";
+import { useChangelogStore } from "@/stores/changelog";
 import { typeText } from "@/utils/type-changelog";
 
 const route = useRoute();

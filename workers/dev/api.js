@@ -2,9 +2,12 @@ import { WorkerEntrypoint } from "cloudflare:workers";
 import api from "../api.js";
 import { hash } from "../auth/crypto.js";
 import { json } from "../auth/http.js";
+import { buildCorsHeaders, resolveCorsOrigin } from "../lib/cors.js";
 import { commentPageSize, editPageSize, handleComments, replyPageSize } from "../github/comments.js";
 import { handleDiscussionCounts } from "../github/discussions.js";
-import { discussionScopes, initialReplyCount } from "../../shared/discussions.js";
+import { discussionScopes } from "../../shared/discussions.js";
+import { handleCommentAttachment } from "../github/comment-attachments.js";
+import { localAttachment, storeLocalAttachment } from "./comment-attachments.js";
 
 export { GameRoom } from "../api.js";
 
@@ -71,6 +74,18 @@ function importComment({ replies, ...comment }) {
   return { ...comment, replies: (replies?.nodes || []).map(importComment) };
 }
 
+function resolveThreadReplies(comment, query, viewer) {
+  if (/\breplies\s*\(\s*first:\s*1\s*\)\s*\{\s*totalCount\s*\}/.test(query)) {
+    return { totalCount: comment.replies.length };
+  }
+  const match = query.match(/\breplies\s*\(\s*first:\s*(\d+)\)/);
+  const limit = match ? Number(match[1]) : replyPageSize;
+  return connection(
+    comment.replies.map((reply) => commentFields(reply, viewer)),
+    limit,
+  );
+}
+
 // This in-process transport implements the GitHub operations the shared handlers call.
 function localGithub(env, repository, target, viewer) {
   const store = env.LOCAL_COMMENTS;
@@ -91,123 +106,184 @@ function localGithub(env, repository, target, viewer) {
   };
 
   return {
-    async graphql(query, variables) {
+    async graphql(query, variables = {}) {
       const operation = query.match(/\b(?:query|mutation)\s+(\w+)/)?.[1];
       const { id, after, before, cursor, input } = variables;
+
       switch (operation) {
         case "DiscussionRepository":
           return { repository: { id: repo.id, hasDiscussionsEnabled: true } };
+
         case "SearchDiscussion": {
           const thread = await targetThread();
           return { search: { nodes: thread ? [nodeFields(thread)] : [] } };
         }
+
         case "RecentDiscussions": {
           const thread = await targetThread();
           return { repository: { discussions: connection(thread ? [nodeFields(thread)] : [], 100, after) } };
         }
+
         case "CreateDiscussion": {
           const thread = {
-            id: await threadId(input.categoryId, input.title), title: input.title, url: target.url, locked: false,
-            repository: { id: input.repositoryId, isPrivate: false }, category: { id: input.categoryId }, comments: [],
+            id: await threadId(input.categoryId, input.title),
+            title: input.title,
+            url: target.url,
+            locked: false,
+            repository: { id: input.repositoryId, isPrivate: false },
+            category: { id: input.categoryId },
+            comments: [],
           };
           await save(thread);
           return { createDiscussion: { discussion: nodeFields(thread) } };
         }
+
         case "DiscussionCountPage": {
-          const page = await store.list({ prefix: threadKey(threadPrefix(variables.categoryId)), limit: 100, cursor: cursor || undefined });
+          const page = await store.list({
+            prefix: threadKey(threadPrefix(variables.categoryId)),
+            limit: 100,
+            cursor: cursor || undefined,
+          });
           const threads = await Promise.all(page.keys.map(({ name }) => store.get(name, "json")));
-          return { repository: {
-            id: repo.id, isPrivate: false,
-            discussions: {
-              nodes: threads.filter(Boolean).map((thread) => ({
-                id: thread.id, title: thread.title, comments: connection(thread.comments.map(replyCount), 100),
-              })),
-              pageInfo: { hasNextPage: !page.list_complete, endCursor: page.cursor },
+          return {
+            repository: {
+              id: repo.id,
+              isPrivate: false,
+              discussions: {
+                nodes: threads.filter(Boolean).map((thread) => ({
+                  id: thread.id,
+                  title: thread.title,
+                  comments: connection(thread.comments.map(replyCount), 100),
+                })),
+                pageInfo: { hasNextPage: !page.list_complete, endCursor: page.cursor },
+              },
             },
-          } };
+          };
         }
+
         case "DiscussionCommentCountPage": {
           const thread = target ? await targetThread() : await load(variables.discussionId);
           return { node: thread && { comments: connection(thread.comments.map(replyCount), 100, cursor) } };
         }
-      }
 
-      const thread = await targetThread();
-      if (!thread || (["DiscussionById", "DiscussionReactionPermission", "OldestComments", "NewestComments", "DiscussionHeatRanking", "TopComments"].includes(operation) && id !== thread.id))
-        return { node: null };
-      if (operation === "DiscussionById") return { node: nodeFields(thread) };
-      if (operation === "DiscussionReactionPermission") return { node: reactionFields(thread, viewer) };
-      if (operation === "DiscussionHeatRanking") {
-        const items = thread.comments.map((comment) => ({
-          id: comment.id, isMinimized: comment.isMinimized, ...reactionFields(comment, viewer), ...replyCount(comment),
-        }));
-        return { node: { id: thread.id, comments: connection(items, 100, after) } };
-      }
-      const threadReplies = (comment) => query.includes("replies(first: 1) { totalCount }")
-        ? { totalCount: comment.replies.length }
-        : connection(
-            comment.replies.map((reply) => commentFields(reply, viewer)),
-            query.includes(`replies(first: ${initialReplyCount})`) ? initialReplyCount : replyPageSize,
-          );
-      if (operation === "TopComments") {
-        return {
-          node: { ...nodeFields(thread), ...reactionFields(thread, viewer) },
-          nodes: variables.ids.map((id) => {
-            const comment = thread.comments.find((item) => item.id === id);
-            if (!comment) return null;
-            return {
-              ...commentFields(comment, viewer), discussion: { id: thread.id },
-              replies: threadReplies(comment),
-            };
-          }),
-        };
-      }
-      if (operation === "OldestComments" || operation === "NewestComments") {
-        const page = connection(thread.comments, commentPageSize, after, operation === "NewestComments");
-        return { node: {
-          ...nodeFields(thread), ...reactionFields(thread, viewer), comments: {
-            ...page, nodes: page.nodes.map((comment) => ({
-              ...commentFields(comment, viewer),
-              replies: threadReplies(comment),
-            })),
-          },
-        } };
-      }
-      const { comment, parent, siblings } = findComment(thread,
-        operation === "deleteDiscussionComment" ? input.id : id || input?.commentId || input?.subjectId || input?.replyToId,
-      );
-      if (operation === "DiscussionCommentEdits") {
-        if (!comment) return { node: null };
-        const edits = storedEdits(comment);
-        const end = before == null ? edits.length : Number(before);
-        const start = Math.max(0, end - editPageSize);
-        return { node: {
-          discussion: { id: thread.id },
-          isMinimized: comment.isMinimized,
-          userContentEdits: {
-            nodes: edits.slice(start, end),
-            pageInfo: { hasPreviousPage: start > 0, startCursor: String(start) },
-          },
-        } };
-      }
-      if (operation === "DiscussionCommentById" || operation === "DiscussionReplies") {
-        return { node: comment ? {
-          ...commentFields(comment, viewer), discussion: { id: thread.id }, replyTo: parent && { id: parent.id },
-          replies: connection(comment.replies.map((reply) => commentFields(reply, viewer)), replyPageSize, after),
-        } : null };
-      }
+        case "DiscussionById": {
+          const thread = await targetThread();
+          return { node: thread && id === thread.id ? nodeFields(thread) : null };
+        }
 
-      switch (operation) {
-        case "addDiscussionComment": {
-          const created = {
-            id: crypto.randomUUID(), body: input.body, createdAt: new Date().toISOString(),
-            author: { id: viewer.id, login: viewer.login || viewer.name, avatarUrl: viewer.avatarUrl }, replies: [],
+        case "DiscussionReactionPermission": {
+          const thread = await targetThread();
+          return { node: thread && id === thread.id ? reactionFields(thread, viewer) : null };
+        }
+
+        case "DiscussionHeatRanking": {
+          const thread = await targetThread();
+          if (!thread || id !== thread.id) return { node: null };
+          const items = thread.comments.map((comment) => ({
+            id: comment.id,
+            isMinimized: comment.isMinimized,
+            ...reactionFields(comment, viewer),
+            ...replyCount(comment),
+          }));
+          return { node: { id: thread.id, comments: connection(items, 100, after) } };
+        }
+
+        case "TopComments": {
+          const thread = await targetThread();
+          if (!thread || id !== thread.id) return { node: null };
+          return {
+            node: { ...nodeFields(thread), ...reactionFields(thread, viewer) },
+            nodes: variables.ids.map((commentId) => {
+              const comment = thread.comments.find((item) => item.id === commentId);
+              if (!comment) return null;
+              return {
+                ...commentFields(comment, viewer),
+                discussion: { id: thread.id },
+                replies: resolveThreadReplies(comment, query, viewer),
+              };
+            }),
           };
-          (input.replyToId ? comment.replies : thread.comments).push(created);
+        }
+
+        case "OldestComments":
+        case "NewestComments": {
+          const thread = await targetThread();
+          if (!thread || id !== thread.id) return { node: null };
+          const newest = operation === "NewestComments";
+          const page = connection(thread.comments, commentPageSize, after, newest);
+          return {
+            node: {
+              ...nodeFields(thread),
+              ...reactionFields(thread, viewer),
+              comments: {
+                ...page,
+                nodes: page.nodes.map((comment) => ({
+                  ...commentFields(comment, viewer),
+                  replies: resolveThreadReplies(comment, query, viewer),
+                })),
+              },
+            },
+          };
+        }
+
+        case "DiscussionCommentEdits": {
+          const thread = await targetThread();
+          const { comment } = findComment(thread, id);
+          if (!comment) return { node: null };
+          const edits = storedEdits(comment);
+          const end = before == null ? edits.length : Number(before);
+          const start = Math.max(0, end - editPageSize);
+          return {
+            node: {
+              discussion: { id: thread.id },
+              isMinimized: comment.isMinimized,
+              userContentEdits: {
+                nodes: edits.slice(start, end),
+                pageInfo: { hasPreviousPage: start > 0, startCursor: String(start) },
+              },
+            },
+          };
+        }
+
+        case "DiscussionCommentById":
+        case "DiscussionReplies": {
+          const thread = await targetThread();
+          const { comment, parent } = findComment(thread, id);
+          return {
+            node: comment
+              ? {
+                  ...commentFields(comment, viewer),
+                  discussion: { id: thread.id },
+                  replyTo: parent && { id: parent.id },
+                  replies: connection(
+                    comment.replies.map((reply) => commentFields(reply, viewer)),
+                    replyPageSize,
+                    after,
+                  ),
+                }
+              : null,
+          };
+        }
+
+        case "addDiscussionComment": {
+          const thread = await targetThread();
+          const targetComment = input.replyToId ? findComment(thread, input.replyToId).comment : null;
+          const created = {
+            id: crypto.randomUUID(),
+            body: input.body,
+            createdAt: new Date().toISOString(),
+            author: { id: viewer.id, login: viewer.login || viewer.name, avatarUrl: viewer.avatarUrl },
+            replies: [],
+          };
+          (targetComment ? targetComment.replies : thread.comments).push(created);
           await save(thread);
           return { addDiscussionComment: { comment: commentFields(created, viewer) } };
         }
-        case "updateDiscussionComment":
+
+        case "updateDiscussionComment": {
+          const thread = await targetThread();
+          const { comment } = findComment(thread, input.commentId);
+          if (!comment) throw new Error("Comment not found");
           comment.edits = storedEdits(comment);
           comment.body = input.body;
           comment.lastEditedAt = new Date().toISOString();
@@ -216,31 +292,47 @@ function localGithub(env, repository, target, viewer) {
             editedAt: comment.lastEditedAt,
             editor: { login: viewer.login || viewer.name },
           });
-          break;
-        case "deleteDiscussionComment":
+          await save(thread);
+          return {};
+        }
+
+        case "deleteDiscussionComment": {
+          const thread = await targetThread();
+          const { comment, siblings } = findComment(thread, input.id);
+          if (!comment) throw new Error("Comment not found");
           siblings.splice(siblings.indexOf(comment), 1);
-          break;
+          await save(thread);
+          return {};
+        }
+
         case "addReaction":
         case "removeReaction": {
+          const thread = await targetThread();
+          const { comment } = input.subjectId ? findComment(thread, input.subjectId) : {};
           const subject = comment || thread;
           subject.reactions ||= {};
           const users = new Set(subject.reactions[input.content]);
           if (operation === "addReaction") users.add(viewer.id);
           else users.delete(viewer.id);
           subject.reactions[input.content] = [...users];
-          break;
+          await save(thread);
+          return {};
         }
+
         default:
           throw new Error(`Unsupported local GitHub operation: ${operation}`);
       }
-      await save(thread);
-      return {};
     },
   };
 }
 
 export class CommentsInternal extends WorkerEntrypoint {
   async handle(request, token, target) {
+    if (new URL(request.url).pathname === "/api/comments/attachments") {
+      return handleCommentAttachment(request, this.env, token, target, {
+        upload: (attachment) => storeLocalAttachment(this.env, new URL(request.url).origin, attachment),
+      });
+    }
     return handleComments(request, this.env, token, target, {
       createClient: (env, repository) => localGithub(env, repository, target),
       userGraphql: (viewer, query, variables) =>
@@ -252,7 +344,13 @@ export class CommentsInternal extends WorkerEntrypoint {
 export default {
   fetch(request, env, ctx) {
     const pathname = new URL(request.url).pathname.replace(/\/+$/, "");
-    if (pathname === "/github/discussions/counts") return handleDiscussionCounts(request, env, {}, localGithub);
+    if (pathname.startsWith("/comments/attachments/local/")) return localAttachment(request, env);
+    if (pathname === "/github/discussions/counts") {
+      const corsOrigin = resolveCorsOrigin(request, env);
+      const corsHeaders = buildCorsHeaders(corsOrigin);
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
+      return handleDiscussionCounts(request, env, corsHeaders, localGithub);
+    }
     if (pathname.startsWith("/github/") || pathname === "/random-hero") return json({}, 404);
     return api.fetch(request, env, ctx);
   },

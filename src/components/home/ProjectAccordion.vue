@@ -1,28 +1,29 @@
 <template>
   <div ref="root" class="min-w-0">
     <div class="space-y-3">
-      <CatalogCard
+      <CatalogAccordionCard
         v-for="item in visibleItems"
         :key="item.name"
-        expandable
-        :compact="selectedName !== item.name"
+        :expanded="selectedName === item.name"
         :group-name="groupName"
         :value="item.name"
+        :to="item.to || { name: item.name }"
         :title="translate(item.titleKey)"
         title-tag="h4"
         :description="translate(item.descriptionKey)"
-        :cover="item.cover || ''"
-        :icon="item.icon"
+        :cover="{
+          src: item.cover || '',
+          icon: item.icon,
+          sizes: '(min-width: 1280px) 560px, (min-width: 768px) 45vw, calc(100vw - 3rem)',
+        }"
         :tags="[...(item.categoryKey ? [translate(item.categoryKey)] : []), ...(item.metadata || []).map(info => translate(info.labelKey))]"
         :action="translate(actionKey)"
-        :entry-to="item.to || { name: item.name }"
-        cover-sizes="(min-width: 1280px) 560px, (min-width: 768px) 45vw, calc(100vw - 3rem)"
         @select="selectItem(item.name)"
       >
         <template #meta>
           <CatalogMeta v-if="item.minPlayers != null" icon="ri-group-line" class="text-xs">{{ translate('games.playerRange', { min: item.minPlayers, max: item.maxPlayers }) }}</CatalogMeta>
         </template>
-      </CatalogCard>
+      </CatalogAccordionCard>
     </div>
     <router-link v-if="items.length > limit" :to="moreTo" class="btn btn-ghost btn-sm mt-3 w-full">{{ translate('home.workshop.viewMore') }}<i class="ri-arrow-right-line" aria-hidden="true"></i></router-link>
   </div>
@@ -32,7 +33,7 @@
 import { computed, ref, useId, watch } from 'vue';
 import { useLocale } from '@/i18n';
 import { useCardTransition } from '@/composables/home/useCardTransition';
-import CatalogCard from '@/components/interaction/navigation/CatalogCard.vue';
+import CatalogAccordionCard from '@/components/interaction/navigation/CatalogAccordionCard.vue';
 import CatalogMeta from '@/components/interaction/navigation/CatalogMeta.vue';
 
 const props = defineProps({

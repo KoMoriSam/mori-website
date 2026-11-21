@@ -3,12 +3,14 @@
     ref="card"
     :href="href"
     :title="label || repository"
-    :cover="preview?.coverUrl || ''"
-    icon="ri-github-fill"
+    :cover="{
+      src: preview?.coverUrl || '',
+      icon: 'ri-github-fill',
+      contain: true,
+    }"
     title-tag="div"
     class="not-prose @container/github-card font-sans"
-    compact
-    contain
+    layout="compact"
   >
     <template #title>
       <span class="flex min-w-0 items-start gap-(--md-component-gap)">
@@ -71,56 +73,79 @@
         class="grid min-h-[2lh] w-full min-w-0 grid-cols-2 gap-x-1.5 gap-y-0.5 @min-[30rem]/github-card:min-h-[1lh] @min-[30rem]/github-card:grid-cols-[minmax(0,1fr)_auto_auto]"
         :aria-busy="!previewSettled"
       >
-        <CatalogMeta
-          icon="ri-code-s-slash-line"
-          :title="preview?.language || t('common.language')"
-          class="col-span-2 @min-[30rem]/github-card:col-span-1 [&>span]:truncate"
+        <Tooltip
+          trigger-class="inline-flex"
+          placement="bottom"
+          align="start"
+          overflow-only
+          :text="preview?.language || t('common.language')"
+          class="col-span-2 @min-[30rem]/github-card:col-span-1"
         >
-          <span
-            v-if="!previewSettled"
-            class="loading loading-dots loading-xs"
-            aria-hidden="true"
-          ></span>
-          <template v-else>{{ preview?.language || "—" }}</template>
-        </CatalogMeta>
-        <CatalogMeta
-          icon="ri-star-line"
-          :title="t('markdown.repository.stars')"
-          class="tabular-nums [&>span]:truncate"
+          <CatalogMeta
+            icon="ri-code-s-slash-line"
+            class="[&>span]:truncate"
+          >
+            <span
+              v-if="!previewSettled"
+              class="loading loading-dots loading-xs"
+              aria-hidden="true"
+            ></span>
+            <template v-else>{{ preview?.language || "—" }}</template>
+          </CatalogMeta>
+        </Tooltip>
+        <Tooltip
+          trigger-class="inline-flex"
+          placement="bottom"
+          align="end"
+          :text="t('markdown.repository.stars')"
+          class="tabular-nums"
         >
-          <span
-            v-if="!previewSettled"
-            class="loading loading-dots loading-xs"
-            aria-hidden="true"
-          ></span>
-          <template v-else>{{
-            preview?.stars != null
-              ? compactNumberFormatter.format(preview.stars)
-              : "—"
-          }}</template>
-        </CatalogMeta>
-        <CatalogMeta
-          icon="ri-git-fork-line"
-          :title="t('markdown.repository.forks')"
-          class="tabular-nums [&>span]:truncate"
+          <CatalogMeta
+            icon="ri-star-line"
+            class="[&>span]:truncate"
+          >
+            <span
+              v-if="!previewSettled"
+              class="loading loading-dots loading-xs"
+              aria-hidden="true"
+            ></span>
+            <template v-else>{{
+              preview?.stars != null
+                ? compactNumberFormatter.format(preview.stars)
+                : "—"
+            }}</template>
+          </CatalogMeta>
+        </Tooltip>
+        <Tooltip
+          trigger-class="inline-flex"
+          placement="bottom"
+          align="end"
+          :text="t('markdown.repository.forks')"
+          class="tabular-nums"
         >
-          <span
-            v-if="!previewSettled"
-            class="loading loading-dots loading-xs"
-            aria-hidden="true"
-          ></span>
-          <template v-else>{{
-            preview?.forks != null
-              ? compactNumberFormatter.format(preview.forks)
-              : "—"
-          }}</template>
-        </CatalogMeta>
+          <CatalogMeta
+            icon="ri-git-fork-line"
+            class="[&>span]:truncate"
+          >
+            <span
+              v-if="!previewSettled"
+              class="loading loading-dots loading-xs"
+              aria-hidden="true"
+            ></span>
+            <template v-else>{{
+              preview?.forks != null
+                ? compactNumberFormatter.format(preview.forks)
+                : "—"
+            }}</template>
+          </CatalogMeta>
+        </Tooltip>
       </span>
     </template>
   </CatalogCard>
 </template>
 
 <script setup>
+import Tooltip from "@/components/display/Tooltip.vue";
 import { computed, ref, watch } from "vue";
 import { useElementVisibility } from "@vueuse/core";
 import CatalogCard from "@/components/interaction/navigation/CatalogCard.vue";

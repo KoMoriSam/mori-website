@@ -31,7 +31,6 @@
     <RangeController
       v-model="formattedValue"
       :step="step"
-      :places="places"
       :min="min"
       :max="max"
     />

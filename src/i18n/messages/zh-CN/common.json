@@ -529,17 +529,17 @@
     "editor": {
       "post": {
         "label": "发表评论",
-        "placeholder": "撰写评论",
+        "placeholder": "在此输入您的评论……",
         "submit": "发表评论"
       },
       "reply": {
         "label": "回复",
-        "placeholder": "撰写回复",
+        "placeholder": "在此输入您的回复……",
         "submit": "回复"
       },
       "edit": {
         "label": "编辑评论",
-        "placeholder": "撰写评论",
+        "placeholder": "在此编辑您的评论……",
         "submit": "更新评论"
       }
     },
@@ -549,7 +549,24 @@
     "preview": "预览",
     "expandEditor": "展开评论编辑器",
     "collapseEditor": "收起评论编辑器",
-    "markdownHelp": "支持使用 Markdown 排版",
+    "markdownHelp": "支持 Markdown 排版",
+    "attachments": "添加附件",
+    "attachmentMedia": "图片或视频",
+    "attachmentOther": "其他文件",
+    "attachmentUseGithub": "这些文件请在对应的 GitHub Discussion 上传：{files}",
+    "attachmentTooLarge": "文件超过允许大小",
+    "attachmentInvalid": "文件内容或格式不正确",
+    "attachmentRejected": "GitHub 拒绝了此文件",
+    "attachmentUnavailable": "站内上传暂不可用，请稍后重试",
+    "attachmentFailed": "附件上传失败，请重试",
+    "attachmentBodyTooLong": "正文空间不足，请缩短正文后重试插入，附件已上传",
+    "attachmentStatus": {
+      "queued": "等待上传",
+      "uploading": "正在上传",
+      "inserting": "正在插入",
+      "success": "已上传并插入正文",
+      "cancelled": "已取消"
+    },
     "cancel": "取消",
     "loadMoreComments": "加载更多…",
     "loadMoreReplies": "加载更多回复",

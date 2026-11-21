@@ -7,6 +7,10 @@ export const TRANSPORT_ICONS = {
   canal: "ri-ship-line",
   railway: "ri-train-line",
 };
+export const TRANSPORT_TONES = {
+  canal: "text-info",
+  railway: "text-success",
+};
 export function routeName(link, era, t) {
   return (
     t("fogport.transport." + linkKind(link, era)) +
@@ -23,11 +27,24 @@ export const ACTIONS = [
   "scout",
   "pass",
 ];
+export const CORE_ACTIONS = ["build", "network", "develop", "sell"];
 export const PLAYER_ICONS = [
   "ri-circle-fill",
   "ri-triangle-fill",
   "ri-square-fill",
   "ri-star-fill",
+];
+export const PLAYER_TONES = [
+  "text-primary",
+  "text-secondary",
+  "text-accent",
+  "text-info",
+];
+export const PLAYER_TILE_TONES = [
+  "fill-primary/10 stroke-primary",
+  "fill-secondary/10 stroke-secondary",
+  "fill-accent/10 stroke-accent",
+  "fill-info/10 stroke-info",
 ];
 export const INDUSTRY_ICONS = {
   cotton: "ri-t-shirt-line",

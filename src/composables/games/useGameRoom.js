@@ -1,13 +1,14 @@
 import { onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { fetchJson, normalizeEndpoint } from "@/services/http";
+import { isValidRoomCode } from "@/utils/games/validation";
 
-const ENDPOINT = (
+const ENDPOINT = normalizeEndpoint(
   import.meta.env.VITE_GAMES_API ||
-  (import.meta.env.PROD
-    ? "https://api.komori.cc/games/rooms"
-    : "/api/games/rooms")
-).replace(/\/+$/, "");
-const VALID_CODE = /^[A-HJ-NP-Z2-9]{8}$/;
+    (import.meta.env.PROD
+      ? "https://api.komori.cc/games/rooms"
+      : "/api/games/rooms"),
+);
 const MAX_RECONNECT_ATTEMPTS = 3;
 const key = (code) => `mori:games:room:${code}`;
 function commandId() {
@@ -67,27 +68,27 @@ export function useGameRoom(gameType) {
     }
   }
   async function request(path, body, token) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10_000);
     try {
-      const response = await fetch(ENDPOINT + path, {
-        method: "POST",
-        signal: controller.signal,
-        headers: {
-          ...(body ? { "Content-Type": "application/json" } : {}),
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        ...(body ? { body: JSON.stringify(body) } : {}),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "SERVER");
-      return data;
+      return (
+        (await fetchJson(ENDPOINT + path, {
+          method: "POST",
+          timeout: 10_000,
+          headers: {
+            ...(body ? { "Content-Type": "application/json" } : {}),
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          ...(body ? { body: JSON.stringify(body) } : {}),
+          errorMessage: (_status, data) => data?.error || "SERVER",
+        })) || {}
+      );
     } catch (cause) {
-      if (cause instanceof TypeError || cause.name === "AbortError")
+      if (
+        cause instanceof TypeError ||
+        cause?.name === "AbortError" ||
+        cause?.name === "TimeoutError"
+      )
         throw new Error("NETWORK");
       throw cause;
-    } finally {
-      clearTimeout(timeout);
     }
   }
   function cleanupConnection() {
@@ -293,7 +294,7 @@ export function useGameRoom(gameType) {
     busy.value = true;
     try {
       const roomCode = code.value.trim().toUpperCase();
-      if (join && !VALID_CODE.test(roomCode)) throw new Error("ROOM_CODE");
+      if (join && !isValidRoomCode(roomCode)) throw new Error("ROOM_CODE");
       if (join) {
         const saved = readCredentials(roomCode);
         if (saved) {
@@ -396,7 +397,7 @@ export function useGameRoom(gameType) {
         /* Optional convenience. */
       }
     }
-    if (!VALID_CODE.test(roomCode)) return;
+    if (!isValidRoomCode(roomCode)) return;
     code.value = roomCode;
     const saved = readCredentials(roomCode);
     if (saved) void enter(saved);
@@ -414,7 +415,7 @@ export function useGameRoom(gameType) {
       room.value = null;
       connection.value = "offline";
       code.value = roomCode;
-      if (VALID_CODE.test(roomCode)) {
+      if (isValidRoomCode(roomCode)) {
         credentials = readCredentials(roomCode);
         canReconnect.value = Boolean(credentials);
         if (credentials) void connect(epoch);

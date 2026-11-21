@@ -1,6 +1,7 @@
 import { cloneVNode, h } from "vue";
 import { RouterLink } from "vue-router";
 import { parseSanitizedMarkdownHtml } from "./sanitize-html.js";
+import { githubAttachmentPreview, isGithubAttachmentAsset, isLocalCommentAttachment } from "../../../shared/comment-attachments.js";
 import {
   getImageAttrs,
   restoreOriginalImage,
@@ -313,7 +314,7 @@ export const parseHtmlFragment = (html = "", anchorPrefix = "") => {
   return fragment;
 };
 
-const renderNode = (node, resolver, key, parent, router) => {
+const renderNode = (node, resolver, key, parent, router, resourceOverrides, Tooltip) => {
   if (node.nodeName === "#text") {
     let value = node.value || "";
     if (/[\u00a0\u202f]/u.test(value)) {
@@ -334,6 +335,36 @@ const renderNode = (node, resolver, key, parent, router) => {
   if (!node.tagName) return null;
 
   const props = getVNodeProps(node);
+  const imagePreview = node.tagName === "img" ? resourceOverrides?.get(props.src) : undefined;
+  if (typeof imagePreview === "string" && (imagePreview.startsWith("blob:") || githubAttachmentPreview(imagePreview)?.assetUrl === props.src)) {
+    props.src = imagePreview;
+    delete props.srcset;
+    if (!imagePreview.startsWith("blob:")) props.onError = () => resourceOverrides.refresh?.();
+  }
+  // GitHub inserts uploaded videos as a bare assets URL in its own paragraph.
+  // Named links and image elements continue through the existing rendering path.
+  if (node.tagName === "p" && getChildNodes(node).length === 1) {
+    const link = getChildNodes(node)[0];
+    const src = link.tagName === "a" && link.attrs?.find(({ name }) => name === "href")?.value;
+    const text = getChildNodes(link).filter((child) => child.nodeName === "#text").map((child) => child.value).join("");
+    const video = isGithubAttachmentAsset(src) || (import.meta.env?.DEV && isLocalCommentAttachment(src) && /\.(?:mp4|mov|webm)$/u.test(src));
+    if (video && text === src) {
+      const preview = resourceOverrides?.get(src);
+      const validPreview = typeof preview === "string" &&
+        (preview.startsWith("blob:") || githubAttachmentPreview(preview)?.assetUrl === src);
+      return h("video", {
+        key,
+        src: validPreview ? preview : src,
+        onError: () => resourceOverrides?.refresh?.(),
+        controls: true,
+        playsinline: true,
+        preload: "metadata",
+        class: "my-4 max-h-[70vh] w-full rounded-box",
+      }, [
+        h("a", { href: src, target: "_blank", rel: "noopener noreferrer" }, src),
+      ]);
+    }
+  }
   if (node.tagName === "ol") {
     props.style = [props.style, { "--md-ordered-marker-space": orderedMarkerSpace(node, props) }];
   }
@@ -355,10 +386,15 @@ const renderNode = (node, resolver, key, parent, router) => {
   } else if (linkType === "internal") {
     delete props.target;
   }
-  let children = getChildNodes(node)
-    .map((child, index) => renderNode(child, resolver, `${key}-${index}`, node, router))
+  const activation = props.class?.split(/\s+/u).filter((name) => /(?:^|:)tooltip$/u.test(name));
+  const tooltipContent = Tooltip && activation?.length && getChildNodes(node).find((child) =>
+    child.attrs?.some(({ name, value }) => name === "class" && value.split(/\s+/u).includes("tooltip-content")),
+  );
+  const triggerChildren = getChildNodes(node).filter((child) => child !== tooltipContent);
+  let children = triggerChildren
+    .map((child, index) => renderNode(child, resolver, `${key}-${index}`, node, router, resourceOverrides, Tooltip))
     .filter((child) => child !== null);
-  const firstChild = getChildNodes(node)[0];
+  const firstChild = triggerChildren[0];
   const favicon = linkType && (
     firstChild?.tagName === "markdown-link-icon" ||
     firstChild?.attrs?.some(({ name }) => name === "data-reader-link-icon")
@@ -386,6 +422,34 @@ const renderNode = (node, resolver, key, parent, router) => {
   if (resolved === false) return null;
   if (resolved !== undefined && resolved !== null) return resolved;
 
+  // Existing Markdown attributes and rich tooltip-content use the same component
+  // as the rest of the site; parsing and sanitization remain unchanged.
+  const renderElement = (tag, attrs) => {
+    if (!Tooltip || !activation?.length) {
+      return typeof tag === "string"
+        ? h(tag, { ...attrs, key }, children)
+        : h(tag, { ...attrs, key }, { default: () => children });
+    }
+    const { "data-tip": text, ...triggerAttrs } = attrs;
+    return h(Tooltip, {
+      ...triggerAttrs,
+      key,
+      as: tag,
+      text,
+      triggerClass: "",
+      activationClass: activation.join(" "),
+      contentTag: tooltipContent?.tagName,
+      contentAttrs: tooltipContent ? getVNodeProps(tooltipContent) : undefined,
+    }, {
+      default: () => children,
+      ...(tooltipContent ? {
+        "tooltip-content": () => getChildNodes(tooltipContent).map((child, index) =>
+          renderNode(child, resolver, `${key}-content-${index}`, tooltipContent, router, resourceOverrides, Tooltip),
+        ),
+      } : {}),
+    });
+  };
+
   const localTarget = scopedAnchorTargets.get(node);
   if (localTarget) {
     props.onClick = (event) => {
@@ -398,7 +462,7 @@ const renderNode = (node, resolver, key, parent, router) => {
       target.focus({ preventScroll: true });
       target.scrollIntoView({ block: "nearest", inline: "nearest" });
     };
-    return h(node.tagName, { ...props, key }, children);
+    return renderElement(node.tagName, props);
   }
 
   // The pagination engine places footnotes using their literal fragment URLs.
@@ -410,17 +474,16 @@ const renderNode = (node, resolver, key, parent, router) => {
     const { href, ...linkProps } = props;
     const base = new URL(router.currentRoute.value.fullPath, SITE_ORIGIN);
     const url = new URL(href, base);
-    return h(RouterLink, {
+    return renderElement(RouterLink, {
       ...linkProps,
-      key,
       to: url.pathname + url.search + url.hash,
-    }, { default: () => children });
+    });
   }
 
-  return h(node.tagName, { ...props, key }, children);
+  return renderElement(node.tagName, props);
 };
 
-export const renderHtmlFragment = (fragment, resolver, router) =>
+export const renderHtmlFragment = (fragment, resolver, router, resourceOverrides, Tooltip) =>
   (fragment?.childNodes || [])
-    .map((node, index) => renderNode(node, resolver, `markdown-node-${index}`, fragment, router))
+    .map((node, index) => renderNode(node, resolver, `markdown-node-${index}`, fragment, router, resourceOverrides, Tooltip))
     .filter((node) => node !== null);

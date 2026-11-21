@@ -1,8 +1,8 @@
 <template>
-  <div
-    class="tooltip tooltip-bottom"
+  <Tooltip as="div" trigger-class="" activation-class="tooltip"
+    class="tooltip-bottom"
     :class="mobileOnly ? 'lg:hidden' : ''"
-    :data-tip="title"
+    :text="title"
   >
     <button
       type="button"
@@ -12,7 +12,7 @@
     >
       <i class="ri-book-2-line" aria-hidden="true"></i>
     </button>
-  </div>
+  </Tooltip>
   <dialog
     :id="dialogId"
     ref="dialog"
@@ -53,6 +53,8 @@
   </dialog>
 </template>
 <script setup>
+import Tooltip from "@/components/display/Tooltip.vue";
+
 import { ref, useId } from "vue";
 import { useModalClose } from "@/composables/useModal";
 import { useLocale } from "@/i18n";

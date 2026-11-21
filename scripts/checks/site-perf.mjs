@@ -512,7 +512,7 @@ const runtime = await createServer({
   plugins: [{
     name: "performance-state-fixtures",
     load(id) {
-      if (id.endsWith("/src/stores/themeStore.js"))
+      if (id.endsWith("/src/stores/theme.js"))
         return 'export const useThemeStore = () => ({ resolvedTheme: "lemonade" });';
       if (id.endsWith("/src/composables/auth/useGithubSession.js"))
         return 'export const githubSession = { authenticated: false };';

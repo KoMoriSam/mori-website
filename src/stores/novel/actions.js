@@ -1,20 +1,29 @@
 import { watch } from "vue";
 import { moriSession } from "@/composables/auth/useMoriAuth";
-import { useTitle, useDebounceFn } from "@vueuse/core";
+import { useDebounceFn } from "@vueuse/core";
 
 import { useToast } from "@/composables/useToast";
 
 import { useChapterApi } from "@/services/api-chapters";
 
-// 章节正文不再按固定字数预分页。
-// import { splitMarkdown } from "@/utils/markdown/split-markdown";
 import { getChapterContextTitle } from "@/utils/novel/format-label";
 
 import CONFIG from "@/constants/config.js";
 import fm from "front-matter";
 
+export const isNovelReaderRoute = (route) =>
+  Boolean(route?.params?.volumeSlug && route?.params?.chapterSlug);
+
+const isValidChapterCatalog = (data) =>
+  Boolean(data) &&
+  typeof data === "object" &&
+  !Array.isArray(data) &&
+  Object.values(data).every(
+    (volume) => volume?.volumeInfo && Array.isArray(volume.chapters),
+  );
+
 export const useNovelActions = (state, getters) => {
-  const CACHE_EXPIRATION = CONFIG.getDynamicCacheExpiration();
+  const CACHE_EXPIRATION = CONFIG.CACHE_EXPIRATION;
   const { fetchChapters, fetchContent } = useChapterApi();
 
   const toast = useToast({ position: "center-top", closable: false });
@@ -123,11 +132,12 @@ export const useNovelActions = (state, getters) => {
   };
 
   const hydrateChapters = (data) => {
-    if (!data || typeof data !== "object" || Array.isArray(data)) return;
+    if (!isValidChapterCatalog(data)) return false;
 
     state.chapters.value = data;
     flatList(data);
     state.isLoadingList.value = false;
+    return true;
   };
 
   const resolveChapterUuidByPermalink = (volumeSlug, chapterSlug) => {
@@ -160,30 +170,7 @@ export const useNovelActions = (state, getters) => {
     );
   };
 
-  const isReaderRoute = () => {
-    if (typeof window === "undefined") return false;
-
-    const path = String(window.location?.pathname || "").replace(/\/+$/, "");
-    const segments = path.split("/").filter(Boolean);
-    const query = new URLSearchParams(String(window.location?.search || ""));
-
-    if (segments[0] !== "novel") {
-      return false;
-    }
-
-    if (segments.length >= 3) {
-      return true;
-    }
-
-    return Boolean(query.get("chapter") || query.get("c"));
-  };
-
   const setRead = () => {
-    if (!isReaderRoute()) {
-      console.log("setRead: not in Reader component, skipping");
-      return;
-    }
-
     if (!getters.currentChapter.value) return;
 
     const chapterSet = new Set(
@@ -194,70 +181,81 @@ export const useNovelActions = (state, getters) => {
         ...state.readChapters.value,
         getters.currentChapter.value,
       ];
-      console.log("setRead: new read", getters.currentChapter.value.title);
-    } else {
-      console.log("setRead: already read", getters.currentChapter.value.title);
     }
   };
 
   // 章节相关操作
-  const setChapters = useDebounceFn(async (forceUpdate = false) => {
+  let chaptersRequest = null;
+
+  const setChapters = async (forceOrOptions = false, options = {}) => {
+    const force =
+      typeof forceOrOptions === "object" && forceOrOptions !== null
+        ? Boolean(forceOrOptions.force)
+        : Boolean(forceOrOptions);
+    const silent =
+      typeof forceOrOptions === "object" && forceOrOptions !== null
+        ? Boolean(forceOrOptions.silent)
+        : Boolean(options.silent);
+
     const now = Date.now();
-    const hasCachedRouteCodes = hasRouteCodes(state.storedChapters.value);
-
-    if (
-      !forceUpdate &&
-      Object.keys(state.storedChapters.value).length > 0 &&
+    const cached = state.storedChapters.value;
+    const hasCachedChapters =
+      isValidChapterCatalog(cached) && Object.keys(cached).length > 0;
+    const isCacheFresh =
+      hasCachedChapters &&
       now - state.lastUpdated.value < CACHE_EXPIRATION &&
-      hasCachedRouteCodes
-    ) {
-      console.log("setChapters: Call cache");
-      state.chapters.value = state.storedChapters.value;
-      flatList(state.storedChapters.value);
-      state.isLoadingList.value = false;
-      if (state.currentChapterContent.value.length === 0) {
-        await loadChapterContent();
+      hasRouteCodes(cached);
+
+    if (!force && hasCachedChapters) {
+      if (!state.flatChapters.value.length || isCacheFresh) {
+        hydrateChapters(cached);
       }
-      return;
+      if (isCacheFresh) {
+        return true;
+      }
     }
 
-    const loadingToast = toast.loading("章节目录加载中……");
+    if (chaptersRequest) return chaptersRequest;
 
-    try {
-      state.isLoadingList.value = true;
-      const data = await fetchChapters();
-      state.chapters.value = data;
-      state.storedChapters.value = state.chapters.value;
-      state.lastUpdated.value = now;
-      flatList(data);
-      if (forceUpdate) {
-        console.log("setChapters: Force update");
-        loadingToast.success("章节目录已刷新！");
-      } else {
-        console.log("setChapters: First loading");
-        loadingToast.success("章节目录加载完成！");
-      }
-      if (state.currentChapterContent.value.length === 0) {
-        await loadChapterContent();
-      }
-    } catch (error) {
-      console.error("章节目录加载失败:", error);
-      loadingToast.error("章节目录加载失败！");
-    } finally {
-      state.isLoadingList.value = false;
-    }
-  }, 500);
+    const loadingToast = silent ? null : toast.loading("章节目录加载中……");
+    state.isLoadingList.value = true;
+
+    chaptersRequest = fetchChapters({ force })
+      .then((data) => {
+        if (!isValidChapterCatalog(data)) {
+          throw new Error("Invalid novel index");
+        }
+        hydrateChapters(data);
+        state.storedChapters.value = data;
+        state.lastUpdated.value = Date.now();
+        if (loadingToast) {
+          loadingToast.success(
+            force ? "章节目录已刷新！" : "章节目录加载完成！",
+          );
+        }
+        return true;
+      })
+      .catch((error) => {
+        console.error("章节目录加载失败:", error);
+        loadingToast?.error("章节目录加载失败！");
+        return false;
+      })
+      .finally(() => {
+        state.isLoadingList.value = false;
+        chaptersRequest = null;
+      });
+
+    return chaptersRequest;
+  };
 
   const refreshChapters = useDebounceFn(async () => {
     await setChapters(true);
     state.contentCache.value = {};
-    await loadChapterContent(true);
   }, 500);
 
-  const refreshReadChapters = useDebounceFn(async () => {
+  const refreshReadChapters = useDebounceFn(() => {
     state.readChapters.value = [];
     toast.success("已清空阅读记录！");
-    await loadChapterContent(true);
   }, 500);
 
   // 内容相关操作
@@ -339,73 +337,31 @@ export const useNovelActions = (state, getters) => {
   };
 
   const refreshContent = useDebounceFn(async () => {
-    try {
-      state.isLoadingContent.value = true;
-      const { [state.currentChapterUuid.value]: _removed, ...rest } =
-        state.contentCache.value;
-      state.contentCache.value = rest;
-      console.log("refreshContent: Clear cache");
-      await loadChapterContent(true);
-
-      console.log("refreshContent: Reload content");
-    } catch (error) {
-      console.error("刷新内容失败:", error);
-      toast.error("刷新内容失败！");
-      throw error;
-    } finally {
-      state.isLoadingContent.value = false;
-    }
+    const { [state.currentChapterUuid.value]: _removed, ...rest } =
+      state.contentCache.value;
+    state.contentCache.value = rest;
+    await loadChapterContent(true);
   }, 500);
-
-  const getChapterPageCount = async (uuid) => {
-    if (!moriSession.canReadNovel) return 1;
-    const chapterUuid = String(uuid || "");
-    const cachedContent = normalizeChapterContent(
-      state.contentCache.value[chapterUuid],
-    );
-    if (cachedContent.trim()) return 1;
-
-    const chapter = state.flatChapters.value.find(
-      (item) => item.uuid === chapterUuid,
-    );
-    if (!chapter?.path) return 1;
-
-    const markdownRaw = await fetchContent(chapter.path);
-    const { body: content } = fm(markdownRaw);
-    // const parsedContent = splitMarkdown(content);
-    const parsedContent = content;
-
-    state.contentCache.value = {
-      ...state.contentCache.value,
-      [chapterUuid]: parsedContent,
-    };
-
-    return 1;
-  };
 
   // 阅读进度相关操作
   const setChapter = useDebounceFn(async (uuid) => {
     const chapterUuid = String(uuid || "");
     state.currentChapterUuid.value = chapterUuid;
-    console.log("setChapter:", chapterUuid);
     await loadChapterContent(false, chapterUuid);
   }, 500);
 
   const setPage = useDebounceFn((page) => {
     state.currentChapterPage.value = page;
-    console.log("setPage:", page);
   }, 500);
 
-  const updateTitle = () => {
-    if (!isReaderRoute()) {
+  const updateTitle = (route) => {
+    if (!isNovelReaderRoute(route)) {
       state.title.value = "《向远方》 | 远方之森";
-      useTitle(state.title.value);
       return;
     }
 
     if (getters.currentChapter.value) {
       state.title.value = getChapterContextTitle(getters.currentChapter.value);
-      useTitle(state.title.value);
     }
   };
 
@@ -419,7 +375,6 @@ export const useNovelActions = (state, getters) => {
     // 内容操作
     loadChapterContent,
     refreshContent,
-    getChapterPageCount,
 
     // 阅读进度操作
     setChapter,

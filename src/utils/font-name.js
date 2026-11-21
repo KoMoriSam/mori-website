@@ -338,3 +338,60 @@ export function readLocalFontFaceWeight(style) {
   }
   return null;
 }
+
+const FONT_LANGUAGE_PREVIEWS = [
+  [
+    /sinhala|abhaya|gemunu|maname|nirmala|iskoola|potha|malithi|bhashitha|dinamina|lklug|^un[-_\s]/iu,
+    "සිංහල 123",
+    "si",
+  ],
+  [
+    /japanese|hiragino|meiryo|yu\s*(?:gothic|mincho)|noto\s*(?:sans|serif)\s*jp/iu,
+    "日本語 123",
+    "ja",
+  ],
+  [/korean|hangul|malgun|nanum|noto\s*(?:sans|serif)\s*kr/iu, "한글 123", "ko"],
+  [/arabic|naskh|kufi/iu, "عربي 123", "ar"],
+  [/devanagari|hindi/iu, "हिन्दी 123", "hi"],
+  [/bengali|bangla/iu, "বাংলা 123", "bn"],
+  [/tamil/iu, "தமிழ் 123", "ta"],
+  [/thai/iu, "ไทย 123", "th"],
+  [/hebrew/iu, "עברית 123", "he"],
+  [/cyrillic/iu, "Аа123", "ru"],
+  [/chinese|cjk|han\b|[\u3400-\u9fff]/iu, "中文 123", "zh"],
+];
+
+export function quoteFontFamily(family) {
+  return `"${String(family)
+    .replaceAll("\\", "\\\\")
+    .replaceAll('"', '\\"')
+    .replace(/[\n\r\f]/g, " ")}"`;
+}
+
+export function getFontLanguagePreview(font) {
+  if (font.previewText) {
+    return { text: font.previewText, language: font.previewLanguage || "" };
+  }
+  const name = [font.label, font.id].filter(Boolean).join(" ");
+  const match = FONT_LANGUAGE_PREVIEWS.find(([pattern]) => pattern.test(name));
+  return match
+    ? { text: match[1], language: match[2] }
+    : { text: "Aa123", language: "en" };
+}
+
+export function shouldShowFontPreview(font) {
+  return font?.previewFontFamily !== null || Boolean(font.previewText);
+}
+
+export function getFontPreviewStyle(font, sample = false) {
+  if (!font) return null;
+  if (sample && font.cssVariable) {
+    return { fontFamily: `var(${font.cssVariable})` };
+  }
+  const family = Object.hasOwn(font, "previewFontFamily")
+    ? font.previewFontFamily
+    : font.fontFamily;
+  return family || (sample && font.fontFamily)
+    ? { fontFamily: family || font.fontFamily }
+    : null;
+}

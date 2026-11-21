@@ -2,16 +2,18 @@
   <CatalogCard
     :to="article.routePath"
     :lang="article.lang"
-    :compact="!featured"
+    :layout="featured ? 'default' : 'compact'"
     :class="featured ? 'md:h-full' : ''"
     :title="article.title"
     title-tag="h3"
     :description="article.summary || ''"
-    :cover="article.banner || ''"
+    :cover="{
+      src: article.banner || '',
+      icon: 'ri-article-line',
+      sizes: '(min-width: 1280px) 600px, (min-width: 768px) 50vw, calc(100vw - 3rem)',
+    }"
     :tags="tags"
-    icon="ri-article-line"
     :action="featured ? translate('home.writing.read') : ''"
-    cover-sizes="(min-width: 1280px) 600px, (min-width: 768px) 50vw, calc(100vw - 3rem)"
   >
     <template #meta>
       <CatalogMeta
@@ -33,7 +35,8 @@ import { computed } from "vue";
 import { useLocale } from "@/i18n";
 import CatalogCard from "@/components/interaction/navigation/CatalogCard.vue";
 import CatalogMeta from "@/components/interaction/navigation/CatalogMeta.vue";
-import { formatArticleTag } from "@/composables/blog/useArticleFilter";
+import { formatArticleTag } from "@/utils/blog/article-fields";
+import { estimateReadingTime } from "@/utils/blog/reading-time";
 
 const props = defineProps({
   article: { type: Object, required: true },
@@ -43,8 +46,9 @@ const { t: translate, date } = useLocale();
 const tags = computed(() =>
   (props.article.tags || []).slice(0, 2).map(formatArticleTag),
 );
-const readingTime = computed(() => {
-  const length = Number(props.article.length);
-  return length > 0 ? Math.max(1, Math.ceil(length / 300)) : null;
-});
+const readingTime = computed(() =>
+  Number(props.article.length) > 0
+    ? estimateReadingTime(props.article.length)
+    : null,
+);
 </script>

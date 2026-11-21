@@ -5,7 +5,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { build, createServer } from "vite";
 import vue from "@vitejs/plugin-vue";
-import { createSSRApp } from "vue";
+import { createSSRApp, ref } from "vue";
 import { renderToString } from "vue/server-renderer";
 import { createPinia } from "pinia";
 import { createMemoryHistory, createRouter } from "vue-router";
@@ -26,19 +26,15 @@ try {
   await writeFile(path.join(dist, ".vite/ssr-manifest.json"), "build-only");
   await writeFile(path.join(dist, "licenses.html"), "licenses");
   await writeFile(path.join(dist, "licenses/index.html"), "licenses");
-  for (const bundle of ["pagefind", "pagefind-novel"]) {
-    for (const file of [...unused, ...retained]) {
-      const filename = path.join(dist, bundle, file);
-      await mkdir(path.dirname(filename), { recursive: true });
-      await writeFile(filename, file);
-    }
+  for (const file of [...unused, ...retained]) {
+    const filename = path.join(dist, "pagefind", file);
+    await mkdir(path.dirname(filename), { recursive: true });
+    await writeFile(filename, file);
   }
   const result = await pruneBuildAssets(dist);
-  assert.equal(result.removed.length, unused.length * 2 + 2);
+  assert.equal(result.removed.length, unused.length + 2);
   assert.ok(result.bytes > 0);
-  for (const bundle of ["pagefind", "pagefind-novel"]) {
-    for (const file of retained) assert.equal(await readFile(path.join(dist, bundle, file), "utf8"), file);
-  }
+  for (const file of retained) assert.equal(await readFile(path.join(dist, "pagefind", file), "utf8"), file);
   assert.equal(await readFile(path.join(dist, "licenses.html"), "utf8"), "licenses");
   assert.deepEqual(await pruneBuildAssets(dist), { bytes: 0, removed: [] });
   await writeFile(path.join(dist, "licenses/index.html"), "different page");
@@ -93,7 +89,7 @@ try {
   assert.deepEqual(await sharp(Buffer.from(optimizedPng)).raw().toBuffer(), Buffer.from(pixels));
 
   const input = path.join(fixture, "entry.mjs");
-  await writeFile(input, 'export {default as encode} from "@jsquash/avif/encode"; export {optimise} from "@jsquash/oxipng"; export const worker=()=>new Worker(new URL("../worker.mjs",import.meta.url),{type:"module"});');
+  await writeFile(input, 'export {default as encode} from "@jsquash/avif/encode"; export {optimise} from "@jsquash/oxipng"; export const worker=()=>new Worker(new URL("./worker.mjs",import.meta.url),{type:"module"});');
   await writeFile(path.join(fixture, "worker.mjs"), 'import encode from "@jsquash/avif/encode"; import {optimise} from "@jsquash/oxipng"; self.onmessage=async({data})=>self.postMessage(data.kind==="avif"?await encode(data.image):await optimise(data.buffer));');
   const sizes = [];
   for (const optimized of [false, true]) {
@@ -129,7 +125,7 @@ try {
     ] });
     app.use(createPinia());
     app.use(router);
-    app.provide(LOCALE_SERVICE, { t: (key) => key, text: (value) => value });
+    app.provide(LOCALE_SERVICE, { locale: ref("zh-CN"), t: (key) => key, text: (value) => value });
     await router.push("/licenses");
     await router.isReady();
     const html = await renderToString(app);

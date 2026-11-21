@@ -1,6 +1,7 @@
 import { configure, apiConfig, authConfig, siteConfig, persist, workerPort } from "./config.mjs";
 import { seed } from "./seed.mjs";
 import { run } from "../lib/commands.mjs";
+import { runtimeEnvironment, sameOriginAssets } from "../lib/build-environment.mjs";
 
 const [mode, ...args] = process.argv.slice(2);
 let port = Number(process.env.MORI_DEV_PORT || 5173);
@@ -14,18 +15,13 @@ for (let index = 0; index < args.length; index++) {
 }
 if (!Number.isSafeInteger(port) || port < 1024 || port > 65535 || port === workerPort)
   throw new Error("Set MORI_DEV_PORT or --port to an unused local port");
-const env = Object.fromEntries(Object.entries(process.env).filter(([key]) =>
-  /^(?:PATH|PATHEXT|SYSTEMROOT|WINDIR|COMSPEC|USERPROFILE|LOCALAPPDATA|APPDATA|HOME|TEMP|TMP|TMPDIR|NODE_PATH|ESBUILD_BINARY_PATH|LD_LIBRARY_PATH|MINIFLARE_WORKERD_PATH)$/i.test(key),
-));
-Object.assign(env, {
+const env = {
+  ...runtimeEnvironment(),
   MORI_DEV_PORT: String(port),
   CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV: "false",
   WRANGLER_SEND_METRICS: "false",
-  VITE_GAMES_API: "/api/games/rooms",
-  VITE_ANALYTICS_API: "/api/analytics",
-  VITE_COMMENT_COUNTS_API: "/api/github/discussions/counts",
-  VITE_RANDOM_HERO_API: "/api/random-hero",
-});
+  ...sameOriginAssets(),
+};
 await configure(port);
 await seed(env, { force: mode === "seed" });
 if (mode === "seed") process.exit(0);

@@ -39,583 +39,91 @@
         </button>
       </div>
     </template>
+
     <section>
-      <div v-if="inputMode === 'document'" class="space-y-2">
-        <div class="flex flex-wrap items-center gap-2">
-          <hgroup class="min-w-0 flex flex-col items-start justify-between">
-            <h2 class="block font-serif text-lg font-bold">
-              {{ isDirectionReversed ? "Legacy" : "Unicode" }}
-            </h2>
-            <p class="text-xs text-base-content/55">
-              {{ translate("sinhala.sourceEncoding") }}
-            </p>
-          </hgroup>
-          <div
-            class="tooltip"
-            :data-tip="
-              translate(
-                'sinhala.swapShortcut',
-              )
-            "
-          >
-            <button
-              type="button"
-              class="btn btn-ghost btn-circle"
-              :aria-label="
-                translate(
-                  'sinhala.swap',
-                )
-              "
-              :title="
-                translate(
-                  'sinhala.swapShortcut',
-                )
-              "
-              :disabled="documentBusy"
-              @click="swapPanels"
-            >
-              <i
-                class="ri-arrow-left-right-line block text-lg"
-                aria-hidden="true"
-              ></i>
-            </button>
-          </div>
-          <hgroup class="min-w-0 flex flex-col items-start justify-between">
-            <h2 class="block font-serif text-lg font-bold">
-              {{ isDirectionReversed ? "Unicode" : "Legacy" }}
-            </h2>
-            <p class="text-xs text-base-content/55">
-              {{ translate("sinhala.targetEncoding") }}
-            </p>
-          </hgroup>
-        </div>
-        <div
-          class="card card-dash min-h-[170px] min-w-0 border-base-content bg-base-100 transition-colors lg:min-h-[234px] motion-reduce:transition-none"
-          :class="{
-            'border-base-content/50 bg-base-200/60': isDocumentDragging,
-          }"
-          @dragenter.prevent="isDocumentDragging = !documentBusy"
-          @dragover.prevent="isDocumentDragging = !documentBusy"
-          @dragleave.prevent="handleDocumentDragLeave"
-          @drop.prevent="handleDocumentDrop"
-        >
-          <div
-            class="card-body min-w-0 justify-center gap-4 p-4 sm:gap-5 sm:p-5 lg:p-6"
-          >
-            <div class="flex min-w-0 flex-col items-center gap-2 text-center">
-              <div
-                class="relative flex h-10 w-full min-w-0 items-center justify-center lg:h-12"
-              >
-                <span
-                  class="flex size-10 shrink-0 items-center justify-center rounded-box bg-base-200 text-xl lg:size-12 lg:text-2xl"
-                  aria-hidden="true"
-                >
-                  <i
-                    :class="
-                      isDocumentDragging
-                        ? 'ri-file-transfer-line'
-                        : documentFile
-                          ? documentIsPdf
-                            ? 'ri-file-pdf-2-fill text-error'
-                            : documentIsPptx
-                              ? 'ri-file-ppt-fill text-warning'
-                              : 'ri-file-word-fill text-info'
-                          : 'ri-file-add-line'
-                    "
-                  ></i>
-                </span>
-                <button
-                  v-if="documentFile"
-                  type="button"
-                  class="btn btn-xs group absolute bottom-0 left-[calc(50%+1rem)] h-auto min-h-6 max-w-[calc(50%-1rem)] gap-1 rounded-full border-base-100 bg-base-200 px-2 py-1 text-base-content/70 shadow-xs transition-colors duration-150 enabled:hover:bg-base-300 enabled:hover:text-base-content enabled:active:bg-base-300 active:scale-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary/50 disabled:opacity-50 motion-safe:enabled:active:translate-y-px motion-reduce:transition-none lg:left-[calc(50%+1.25rem)] lg:max-w-[calc(50%-1.25rem)]"
-                  :aria-label="
-                    translate('sinhala.changeFile')
-                  "
-                  :disabled="documentBusy"
-                  @click="documentUploadInput?.click()"
-                >
-                  <i
-                    class="ri-refresh-line shrink-0 text-sm transition-transform duration-150 motion-safe:group-enabled:group-hover:rotate-12 motion-reduce:transition-none"
-                    aria-hidden="true"
-                  ></i>
-                  <span
-                    class="min-w-0 whitespace-normal [overflow-wrap:anywhere]"
-                    >{{
-                      translate("sinhala.changeFileShort")
-                    }}</span
-                  >
-                </button>
-              </div>
-              <div v-if="documentFile" class="w-full min-w-0 space-y-1">
-                <p
-                  class="min-w-0 text-sm font-medium [overflow-wrap:anywhere] sm:text-base"
-                >
-                  {{ documentFile.name }}
-                </p>
-                <p
-                  role="status"
-                  aria-live="polite"
-                  aria-atomic="true"
-                  class="flex min-h-5 min-w-0 flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs text-base-content/55"
-                >
-                  <span
-                    class="badge badge-soft badge-xs shrink-0"
-                    :class="
-                      documentError
-                        ? 'badge-error'
-                        : documentResult
-                          ? 'badge-success'
-                          : ''
-                    "
-                    >{{ documentFileStatus }}</span
-                  >
-                  <span class="whitespace-nowrap">
-                    <template v-if="documentText"
-                      >{{ translate("sinhala.characterCount", { count: documentText.length }, documentText.length) }}</template
-                    >
-                    <template v-else>{{
-                      documentFile.name.split(".").pop()?.toUpperCase()
-                    }}</template>
-                  </span>
-                  <span
-                    v-if="documentReading || !documentError || documentText"
-                    class="inline-flex min-w-0 max-w-full items-center gap-1.5 [overflow-wrap:anywhere]"
-                  >
-                    <span
-                      v-if="documentReading"
-                      class="loading loading-spinner loading-xs shrink-0"
-                      aria-hidden="true"
-                    ></span>
-                    <span>{{ documentSourceStatus }}</span>
-                  </span>
-                </p>
-                <p
-                  v-if="documentError"
-                  role="alert"
-                  class="pt-1 text-sm text-error [overflow-wrap:anywhere]"
-                >
-                  {{ localizeText(documentError) }}
-                </p>
-              </div>
-              <div v-else class="min-w-0 space-y-1">
-                <h3 class="font-serif text-base font-bold lg:text-lg">
-                  {{
-                    translate(
-                      isDocumentDragging
-                        ? "common.dropHint"
-                        : "sinhala.dropHint",
-                    )
-                  }}
-                </h3>
-                <p class="text-xs text-base-content/60 sm:text-sm">
-                  {{
-                    translate(
-                      "sinhala.documentHint",
-                    )
-                  }}
-                </p>
-              </div>
-            </div>
-            <div
-              class="grid w-full min-w-0 max-w-full grid-cols-[minmax(0,1fr)] items-center gap-x-4 gap-y-2 self-center md:w-fit"
-              :class="{
-                'md:grid-cols-[minmax(0,max-content)_auto]': documentIsPdf,
-              }"
-            >
-              <template v-if="documentIsPdf">
-                <div
-                  class="col-start-1 row-start-1 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3"
-                >
-                  <label
-                    for="sinhala-pdf-format"
-                    class="min-w-0 text-xs font-medium"
-                    >{{
-                      translate(
-                        "sinhala.outputFormat",
-                      )
-                    }}</label
-                  >
-                  <label class="label min-w-0 cursor-pointer gap-1.5 text-xs">
-                    <input
-                      v-model="documentPdfAutomatic"
-                      type="checkbox"
-                      class="checkbox checkbox-xs shrink-0"
-                      :disabled="documentBusy || !documentText"
-                    />
-                    <span class="whitespace-normal [overflow-wrap:anywhere]">{{
-                      translate("sinhala.autoOutput")
-                    }}</span>
-                  </label>
-                </div>
-                <select
-                  id="sinhala-pdf-format"
-                  v-model="documentPdfSelectedFormat"
-                  class="select select-sm col-start-1 row-start-2 w-full min-w-0"
-                  :disabled="documentBusy || !documentText"
-                >
-                  <option value="docx">
-                    {{
-                      translate(
-                        "sinhala.docxOutput",
-                      )
-                    }}
-                  </option>
-                  <option value="pptx">
-                    {{
-                      translate(
-                        "sinhala.pptxOutput",
-                      )
-                    }}
-                  </option>
-                </select>
-              </template>
-              <button
-                v-if="documentResult"
-                type="button"
-                class="link link-primary link-hover text-xs"
-                :class="{ 'md:col-start-2 md:row-start-1': documentIsPdf }"
-                :disabled="!documentText.trim() || documentBusy"
-                @click="convertUploadedDocument"
-              >
-                <i class="ri-repeat-2-line" aria-hidden="true"></i>
-                {{ translate("sinhala.reconvertDocument") }}
-              </button>
-              <div
-                class="flex min-w-0 flex-wrap items-center justify-center gap-2 md:flex-nowrap"
-                :class="{
-                  'md:col-start-2 md:row-start-2 [&>.btn]:flex-1 md:[&>.btn]:flex-none':
-                    documentIsPdf,
-                }"
-              >
-                <button
-                  v-if="!documentFile"
-                  type="button"
-                  class="btn btn-primary btn-sm h-auto min-h-8 min-w-0 max-w-full whitespace-normal py-1"
-                  :disabled="documentBusy"
-                  @click="documentUploadInput?.click()"
-                >
-                  <i class="ri-folder-open-line" aria-hidden="true"></i>
-                  {{ translate("sinhala.chooseDocument") }}
-                </button>
-                <button
-                  v-if="documentFile && !documentResult"
-                  type="button"
-                  class="btn btn-sm h-auto min-h-8 min-w-0 max-w-full whitespace-normal py-1"
-                  :class="
-                    documentError && !documentText ? 'btn-ghost' : 'btn-primary'
-                  "
-                  :disabled="!documentText.trim() || documentBusy"
-                  @click="convertUploadedDocument"
-                >
-                  <span
-                    v-if="documentConverting"
-                    class="loading loading-spinner loading-xs"
-                    aria-hidden="true"
-                  ></span>
-                  <i v-else class="ri-repeat-2-line" aria-hidden="true"></i>
-                  {{
-                    translate(
-                      documentConverting
-                        ? "sinhala.converting"
-                        : documentHasConverted ||
-                            (documentError && documentText)
-                          ? "sinhala.reconvertDocument"
-                          : "sinhala.convertDocument",
-                    )
-                  }}
-                </button>
-                <a
-                  v-if="documentResult"
-                  class="btn btn-primary btn-sm h-auto min-h-8 min-w-0 max-w-full whitespace-normal py-1"
-                  :href="documentResult.url"
-                  :download="documentResult.filename"
-                >
-                  <i class="ri-download-line" aria-hidden="true"></i>
-                  {{
-                    translate(
-                      documentResult.format === "pptx"
-                        ? "sinhala.downloadPptx"
-                        : "sinhala.downloadDocx",
-                    )
-                  }}
-                </a>
-              </div>
-            </div>
-            <input
-              id="sinhala-document-upload"
-              ref="documentUploadInput"
-              type="file"
-              accept=".doc,.ppt,.docx,.pptx,.pdf,application/msword,application/vnd.ms-powerpoint,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation"
-              class="sr-only"
-              :disabled="documentBusy"
-              tabindex="-1"
-              @change="handleDocumentSelection"
-            />
-          </div>
-        </div>
-      </div>
+      <DocumentDropzone
+        v-if="inputMode === 'document'"
+        v-model:pdf-automatic="documentPdfAutomatic"
+        v-model:pdf-selected-format="documentPdfSelectedFormat"
+        :is-direction-reversed="isDirectionReversed"
+        :document="documentView"
+        @swap="swapPanels"
+        @select-file="setDocumentFile"
+        @convert="convertUploadedDocument"
+      />
+
       <div
         v-show="inputMode === 'text'"
         class="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:gap-x-2"
       >
-        <section
-          class="min-w-0 space-y-2"
-          :class="isDirectionReversed ? 'order-3' : 'order-1'"
+        <ConversionPane
+          ref="unicodePaneRef"
+          side="unicode"
+          :is-input="!isDirectionReversed"
+          :font="unicodeFont"
+          :character-count="unicodeText.length"
+          :has-text="hasText"
+          :clipboard-status="clipboardStatusFor('unicode')"
+          :downloading="downloadingField === 'unicode'"
+          :encoding-suggestion="encodingSuggestion"
+          @select-font="onUnicodeFontSelected"
+          @toggle-bold="toggleUnicodeBold"
+          @scroll="syncTextScroll('unicode')"
+          @clear="clearText"
+          @copy="handleCopy('unicode')"
+          @paste="handlePaste('unicode')"
+          @download="handleDownload('unicode')"
+          @apply-suggestion="applyEncodingSuggestion"
         >
           <div
-            class="min-w-0 flex flex-wrap items-center justify-between gap-2"
-          >
-            <hgroup class="min-w-0">
-              <h2 class="block font-serif text-lg font-bold">
-                {{ translate("sinhala.unicodeText") }}
-              </h2>
-              <p class="text-xs text-base-content/55">
-                {{
-                  translate(
-                    "sinhala.unicodeLabel",
-                  )
-                }}
-              </p>
-            </hgroup>
-            <div class="flex min-w-0 shrink-0 items-end gap-2">
-              <label class="label block text-xs w-24 sm:w-42">
-                {{ translate("common.fontSelect.font") }}
-                <FontSelect
-                  ref="unicodeFontSelect"
-                  v-model="unicodeFontId"
-                  v-model:fallback-font-id="unicodeFallbackFontId"
-                  :website-fonts="unicodeWebsiteFonts"
-                  :uploaded-preview-text="sinhalaFontPreviewText"
-                  uploaded-preview-language="si"
-                  :local-preview-text="sinhalaFontPreviewText"
-                  local-preview-language="si"
-                  local-font-coverage="sinhala-unicode"
-                  size="xs"
-                  :aria-label="
-                    translate('sinhala.unicodeFont')
-                  "
-                  @select="onUnicodeFontSelected"
-                />
-              </label>
-              <div
-                class="tooltip"
-                :data-tip="translate('sinhala.bold')"
-              >
-                <button
-                  type="button"
-                  class="btn btn-ghost btn-square btn-sm"
-                  :class="{ 'btn-active': unicodeBold }"
-                  :aria-pressed="unicodeBold"
-                  :aria-label="
-                    translate('sinhala.unicodeBold')
-                  "
-                  :title="
-                    translate('sinhala.unicodeBold')
-                  "
-                  @click="toggleUnicodeBold"
-                >
-                  <i
-                    class="ri-bold"
-                    :class="{ 'font-bold!': unicodeBold }"
-                    aria-hidden="true"
-                  ></i>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div
-            ref="unicodeFieldEl"
-            class="textarea relative flex w-full flex-col p-0 [overflow-anchor:none] lg:w-[calc(100%+1.5rem)]"
+            id="sinhala-unicode-text"
+            ref="unicodeInput"
+            role="textbox"
+            tabindex="0"
+            aria-multiline="true"
+            :aria-label="translate('sinhala.unicodeText')"
+            class="min-h-32 w-full whitespace-pre-wrap wrap-break-word bg-transparent px-3 py-2 font-abhaya text-lg leading-7 outline-none empty:after:pointer-events-none empty:after:font-serif empty:after:text-base-content/40 empty:after:content-[attr(data-placeholder)] lg:min-h-48"
             :class="{
-              'border-primary/25 bg-primary/5 lg:-ml-6 focus-within:outline-0 focus-within:outline-offset-0':
-                isDirectionReversed,
+              'before:float-right before:ml-2 before:h-8 before:w-8 before:content-[\'\']':
+                hasText && !isDirectionReversed,
+              'cursor-text': !isDirectionReversed,
             }"
-          >
-            <div
-              ref="unicodeViewportEl"
-              class="relative min-h-32 w-full overflow-y-auto lg:min-h-48"
-              @scroll.passive="syncTextScroll('unicode')"
-            >
-              <div
-                id="sinhala-unicode-text"
-                ref="unicodeInput"
-                role="textbox"
-                tabindex="0"
-                aria-multiline="true"
-                :aria-label="translate('sinhala.unicodeText')"
-                class="min-h-32 w-full whitespace-pre-wrap wrap-break-word bg-transparent px-3 py-2 font-abhaya text-lg leading-7 outline-none empty:after:pointer-events-none empty:after:font-serif empty:after:text-base-content/40 empty:after:content-[attr(data-placeholder)] lg:min-h-48"
-                :class="{
-                  'before:float-right before:ml-2 before:h-8 before:w-8 before:content-[\'\']':
-                    hasText && !isDirectionReversed,
-                  'cursor-text': !isDirectionReversed,
-                }"
-                :style="{
-                  fontFamily: unicodeFontFamily,
-                  fontWeight: unicodeBold ? 700 : 400,
-                  fontSize: unicodePreviewSize,
-                }"
-                :contenteditable="
-                  isDirectionReversed ? 'false' : 'plaintext-only'
-                "
-                :aria-readonly="isDirectionReversed"
-                :data-placeholder="
-                  !isDirectionReversed
-                    ? translate(
-                        'sinhala.unicodePlaceholder',
-                      )
-                    : translate('sinhala.unicodePreview')
-                "
-                lang="si"
-                spellcheck="false"
-                @input="handleUnicodeEditableInput"
-                @compositionstart="isUnicodeComposing = true"
-                @compositionend="handleUnicodeCompositionEnd"
-              ></div>
+            :style="{
+              fontFamily: unicodeFont.family,
+              fontWeight: unicodeFont.bold ? 700 : 400,
+              fontSize: unicodeFont.previewSize,
+            }"
+            :contenteditable="
+              isDirectionReversed ? 'false' : 'plaintext-only'
+            "
+            :aria-readonly="isDirectionReversed"
+            :data-placeholder="
+              !isDirectionReversed
+                ? translate('sinhala.unicodePlaceholder')
+                : translate('sinhala.unicodePreview')
+            "
+            lang="si"
+            spellcheck="false"
+            @input="handleUnicodeEditableInput"
+            @compositionstart="isUnicodeComposing = true"
+            @compositionend="handleUnicodeCompositionEnd"
+          ></div>
+        </ConversionPane>
 
-              <label
-                v-if="hasText && !isDirectionReversed"
-                for="clear-text-1"
-                class="tooltip tooltip-left absolute right-2 top-2"
-                :data-tip="translate('sinhala.clearAll')"
-              >
-                <button
-                  type="button"
-                  id="clear-text-1"
-                  class="btn btn-ghost btn-circle btn-sm"
-                  :aria-label="translate('sinhala.clearAll')"
-                  :title="translate('sinhala.clearAll')"
-                  @click="clearText"
-                >
-                  <i class="ri-close-line" aria-hidden="true"></i>
-                </button>
-              </label>
-            </div>
-
-            <div
-              class="flex min-h-10 flex-wrap items-end justify-between gap-2 pt-0 p-2"
-            >
-              <section class="flex min-w-0 flex-wrap gap-2 items-center">
-                <label
-                  for="unicode-field-action"
-                  class="tooltip tooltip-right"
-                  :data-tip="
-                    isDirectionReversed
-                      ? copyLabel('unicode')
-                      : pasteLabel('unicode')
-                  "
-                >
-                  <button
-                    type="button"
-                    id="unicode-field-action"
-                    class="btn btn-ghost btn-circle btn-sm"
-                    :disabled="isDirectionReversed && !unicodeText"
-                    :aria-label="
-                      isDirectionReversed
-                        ? copyLabel('unicode')
-                        : pasteLabel('unicode')
-                    "
-                    :title="
-                      isDirectionReversed
-                        ? copyLabel('unicode')
-                        : pasteLabel('unicode')
-                    "
-                    @click="
-                      isDirectionReversed
-                        ? copyText('unicode')
-                        : pasteText('unicode')
-                    "
-                  >
-                    <i
-                      :class="
-                        isDirectionReversed
-                          ? copyIcon('unicode')
-                          : pasteIcon('unicode')
-                      "
-                      aria-hidden="true"
-                    ></i>
-                  </button>
-                </label>
-
-                <div
-                  v-if="isDirectionReversed"
-                  class="tooltip tooltip-right"
-                  :data-tip="
-                    translate('sinhala.unicodeDownload')
-                  "
-                >
-                  <button
-                    type="button"
-                    class="btn btn-ghost btn-circle btn-sm"
-                    :disabled="!unicodeText || downloadingField === 'unicode'"
-                    :aria-label="
-                      translate(
-                        'sinhala.unicodeDownload',
-                      )
-                    "
-                    :title="
-                      translate(
-                        'sinhala.unicodeDownload',
-                      )
-                    "
-                    @click="downloadDocument('unicode')"
-                  >
-                    <i class="ri-download-line" aria-hidden="true"></i>
-                  </button>
-                </div>
-
-                <span
-                  v-if="!isDirectionReversed && encodingSuggestion"
-                  role="alert"
-                  class="flex gap-2 items-center"
-                >
-                  <i
-                    class="ri-sparkling-2-fill text-primary text-lg"
-                    aria-hidden="true"
-                  ></i>
-                  <span class="min-w-0 text-sm text-pretty">
-                    {{ encodingSuggestion.message }}
-                  </span>
-                  <button
-                    type="button"
-                    class="link link-primary link-hover"
-                    @click="applyEncodingSuggestion"
-                  >
-                    {{ encodingSuggestion.actionLabel }}
-                  </button>
-                </span>
-              </section>
-
-              <span class="text-xs tabular-nums text-base-content/75">
-                {{ translate("sinhala.characterCount", { count: unicodeText.length }, unicodeText.length) }}
-              </span>
-            </div>
-          </div>
-        </section>
-
-        <label
+        <Tooltip
+          as="label"
+          trigger-class=""
+          activation-class="tooltip"
+          content-class="max-w-[calc(100vw-3rem)]"
           for="swap-direction"
-          class="tooltip before:max-w-[calc(100vw-3rem)] order-2 justify-self-center self-start md:mt-1.5"
-          :data-tip="
-            translate(
-              'sinhala.swapShortcut',
-            )
-          "
+          class="order-2 justify-self-center self-start md:mt-1.5"
+          :text="translate('sinhala.swapShortcut')"
         >
           <button
-            type="button"
             id="swap-direction"
+            type="button"
             class="btn btn-ghost btn-circle"
-            :aria-label="
-              translate(
-                'sinhala.swap',
-              )
-            "
-            :title="
-              translate(
-                'sinhala.swapShortcut',
-              )
-            "
+            :aria-label="translate('sinhala.swap')"
             @pointerdown.capture="captureControlViewport"
             @keydown.capture="captureControlViewport"
             @click="swapPanels"
@@ -625,271 +133,85 @@
               aria-hidden="true"
             ></i>
           </button>
-        </label>
+        </Tooltip>
 
-        <section
-          class="min-w-0 space-y-2"
-          :class="isDirectionReversed ? 'order-1' : 'order-3'"
+        <ConversionPane
+          ref="legacyPaneRef"
+          side="legacy"
+          :is-input="isDirectionReversed"
+          :font="legacyFont"
+          :controls-disabled="showLegacySource"
+          :character-count="fmText.length"
+          :has-text="hasText"
+          :clipboard-status="clipboardStatusFor('fm')"
+          :downloading="downloadingField === 'legacy'"
+          :encoding-suggestion="encodingSuggestion"
+          @select-font="onLegacyFontSelected"
+          @toggle-bold="toggleLegacyBold"
+          @scroll="syncTextScroll('legacy')"
+          @clear="clearText"
+          @copy="handleCopy('fm')"
+          @paste="handlePaste('fm')"
+          @download="handleDownload('legacy')"
+          @apply-suggestion="applyEncodingSuggestion"
         >
           <div
-            class="min-w-0 flex flex-wrap items-center justify-between gap-2"
-          >
-            <hgroup class="min-w-0">
-              <h2
-                id="sinhala-legacy-label"
-                class="font-serif text-lg font-bold"
-              >
-                {{ translate("sinhala.legacyText") }}
-              </h2>
-              <p class="text-xs text-base-content/55">
-                {{
-                  translate(
-                    "sinhala.legacyLabel",
-                  )
-                }}
-              </p>
-            </hgroup>
-            <div class="flex min-w-0 shrink-0 items-end gap-2">
-              <label class="label block text-xs w-24 sm:w-42">
-                {{ translate("common.fontSelect.font") }}
-                <FontSelect
-                  ref="legacyFontSelect"
-                  v-model="legacyFontId"
-                  v-model:fallback-font-id="legacyFallbackFontId"
-                  :website-fonts="legacyWebsiteFonts"
-                  :uploaded-preview-text="legacyFontPreviewText"
-                  uploaded-preview-language="si"
-                  :local-preview-text="legacyFontPreviewText"
-                  local-preview-language="si"
-                  local-font-coverage="sinhala-legacy"
-                  size="xs"
-                  :aria-label="
-                    translate('sinhala.legacyFont')
-                  "
-                  :disabled="showLegacySource"
-                  @select="onLegacyFontSelected"
-                />
-              </label>
-              <div
-                class="tooltip"
-                :data-tip="translate('sinhala.bold')"
-              >
-                <button
-                  type="button"
-                  class="btn btn-ghost btn-square btn-sm"
-                  :class="{ 'btn-active': legacyBold }"
-                  :aria-pressed="legacyBold"
-                  :aria-label="
-                    translate('sinhala.legacyBold')
-                  "
-                  :title="
-                    translate('sinhala.legacyBold')
-                  "
-                  :disabled="showLegacySource"
-                  @click="toggleLegacyBold"
-                >
-                  <i
-                    class="ri-bold"
-                    :class="{ 'font-bold!': legacyBold }"
-                    aria-hidden="true"
-                  ></i>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div
-            ref="fmFieldEl"
-            class="textarea relative flex w-full flex-col p-0 [overflow-anchor:none] lg:w-[calc(100%+1.5rem)]"
+            id="sinhala-fm-text-preview"
+            ref="fmPreviewInput"
+            role="textbox"
+            :contenteditable="
+              isDirectionReversed ? 'plaintext-only' : 'false'
+            "
+            :aria-readonly="!isDirectionReversed"
+            aria-multiline="true"
+            aria-labelledby="sinhala-legacy-label"
+            :data-placeholder="
+              showLegacySource
+                ? isDirectionReversed
+                  ? translate('sinhala.sourcePlaceholder')
+                  : translate('sinhala.sourcePreview')
+                : isDirectionReversed
+                  ? translate('sinhala.legacyPlaceholder')
+                  : translate('sinhala.legacyPreview')
+            "
+            class="min-h-32 w-full whitespace-pre-wrap wrap-break-word bg-transparent px-3 py-2 text-lg leading-7 empty:after:pointer-events-none empty:after:font-serif empty:after:text-base-content/40 empty:after:content-[attr(data-placeholder)] lg:min-h-48"
             :class="{
-              'border-primary/25 bg-primary/5 lg:-ml-6 focus-within:outline-0 focus-within:outline-offset-0':
-                !isDirectionReversed,
+              'before:float-right before:ml-2 before:h-8 before:w-8 before:content-[\'\']':
+                hasText && isDirectionReversed,
+              'cursor-text outline-none': isDirectionReversed,
+              'font-mono [font-variant-ligatures:none]': showLegacySource,
+              'empty:after:font-bold': legacyFont.bold && !showLegacySource,
             }"
-          >
-            <div
-              ref="fmViewportEl"
-              class="relative min-h-32 w-full overflow-y-auto lg:min-h-48"
-              @scroll.passive="syncTextScroll('legacy')"
+            :style="{
+              '--legacy-preview-font': legacyFont.family,
+              '--legacy-preview-non-sinhala-font':
+                legacyFont.nonSinhalaFontFamily,
+              '--legacy-preview-non-sinhala-weight':
+                legacyFont.bold || legacyFont.nonSinhalaBold ? 700 : 400,
+              '--legacy-preview-size': legacyFont.previewSize,
+              '--legacy-preview-weight': legacyFont.bold ? 700 : 400,
+            }"
+            lang="si"
+            spellcheck="false"
+            v-html="renderedFmPreviewHtml"
+            v-on="fmEditorHandlers"
+          ></div>
+
+          <template #toolbar-extra>
+            <label
+              class="label min-w-0 max-w-full whitespace-normal cursor-pointer gap-2 p-0"
             >
-              <div
-                id="sinhala-fm-text-preview"
-                ref="fmPreviewInput"
-                role="textbox"
-                :contenteditable="
-                  isDirectionReversed ? 'plaintext-only' : 'false'
-                "
-                :aria-readonly="!isDirectionReversed"
-                aria-multiline="true"
-                aria-labelledby="sinhala-legacy-label"
-                :data-placeholder="
-                  showLegacySource
-                    ? isDirectionReversed
-                      ? translate(
-                          'sinhala.sourcePlaceholder',
-                        )
-                      : translate(
-                          'sinhala.sourcePreview',
-                        )
-                    : isDirectionReversed
-                      ? translate(
-                          'sinhala.legacyPlaceholder',
-                        )
-                      : translate(
-                          'sinhala.legacyPreview',
-                        )
-                "
-                class="min-h-32 w-full whitespace-pre-wrap wrap-break-word bg-transparent px-3 py-2 text-lg leading-7 empty:after:pointer-events-none empty:after:font-serif empty:after:text-base-content/40 empty:after:content-[attr(data-placeholder)] lg:min-h-48"
-                :class="{
-                  'before:float-right before:ml-2 before:h-8 before:w-8 before:content-[\'\']':
-                    hasText && isDirectionReversed,
-                  'cursor-text outline-none': isDirectionReversed,
-                  'font-mono [font-variant-ligatures:none]': showLegacySource,
-                  'empty:after:font-bold': legacyBold && !showLegacySource,
-                }"
-                :style="{
-                  '--legacy-preview-font': legacyFontFamily,
-                  '--legacy-preview-non-sinhala-font':
-                    legacyNonSinhalaFontFamily,
-                  '--legacy-preview-non-sinhala-weight':
-                    legacyBold || legacyNonSinhalaBold ? 700 : 400,
-                  '--legacy-preview-size': legacyPreviewSize,
-                  '--legacy-preview-weight': legacyBold ? 700 : 400,
-                }"
-                lang="si"
-                spellcheck="false"
-                v-html="renderedFmPreviewHtml"
-                @focus="isFmPreviewEditing = true"
-                @blur="handleFmPreviewBlur"
-                @beforeinput="handleFmPreviewBeforeInput"
-                @input="handleFmPreviewInput"
-                @compositionstart="handleFmPreviewCompositionStart"
-                @compositionend="handleFmPreviewCompositionEnd"
-                @copy="handleFmPreviewCopy"
-                @cut="handleFmPreviewCut"
-                @paste="handleFmPreviewPaste"
-                @keydown="handleFmPreviewKeydown"
-              ></div>
-
-              <label
-                v-if="hasText && isDirectionReversed"
-                for="clear-text-2"
-                class="tooltip tooltip-left absolute right-2 top-2"
-                :data-tip="translate('sinhala.clearAll')"
-              >
-                <button
-                  type="button"
-                  id="clear-text-2"
-                  class="btn btn-ghost btn-circle btn-sm"
-                  :aria-label="translate('sinhala.clearAll')"
-                  :title="translate('sinhala.clearAll')"
-                  @click="clearText"
-                >
-                  <i class="ri-close-line" aria-hidden="true"></i>
-                </button>
-              </label>
-            </div>
-
-            <div
-              class="flex min-h-10 flex-wrap items-end justify-between gap-2 pt-0 p-2"
-            >
-              <section class="flex min-w-0 flex-wrap gap-2 items-center">
-                <label
-                  for="fm-field-action"
-                  class="tooltip tooltip-right"
-                  :data-tip="
-                    isDirectionReversed ? pasteLabel('fm') : copyLabel('fm')
-                  "
-                >
-                  <button
-                    type="button"
-                    id="fm-field-action"
-                    class="btn btn-ghost btn-circle btn-sm"
-                    :disabled="!isDirectionReversed && !fmText"
-                    :aria-label="
-                      isDirectionReversed ? pasteLabel('fm') : copyLabel('fm')
-                    "
-                    :title="
-                      isDirectionReversed ? pasteLabel('fm') : copyLabel('fm')
-                    "
-                    @click="
-                      isDirectionReversed ? pasteText('fm') : copyText('fm')
-                    "
-                  >
-                    <i
-                      :class="
-                        isDirectionReversed ? pasteIcon('fm') : copyIcon('fm')
-                      "
-                      aria-hidden="true"
-                    ></i>
-                  </button>
-                </label>
-
-                <div
-                  v-if="!isDirectionReversed"
-                  class="tooltip tooltip-right"
-                  :data-tip="
-                    translate('sinhala.legacyDownload')
-                  "
-                >
-                  <button
-                    type="button"
-                    class="btn btn-ghost btn-circle btn-sm"
-                    :disabled="!fmText || downloadingField === 'legacy'"
-                    :aria-label="
-                      translate('sinhala.legacyDownload')
-                    "
-                    :title="
-                      translate('sinhala.legacyDownload')
-                    "
-                    @click="downloadDocument('legacy')"
-                  >
-                    <i class="ri-download-line" aria-hidden="true"></i>
-                  </button>
-                </div>
-
-                <label
-                  class="label min-w-0 max-w-full whitespace-normal cursor-pointer gap-2 p-0"
-                >
-                  <input
-                    v-model="showLegacySource"
-                    type="checkbox"
-                    class="toggle toggle-sm"
-                    aria-controls="sinhala-fm-text-preview"
-                    @change="handleLegacySourceChange"
-                  />
-                  <span class="text-xs">{{
-                    translate("sinhala.showSource")
-                  }}</span>
-                </label>
-
-                <span
-                  v-if="isDirectionReversed && encodingSuggestion"
-                  role="alert"
-                  class="flex gap-2 items-center"
-                >
-                  <i
-                    class="ri-sparkling-2-fill text-primary text-lg"
-                    aria-hidden="true"
-                  ></i>
-                  <span class="min-w-0 text-sm text-pretty">
-                    {{ encodingSuggestion.message }}
-                  </span>
-                  <button
-                    type="button"
-                    class="link link-primary link-hover"
-                    @click="applyEncodingSuggestion"
-                  >
-                    {{ encodingSuggestion.actionLabel }}
-                  </button>
-                </span>
-              </section>
-
-              <span class="text-xs tabular-nums text-base-content/75">
-                {{ translate("sinhala.characterCount", { count: fmText.length }, fmText.length) }}
-              </span>
-            </div>
-          </div>
-        </section>
+              <input
+                v-model="showLegacySource"
+                type="checkbox"
+                class="toggle toggle-sm"
+                aria-controls="sinhala-fm-text-preview"
+                @change="handleLegacySourceChange"
+              />
+              <span class="text-xs">{{ translate("sinhala.showSource") }}</span>
+            </label>
+          </template>
+        </ConversionPane>
       </div>
 
       <p
@@ -899,192 +221,24 @@
         <I18nT keypath="sinhala.longText" tag="span" scope="global">
           <template #count>{{ sourceTextLength }}</template>
           <template #documentMode>
-            <button type="button" class="link link-primary" @click="inputMode = 'document'">{{ translate("sinhala.documentMode") }}</button>
+            <button
+              type="button"
+              class="link link-primary"
+              @click="inputMode = 'document'"
+            >
+              {{ translate("sinhala.documentMode") }}
+            </button>
           </template>
         </I18nT>
       </p>
 
-      <fieldset
-        class="mt-3 flex min-w-0 flex-wrap items-start gap-x-8 gap-y-4 [overflow-anchor:none] md:grid-cols-2"
+      <ConversionOptions
+        :options="conversionOptions"
+        :is-direction-reversed="isDirectionReversed"
         :disabled="inputMode === 'document' && documentConverting"
-        @pointerdown.capture="captureControlViewport"
-        @keydown.capture="captureControlViewport"
-      >
-        <div class="flex min-w-0 max-w-full flex-col gap-3">
-          <label
-            class="label min-w-0 max-w-full whitespace-normal cursor-pointer justify-start gap-3 p-0"
-          >
-            <input
-              v-model="preserveCurrentReducedForms"
-              type="checkbox"
-              class="toggle toggle-primary toggle-sm"
-              @change="handleConversionOptionsChange"
-            />
-            <OptionLabel
-              message-key="sinhala.preserveReduced"
-              sinhala="ව්‍යඤ්ජන නියෝජක සංකේත"
-            />
-          </label>
-
-          <div
-            v-if="!preserveCurrentReducedForms"
-            class="ms-4 flex min-w-0 max-w-full flex-col gap-3 border-s border-base-300 ps-6"
-          >
-            <label
-              class="label min-w-0 max-w-full whitespace-normal cursor-pointer justify-start gap-3 p-0"
-            >
-              <input
-                v-model="preserveYansaya"
-                type="checkbox"
-                class="toggle toggle-primary toggle-sm"
-                @change="handleConversionOptionsChange"
-              />
-              <OptionLabel
-                message-key="sinhala.yansaya"
-                sinhala="යංශය"
-              >
-                <template #glyph>
-                  <code
-                    class="font-[Noto_Sans_Sinhala] text-xs bg-base-200/50 border border-base-300 rounded-md px-1 py-0.25"
-                    >්‍ය</code
-                  >
-                </template>
-              </OptionLabel>
-            </label>
-
-            <label
-              class="label min-w-0 max-w-full whitespace-normal cursor-pointer justify-start gap-3 p-0"
-            >
-              <input
-                v-model="preserveRakaransaya"
-                type="checkbox"
-                class="toggle toggle-primary toggle-sm"
-                @change="handleConversionOptionsChange"
-              />
-              <OptionLabel
-                message-key="sinhala.rakaransaya"
-                sinhala="රකාරාංශය"
-              >
-                <template #glyph>
-                  <code
-                    class="font-[Noto_Sans_Sinhala] text-xs bg-base-200/50 border border-base-300 rounded-md px-1 py-0.25"
-                    >්‍ර</code
-                  >
-                </template>
-              </OptionLabel>
-            </label>
-
-            <label
-              class="label min-w-0 max-w-full whitespace-normal cursor-pointer justify-start gap-3 p-0"
-            >
-              <input
-                v-model="preserveRepaya"
-                type="checkbox"
-                class="toggle toggle-primary toggle-sm"
-                @change="handleConversionOptionsChange"
-              />
-              <OptionLabel
-                message-key="sinhala.repaya"
-                sinhala="රේඵය"
-              >
-                <template #glyph>
-                  <code
-                    class="font-[Noto_Sans_Sinhala] text-xs bg-base-200/50 border border-base-300 rounded-md px-1 py-0.25"
-                    >◌ර්‍</code
-                  >
-                </template>
-              </OptionLabel>
-            </label>
-          </div>
-        </div>
-
-        <label
-          v-if="!isDirectionReversed"
-          class="label min-w-0 max-w-full whitespace-normal cursor-pointer justify-start gap-3 p-0"
-        >
-          <input
-            v-model="compactDaForms"
-            type="checkbox"
-            class="toggle toggle-primary toggle-sm"
-            @change="handleConversionOptionsChange"
-          />
-          <OptionLabel
-            message-key="sinhala.compactDa"
-            sinhala="සංක්ෂිප්ත “ද” රූප"
-          />
-        </label>
-
-        <div class="flex min-w-0 max-w-full flex-col gap-3">
-          <label
-            class="label min-w-0 max-w-full whitespace-normal cursor-pointer justify-start gap-3 p-0"
-          >
-            <input
-              v-model="preserveCurrentConjuncts"
-              type="checkbox"
-              class="toggle toggle-primary toggle-sm"
-              @change="handleConversionOptionsChange"
-            />
-            <OptionLabel
-              message-key="sinhala.preserveConjuncts"
-              sinhala="බැඳි අකුරු"
-            />
-          </label>
-
-          <div
-            v-if="!preserveCurrentConjuncts"
-            class="ms-4 flex min-w-0 flex-col gap-3 border-s border-base-300 ps-6"
-          >
-            <label
-              v-for="category in ['common', 'rare']"
-              :key="category"
-              class="label min-w-0 max-w-full whitespace-normal cursor-pointer justify-start gap-3 p-0"
-            >
-              <input
-                v-model="unifiedConjuncts[category]"
-                type="checkbox"
-                class="toggle toggle-primary toggle-sm"
-                @change="handleConversionOptionsChange"
-              />
-              <OptionLabel
-                :message-key="`sinhala.${category}Conjuncts`"
-                :sinhala="
-                  category === 'common' ? 'සුලබ බැඳි අකුරු' : 'දුලබ බැඳි අකුරු'
-                "
-              />
-            </label>
-            <label
-              v-if="isDirectionReversed"
-              class="label min-w-0 max-w-full whitespace-normal cursor-pointer justify-start gap-3 p-0"
-            >
-              <input
-                v-model="useTouchingConjuncts"
-                type="checkbox"
-                class="toggle toggle-primary toggle-sm"
-                @change="handleConversionOptionsChange"
-              />
-              <OptionLabel
-                message-key="sinhala.touchingConjuncts"
-                sinhala="ස්පර්ශ රූප"
-              />
-            </label>
-          </div>
-        </div>
-
-        <label
-          class="label min-w-0 max-w-full whitespace-normal cursor-pointer justify-start gap-3 p-0"
-        >
-          <input
-            v-model="removePaliHalForms"
-            type="checkbox"
-            class="toggle toggle-primary toggle-sm"
-            @change="handleConversionOptionsChange"
-          />
-          <OptionLabel
-            message-key="sinhala.paliVowels"
-            sinhala="හල් කිරීම් ඉවත් කිරීම"
-          />
-        </label>
-      </fieldset>
+        @change="handleConversionOptionsChange"
+        @capture-viewport="captureControlViewport"
+      />
     </section>
 
     <Notes />
@@ -1096,113 +250,73 @@
 </template>
 
 <script setup>
-import { Translation as I18nT } from "vue-i18n";
-import { useLocale } from "@/i18n";
-const {
-  t: translate,
-  text: localizeText,
-  message: localeMessage,
-} = useLocale();
-
 import {
   computed,
   nextTick,
   onBeforeUnmount,
   onMounted,
+  reactive,
   ref,
-  shallowRef,
   watch,
 } from "vue";
+import { Translation as I18nT } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
-
+import Tooltip from "@/components/display/Tooltip.vue";
 import ContentPage from "@/components/layout/ContentPage.vue";
-import FontSelect from "@/components/interaction/controls/FontSelect.vue";
+import ConversionOptions from "@/components/tools/sinhala/ConversionOptions.vue";
+import ConversionPane from "@/components/tools/sinhala/ConversionPane.vue";
+import DocumentDropzone from "@/components/tools/sinhala/DocumentDropzone.vue";
 import Info from "@/components/tools/sinhala/Info.vue";
-import OptionLabel from "@/components/tools/sinhala/OptionLabel.vue";
 import Notes from "@/components/tools/sinhala/Notes.vue";
-import { createSinhalaDocx } from "@/utils/sinhala/create-docx";
-import { convertSinhalaDocx } from "@/utils/sinhala/convert-docx";
-import { readSinhalaDocument } from "@/utils/sinhala/read-document";
+import { useClipboardActions } from "@/composables/tools/sinhala/useClipboardActions";
+import { useContentEditableHistory } from "@/composables/tools/sinhala/useContentEditableHistory";
+import { useDocumentConversion } from "@/composables/tools/sinhala/useDocumentConversion";
+import { useSinhalaFonts } from "@/composables/tools/sinhala/useSinhalaFonts";
+import { useTextPaneLayout } from "@/composables/tools/sinhala/useTextPaneLayout";
+import { useLocale } from "@/i18n";
 import {
-  legacyFontPreviewText,
-  legacyWebsiteFonts,
-  sinhalaFontPreviewText,
-  unicodeWebsiteFonts,
-} from "@/utils/sinhala/fonts";
-import {
-  editablePlainText,
-  editableRange,
-  editableSelection,
-  restoreEditableSelection,
-} from "@/utils/sinhala/editor";
+  buildConjunctOptions,
+  buildUnicodeToFmOptions,
+  createDefaultConversionOptions,
+} from "@/utils/sinhala/conversion-options";
 import {
   detectSinhalaEncoding,
-  fmToUnicode,
   fmToUnicodePreservingNonSinhala,
   fmToUnicodeSegments,
-  unicodeToFm,
   unicodeToFmPreservingNonSinhala,
   unicodeToFmSegments,
 } from "@/utils/sinhala/converter";
+import {
+  editablePlainText,
+  restoreEditableSelection,
+} from "@/utils/sinhala/editor";
+
+const LONG_TEXT_THRESHOLD = 5000;
+
+const { t: translate } = useLocale();
+const route = useRoute();
+const router = useRouter();
 
 const unicodeText = ref("");
 const fmText = ref("");
-const unicodeFontId = ref("abhaya");
-const unicodeFallbackFontId = ref("abhaya");
-const unicodeFontFamily = ref("var(--font-abhaya)");
-const unicodePreviewSize = ref("");
-const unicodeBold = ref(false);
-const unicodeFontSelect = ref(null);
-let unicodeFontRequest = 0;
-let unicodeFontManuallySelected = false;
 const showLegacySource = ref(false);
-const legacyFontId = ref("abhaya-legacy");
-const legacyFallbackFontId = ref("abhaya-legacy");
-const legacyFontFamily = ref("var(--font-abhaya-legacy)");
-const legacyNonSinhalaFontFamily = ref('"STIX Two Text for Abhaya", serif');
-const legacyNonSinhalaBold = ref(false);
-const legacyPreviewSize = ref("100%");
-const legacyBold = ref(false);
-const legacyFontSelect = ref(null);
-let legacyFontRequest = 0;
-let legacyFontManuallySelected = false;
-const correspondingLegacyFontIds = {
-  abhaya: "abhaya-legacy",
-  gemunu: "gemunu-legacy",
-};
-const correspondingUnicodeFontIds = {
-  "abhaya-legacy": "abhaya",
-  "gemunu-legacy": "gemunu",
-};
+// Retain source-script provenance while a generated Unicode/Legacy pair only
+// changes position, so sequences such as `ys` remain associated with `හි`.
+const fmTextDerivedFromUnicode = ref(false);
+const textDirectionReversed = ref(false);
+const liveMessage = ref("");
+const conversionOptions = reactive(createDefaultConversionOptions());
 
-function onUnicodeFontSelected(fontId) {
-  unicodeFontManuallySelected = true;
-  if (!legacyFontManuallySelected && correspondingLegacyFontIds[fontId]) {
-    legacyFontId.value = correspondingLegacyFontIds[fontId];
-  }
-}
-
-function onLegacyFontSelected(fontId) {
-  legacyFontManuallySelected = true;
-  if (!unicodeFontManuallySelected && correspondingUnicodeFontIds[fontId]) {
-    unicodeFontId.value = correspondingUnicodeFontIds[fontId];
-  }
-}
+const unicodePaneRef = ref(null);
+const legacyPaneRef = ref(null);
 const unicodeInput = ref(null);
 const fmPreviewInput = ref(null);
-const unicodeViewportEl = ref(null);
-const fmViewportEl = ref(null);
 let isUnicodeComposing = false;
-const unicodeFieldEl = ref(null);
-const fmFieldEl = ref(null);
-const copiedField = ref("");
-const copyFailedField = ref("");
-const pastedField = ref("");
-const pasteFailedField = ref("");
-const liveMessage = ref("");
-const downloadingField = ref("");
-const route = useRoute();
-const router = useRouter();
+
+const announce = (message) => {
+  liveMessage.value = message;
+};
+
 const inputMode = computed({
   get: () => (route.query.mode === "document" ? "document" : "text"),
   set: (mode) => {
@@ -1210,98 +324,60 @@ const inputMode = computed({
     void router.replace({ query: { ...route.query, mode } });
   },
 });
-const documentFile = ref(null);
-const documentUploadInput = ref(null);
-const documentText = ref("");
-const documentSourceDocx = shallowRef(null);
-const documentPdfPages = shallowRef(null);
-const documentPdfFormat = ref("auto");
-const documentPdfSuggestedFormat = ref(null);
-const documentIsPdf = computed(() =>
-  Boolean(documentFile.value?.name.toLowerCase().endsWith(".pdf")),
-);
-const documentIsPptx = computed(() =>
-  Boolean(documentFile.value?.name.toLowerCase().endsWith(".pptx")),
-);
-const documentPdfOutputFormat = computed(() =>
-  documentPdfFormat.value === "auto"
-    ? documentPdfSuggestedFormat.value || "docx"
-    : documentPdfFormat.value,
-);
-const documentPdfSelectedFormat = computed({
-  get: () => documentPdfOutputFormat.value,
-  set: (format) => {
-    documentPdfFormat.value = format;
-  },
+
+const {
+  resizeAllTextareas,
+  scheduleTextareaResize,
+  cancelScheduledTextareaResize,
+  syncTextScroll,
+  captureControlViewport,
+  stabilizeControlViewport,
+} = useTextPaneLayout({
+  inputMode,
+  getPaneElements: () => ({
+    unicodeField: unicodePaneRef.value?.fieldEl,
+    unicodeViewport: unicodePaneRef.value?.viewportEl,
+    fmField: legacyPaneRef.value?.fieldEl,
+    fmViewport: legacyPaneRef.value?.viewportEl,
+  }),
 });
-const documentPdfAutomatic = computed({
-  get: () => documentPdfFormat.value === "auto",
-  set: (automatic) => {
-    documentPdfFormat.value = automatic
-      ? "auto"
-      : documentPdfOutputFormat.value;
-  },
+
+const {
+  unicodeFont,
+  legacyFont,
+  onUnicodeFontSelected,
+  onLegacyFontSelected,
+  toggleUnicodeBold,
+  toggleLegacyBold,
+  resolveLegacyDocumentFontPair,
+} = useSinhalaFonts({
+  unicodePaneRef,
+  legacyPaneRef,
+  unicodeText,
+  fmText,
+  onLayoutChange: scheduleTextareaResize,
+  announce,
 });
-const documentDetectedEncoding = ref(null);
-const documentError = ref("");
-const documentReading = ref(false);
-const documentReadStage = ref("reading");
-const documentConverting = ref(false);
-const documentBusy = computed(
-  () => documentReading.value || documentConverting.value,
-);
-const documentResult = ref(null);
-const documentHasConverted = ref(false);
-const documentDirectionReversed = ref(false);
-const documentDirectionManual = ref(false);
-const documentSourceStatus = computed(() => {
-  if (documentReading.value) {
-    const messages = {
-      reading: "readFile",
-      parsing: "parseFile",
-      detecting: "detectEncoding",
-    };
-    return translate(
-      `sinhala.${messages[documentReadStage.value]}`,
-    );
-  }
-  if (!documentText.value && documentError.value) {
-    return translate("sinhala.readFailed");
-  }
-  return documentDetectedEncoding.value
-    ? translate(
-        "sinhala.detectedEncoding",
-        {
-          p0:
-            documentDetectedEncoding.value === "legacy" ? "Legacy" : "Unicode",
-        },
-      )
-    : translate(
-        "sinhala.unknownEncoding",
-      );
+
+const {
+  documentView,
+  pdfAutomatic: documentPdfAutomatic,
+  pdfSelectedFormat: documentPdfSelectedFormat,
+  directionReversed: documentDirectionReversed,
+  directionManual: documentDirectionManual,
+  busy: documentBusy,
+  converting: documentConverting,
+  downloadingField,
+  setDocumentFile,
+  convertUploadedDocument,
+  downloadTextAsDocx,
+} = useDocumentConversion({
+  options: conversionOptions,
+  legacyFont,
+  resolveLegacyDocumentFontPair,
+  announce,
 });
-const documentFileStatus = computed(() =>
-  translate(
-    `sinhala.${
-      documentReading.value
-        ? "reading"
-        : documentConverting.value
-          ? "converting"
-          : documentError.value
-            ? documentText.value
-              ? "conversionFailed"
-              : "readFailed"
-            : documentResult.value
-              ? "success"
-              : "fileReady"
-    }`,
-  ),
-);
-let documentReadRequest = 0;
-let documentConversionRequest = 0;
-const isDocumentDragging = ref(false);
-const LONG_TEXT_THRESHOLD = 5000;
-const textDirectionReversed = ref(false);
+
 const isDirectionReversed = computed({
   get: () =>
     inputMode.value === "document"
@@ -1316,57 +392,29 @@ const isDirectionReversed = computed({
     }
   },
 });
-const preserveCurrentReducedForms = ref(true);
-const preserveRepaya = ref(true);
-const preserveYansaya = ref(true);
-const preserveRakaransaya = ref(true);
-const preserveCurrentConjuncts = ref(true);
-const unifiedConjuncts = ref({ common: false, rare: false });
-const useTouchingConjuncts = ref(false);
-const removePaliHalForms = ref(false);
-const compactDaForms = ref(false);
-const documentConversionKey = computed(() =>
-  JSON.stringify({
-    format: documentPdfPages.value
-      ? documentPdfOutputFormat.value
-      : documentIsPptx.value
-        ? "pptx"
-        : "docx",
-    reversed: documentDirectionReversed.value,
-    options: {
-      ...conjunctConversionOptions(),
-      compactDaForms: compactDaForms.value,
-    },
-    legacyFont: legacyFontId.value,
-    legacyBold: legacyBold.value,
-  }),
-);
-watch(documentConversionKey, clearDocumentResult, { flush: "sync" });
-const isFmPreviewEditing = ref(false);
-const isFmPreviewComposing = ref(false);
-const renderedFmPreviewHtml = ref("");
-// Retain source-script provenance while a generated Unicode/Legacy pair only
-// changes position, so sequences such as `ys` remain associated with `හි`.
-const fmTextDerivedFromUnicode = ref(false);
+
 const hasText = computed(() => Boolean(unicodeText.value || fmText.value));
 const sourceTextLength = computed(() =>
   isDirectionReversed.value ? fmText.value.length : unicodeText.value.length,
 );
+
 const fmPreviewSegments = computed(() => {
   if (isDirectionReversed.value && !fmTextDerivedFromUnicode.value) {
-    return fmToUnicodeSegments(fmText.value, conjunctConversionOptions()).map(
-      ({ source, useLegacyFont }) => ({
-        text: source,
-        useLegacyFont,
-      }),
-    );
+    return fmToUnicodeSegments(
+      fmText.value,
+      buildConjunctOptions(conversionOptions),
+    ).map(({ source, useLegacyFont }) => ({
+      text: source,
+      useLegacyFont,
+    }));
   }
 
-  return unicodeToFmSegments(unicodeText.value, {
-    ...conjunctConversionOptions(),
-    compactDaForms: compactDaForms.value,
-  });
+  return unicodeToFmSegments(
+    unicodeText.value,
+    buildUnicodeToFmOptions(conversionOptions),
+  );
 });
+
 const encodingSuggestion = computed(() => {
   const sourceText = isDirectionReversed.value
     ? fmText.value
@@ -1377,410 +425,64 @@ const encodingSuggestion = computed(() => {
   const expectedEncoding = isDirectionReversed.value ? "legacy" : "unicode";
   if (!detectedEncoding || detectedEncoding === expectedEncoding) return null;
 
-  return isDirectionReversed.value
-    ? {
-        get message() {
-          return translate("sinhala.sourceLabel");
-        },
-        actionLabel: "Unicode",
-      }
-    : {
-        get message() {
-          return translate("sinhala.sourceLabel");
-        },
-        actionLabel: "Legacy",
-      };
+  return {
+    message: translate("sinhala.sourceLabel"),
+    actionLabel: isDirectionReversed.value ? "Unicode" : "Legacy",
+  };
 });
 
-let resetCopyTimer = null;
-let fmPreviewConversionTimer = null;
-let fmCompositionCommitTimer = null;
-let fmCompositionHistoryEntry = null;
-let fmClipboardInputResetTimer = null;
-let pendingFmClipboardInputType = "";
-let textareaResizeFrame = null;
-let textareaResizeRequest = 0;
-let textareaViewportWidth = 0;
-let textareaViewportHeight = 0;
-let pendingControlViewport = null;
-let stopControlViewportRestore = null;
-let pendingFmHistoryEntry = null;
-let pendingFmHistoryInputType = "";
-let fmHistoryGroup = null;
-let fmPreviewRenderToken = 0;
-const fmUndoStack = [];
-const fmRedoStack = [];
-const FM_HISTORY_LIMIT = 200;
-const FM_HISTORY_GROUP_DELAY = 1000;
-const FM_GROUPABLE_INPUT_TYPES = new Set([
-  "insertText",
-  "deleteContentBackward",
-  "deleteContentForward",
-]);
+const {
+  clipboardStatusFor,
+  resetCopyStatus,
+  copyToClipboard,
+  pasteFromClipboard,
+} = useClipboardActions({ announce });
 
-function escapeFmPreviewHtml(text) {
-  return text
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
-function fmPreviewHtml() {
-  if (showLegacySource.value) return escapeFmPreviewHtml(fmText.value);
-
-  return fmPreviewSegments.value
-    .map(
-      ({ text, useLegacyFont }) =>
-        `<span class="leading-none" style="${useLegacyFont ? "font-family:var(--legacy-preview-font);font-size:var(--legacy-preview-size);font-weight:var(--legacy-preview-weight)" : "font-family:var(--legacy-preview-non-sinhala-font);font-weight:var(--legacy-preview-non-sinhala-weight)"}">${escapeFmPreviewHtml(text)}</span>`,
-    )
-    .join("");
-}
-
-function isFmAbabldFont(family) {
-  return /^fmababld$/iu.test(family.replace(/[\s_-]/gu, ""));
-}
-
-function refreshFmPreview({
-  preserveSelection = false,
-  selection = null,
-} = {}) {
-  if (isFmPreviewComposing.value) return;
-
-  const element = fmPreviewInput.value;
-  const savedSelection =
-    selection ??
-    (preserveSelection && element ? editableSelection(element) : null);
-  const html = fmPreviewHtml();
-  const htmlChanged = renderedFmPreviewHtml.value !== html;
-  const renderToken = ++fmPreviewRenderToken;
-  renderedFmPreviewHtml.value = html;
-
-  if (htmlChanged) {
-    nextTick(() => {
-      if (renderToken !== fmPreviewRenderToken) return;
-      restoreEditableSelection(fmPreviewInput.value, savedSelection);
-    });
-    return;
-  }
-
-  if (element?.innerHTML !== html) {
-    element.innerHTML = html;
-  }
-  restoreEditableSelection(element, savedSelection);
-}
-
-function resetFmHistory() {
-  pendingFmHistoryEntry = null;
-  pendingFmHistoryInputType = "";
-  fmHistoryGroup = null;
-  fmCompositionHistoryEntry = null;
-  fmUndoStack.length = 0;
-  fmRedoStack.length = 0;
-}
-
-function pushFmHistory(stack, entry) {
-  if (!entry) return;
-  stack.push(entry);
-  if (stack.length > FM_HISTORY_LIMIT) stack.shift();
-}
-
-function resizeTextarea(textarea) {
-  const borderHeight = textarea.offsetHeight - textarea.clientHeight;
-  if (textarea.scrollHeight > textarea.clientHeight + 1)
-    return textarea.scrollHeight + borderHeight;
-  const scrollTop = textarea.scrollTop;
-  textarea.style.height = "auto";
-  textarea.style.height = `${textarea.scrollHeight + borderHeight}px`;
-  textarea.scrollTop = scrollTop;
-  return textarea.offsetHeight;
-}
-
-let lastTextScrollSide = "unicode";
-let expectedSyncedScroll = null;
-
-function syncTextScroll(side) {
-  const source =
-    side === "unicode" ? unicodeViewportEl.value : fmViewportEl.value;
-  const target =
-    side === "unicode" ? fmViewportEl.value : unicodeViewportEl.value;
-  if (!source || !target) return;
-  if (
-    expectedSyncedScroll?.side === side &&
-    Math.abs(source.scrollTop - expectedSyncedScroll.top) < 1
-  ) {
-    expectedSyncedScroll = null;
-    return;
-  }
-  expectedSyncedScroll = null;
-  lastTextScrollSide = side;
-  const sourceRange = Math.max(0, source.scrollHeight - source.clientHeight);
-  const targetRange = Math.max(0, target.scrollHeight - target.clientHeight);
-  const targetTop = sourceRange
-    ? (source.scrollTop / sourceRange) * targetRange
-    : 0;
-  if (Math.abs(target.scrollTop - targetTop) < 1) return;
-  target.scrollTop = targetTop;
-  expectedSyncedScroll = {
-    side: side === "unicode" ? "legacy" : "unicode",
-    top: target.scrollTop,
-  };
-}
-
-function resizeAllTextareas() {
-  if (inputMode.value !== "text") return;
-  const unicodeTextarea = unicodeViewportEl.value;
-  const fmPreviewTextarea = fmViewportEl.value;
-  const unicodeField = unicodeFieldEl.value;
-  const fmField = fmFieldEl.value;
-  if (!unicodeTextarea || !fmPreviewTextarea || !unicodeField || !fmField) {
-    return;
-  }
-
-  unicodeField.style.height = "";
-  fmField.style.height = "";
-  const unicodeFieldExtra =
-    unicodeField.offsetHeight - unicodeTextarea.offsetHeight;
-  const fmFieldExtra = fmField.offsetHeight - fmPreviewTextarea.offsetHeight;
-  const unicodeHeight = resizeTextarea(unicodeTextarea);
-  const fmPreviewHeight = resizeTextarea(fmPreviewTextarea);
-  const maxFieldHeight = Math.max(
-    256,
-    Math.min(512, (textareaViewportHeight || window.innerHeight) * 0.25),
+function convertUnicodeToFm() {
+  fmText.value = unicodeToFmPreservingNonSinhala(
+    unicodeText.value,
+    buildUnicodeToFmOptions(conversionOptions),
   );
-  const sharedFieldHeight = Math.min(
-    maxFieldHeight,
-    Math.ceil(
-      Math.max(
-        unicodeHeight + unicodeFieldExtra,
-        fmPreviewHeight + fmFieldExtra,
-      ),
-    ),
+  fmTextDerivedFromUnicode.value = true;
+}
+
+function convertFmToUnicode() {
+  unicodeText.value = fmToUnicodePreservingNonSinhala(
+    fmText.value,
+    buildConjunctOptions(conversionOptions),
   );
-
-  unicodeTextarea.style.height = `${sharedFieldHeight - unicodeFieldExtra}px`;
-  fmPreviewTextarea.style.height = `${sharedFieldHeight - fmFieldExtra}px`;
-
-  unicodeField.style.height = `${sharedFieldHeight}px`;
-  fmField.style.height = `${sharedFieldHeight}px`;
-  syncTextScroll(lastTextScrollSide);
 }
 
-function handleLegacySourceChange() {
-  flushFmPreviewConversion();
-  refreshFmPreview();
-  liveMessage.value = showLegacySource.value
-    ? translate("sinhala.sourceVisible")
-    : translate("sinhala.glyphsVisible");
-  scheduleTextareaResize();
-}
-
-function toggleUnicodeBold() {
-  unicodeBold.value = !unicodeBold.value;
-  scheduleTextareaResize();
-}
-
-function toggleLegacyBold() {
-  legacyBold.value = !legacyBold.value;
-  scheduleTextareaResize();
-}
-
-const fontSizeSample = "සිංහල අකුරු";
-const legacyFontSizeSample = unicodeToFm(fontSizeSample);
-const localFontScaleCache = new Map();
-
-function registeredFontScale(family) {
-  const target = family.trim().toLocaleLowerCase();
-  const findInRules = (rules) => {
-    for (const rule of rules) {
-      if (rule.type === CSSRule.FONT_FACE_RULE) {
-        const name = rule.style
-          .getPropertyValue("font-family")
-          .trim()
-          .replace(/^["']|["']$/gu, "")
-          .toLocaleLowerCase();
-        const scale = Number.parseFloat(
-          rule.style.getPropertyValue("size-adjust"),
-        );
-        if (name === target && Number.isFinite(scale) && scale > 0)
-          return scale / 100;
-      }
-      const nested = rule.styleSheet?.cssRules || rule.cssRules;
-      if (nested) {
-        const scale = findInRules(nested);
-        if (scale) return scale;
-      }
-    }
-    return null;
-  };
-  for (const sheet of document.styleSheets) {
-    try {
-      const scale = findInRules(sheet.cssRules);
-      if (scale) return scale;
-    } catch {
-      // Cross-origin stylesheets do not expose their rules.
-    }
-  }
-  return null;
-}
-
-async function localFontScale(fontId, font, referenceFamily, sample) {
-  if (!font.sourceFamily) return 1;
-  if (font.usesRegisteredCssFont) return 1;
-  const registered = registeredFontScale(font.sourceFamily);
-  if (registered) return registered;
-  const key = `${fontId}:${referenceFamily}`;
-  if (!localFontScaleCache.has(key)) {
-    localFontScaleCache.set(
-      key,
-      (async () => {
-        await Promise.all([
-          document.fonts.load(`100px ${font.family}`, sample),
-          document.fonts.load(`100px "${referenceFamily}"`, sample),
-        ]);
-        const context = document.createElement("canvas").getContext("2d");
-        if (!context) return 1;
-        context.font = `100px "${referenceFamily}"`;
-        const reference = context.measureText(sample);
-        context.font = `100px ${font.family}`;
-        const selected = context.measureText(sample);
-        const referenceHeight =
-          reference.actualBoundingBoxAscent +
-          reference.actualBoundingBoxDescent;
-        const selectedHeight =
-          selected.actualBoundingBoxAscent + selected.actualBoundingBoxDescent;
-        if (!referenceHeight || !selectedHeight) return 1;
-        const scale = Math.max(
-          0.75,
-          Math.min(1.8, referenceHeight / selectedHeight),
-        );
-        return /^UN[-_\s]+/iu.test(font.sourceFamily)
-          ? Math.min(1.4, scale * 0.9)
-          : scale;
-      })().catch(() => 1),
-    );
-  }
-  return localFontScaleCache.get(key);
-}
-
-watch(
-  [unicodeFontId, unicodeFallbackFontId, unicodeBold],
-  async ([fontId, fallbackFontId, bold]) => {
-    const request = ++unicodeFontRequest;
-    try {
-      const font = await unicodeFontSelect.value?.resolveFont(
-        fontId,
-        unicodeText.value,
-        bold ? "bold" : "normal",
-        fallbackFontId,
-        'Arial, "Helvetica Neue", "Liberation Sans"',
-      );
-      if (request !== unicodeFontRequest || !font) return;
-      const scale = await localFontScale(
-        fontId,
-        font,
-        "Abhaya Libre",
-        fontSizeSample,
-      );
-      if (request !== unicodeFontRequest) return;
-      unicodeFontFamily.value = font.family;
-      unicodePreviewSize.value = font.sourceFamily
-        ? `calc(1.125rem * ${scale})`
-        : "";
-      scheduleTextareaResize();
-    } catch {
-      if (request === unicodeFontRequest) {
-        liveMessage.value = translate(
-          "sinhala.unicodeFontFailed",
-        );
-      }
-    }
+const {
+  isEditing: isFmPreviewEditing,
+  renderedHtml: renderedFmPreviewHtml,
+  refreshPreview: refreshFmPreview,
+  resetHistory: resetFmHistory,
+  cancelPendingConversion: cancelPendingFmConversion,
+  clearTransientState: clearFmTransientState,
+  flushConversion: flushFmPreviewConversion,
+  handlers: fmEditorHandlers,
+} = useContentEditableHistory({
+  elementRef: fmPreviewInput,
+  fmText,
+  isEditable: isDirectionReversed,
+  showSource: showLegacySource,
+  segments: fmPreviewSegments,
+  onConvert: convertFmToUnicode,
+  onResetCopyStatus: resetCopyStatus,
+  onMarkLegacySource: () => {
+    fmTextDerivedFromUnicode.value = false;
   },
-);
-
-watch(
-  [legacyFontId, legacyFallbackFontId],
-  async ([fontId, fallbackFontId]) => {
-    const request = ++legacyFontRequest;
-    try {
-      const font = await legacyFontSelect.value?.resolveFont(
-        fontId,
-        fmText.value,
-        "normal",
-        fallbackFontId,
-      );
-      if (request !== legacyFontRequest || !font) return;
-      const scale = await localFontScale(
-        fontId,
-        font,
-        "Abhaya Legacy",
-        legacyFontSizeSample,
-      );
-      if (request !== legacyFontRequest) return;
-      legacyFontFamily.value = font.family;
-      const selectedFontName =
-        font.sourceFamily ||
-        (await legacyFontSelect.value?.selectedDocumentFontInfo())?.family ||
-        "";
-      if (request !== legacyFontRequest) return;
-      legacyNonSinhalaBold.value = isFmAbabldFont(selectedFontName);
-      legacyNonSinhalaFontFamily.value =
-        fontId === "abhaya-legacy" ||
-        /^fm[\s_-]*(?:abhaya|abbaya|aba)/iu.test(selectedFontName)
-          ? '"STIX Two Text for Abhaya", serif'
-          : fontId === "gemunu-legacy" ||
-              /^fm[\s_-]*gemunu/iu.test(selectedFontName)
-            ? '"Gemunu Libre", sans-serif'
-            : "var(--font-sans)";
-      legacyPreviewSize.value = font.sourceFamily
-        ? `${Math.round(scale * 100)}%`
-        : fontId.startsWith("upload:")
-          ? "125%"
-          : "100%";
-      scheduleTextareaResize();
-    } catch {
-      if (request === legacyFontRequest) {
-        liveMessage.value = translate(
-          "sinhala.fontFailed",
-        );
-      }
-    }
-  },
-);
-
-function scheduleTextareaResize() {
-  const request = ++textareaResizeRequest;
-  nextTick(() => {
-    if (request !== textareaResizeRequest) return;
-    if (textareaResizeFrame !== null) return;
-    textareaResizeFrame = window.requestAnimationFrame(() => {
-      textareaResizeFrame = null;
-      resizeAllTextareas();
-    });
-  });
-}
-
-function handleWindowResize() {
-  if (window.innerWidth === textareaViewportWidth) return;
-  textareaViewportWidth = window.innerWidth;
-  textareaViewportHeight = window.innerHeight;
-  scheduleTextareaResize();
-}
-
-function cancelScheduledTextareaResize() {
-  textareaResizeRequest++;
-  if (textareaResizeFrame !== null) {
-    window.cancelAnimationFrame(textareaResizeFrame);
-    textareaResizeFrame = null;
-  }
-}
+  onLayoutChange: scheduleTextareaResize,
+});
 
 watch(inputMode, (mode) => {
   if (mode === "text") {
     handleConversionOptionsChange();
     scheduleTextareaResize();
-  } else cancelScheduledTextareaResize();
+  } else {
+    cancelScheduledTextareaResize();
+  }
 });
 
 watch(
@@ -1810,503 +512,38 @@ function handleUnicodeCompositionEnd() {
   handleUnicodeEditableInput();
 }
 
-function resetCopyStatus() {
-  copiedField.value = "";
-  copyFailedField.value = "";
-  pastedField.value = "";
-  pasteFailedField.value = "";
-  window.clearTimeout(resetCopyTimer);
-}
-
-function conjunctConversionOptions() {
-  const reducedForms = preserveCurrentReducedForms.value
-    ? {
-        preserveRepaya: true,
-        preserveYansaya: true,
-        preserveRakaransaya: true,
-      }
-    : {
-        preserveRepaya: preserveRepaya.value,
-        preserveYansaya: preserveYansaya.value,
-        preserveRakaransaya: preserveRakaransaya.value,
-      };
-  if (preserveCurrentConjuncts.value) {
-    return {
-      ...reducedForms,
-      normalizeReducedForms: !preserveCurrentReducedForms.value,
-      removePaliHalForms: removePaliHalForms.value,
-      preserveConjuncts: true,
-      normalizeConjuncts: false,
-    };
-  }
-
-  return {
-    ...reducedForms,
-    normalizeReducedForms: !preserveCurrentReducedForms.value,
-    preserveConjuncts: false,
-    touchingConjuncts: useTouchingConjuncts.value,
-    removePaliHalForms: removePaliHalForms.value,
-    conjunctForms: Object.fromEntries(
-      Object.entries(unifiedConjuncts.value).map(([category, joined]) => [
-        category,
-        joined ? "normalize" : "decompose",
-      ]),
-    ),
-  };
-}
-
 function handleUnicodeInput() {
   resetCopyStatus();
-  fmText.value = unicodeToFmPreservingNonSinhala(unicodeText.value, {
-    ...conjunctConversionOptions(),
-    compactDaForms: compactDaForms.value,
-  });
-  fmTextDerivedFromUnicode.value = true;
+  convertUnicodeToFm();
   resetFmHistory();
   refreshFmPreview();
   scheduleTextareaResize();
 }
 
 function handleFmInput() {
-  window.clearTimeout(fmPreviewConversionTimer);
-  fmPreviewConversionTimer = null;
+  cancelPendingFmConversion();
   resetCopyStatus();
   fmTextDerivedFromUnicode.value = false;
-  unicodeText.value = fmToUnicodePreservingNonSinhala(
-    fmText.value,
-    conjunctConversionOptions(),
-  );
+  convertFmToUnicode();
   resetFmHistory();
   refreshFmPreview();
   scheduleTextareaResize();
 }
 
-function scheduleFmPreviewConversion() {
-  window.clearTimeout(fmPreviewConversionTimer);
-  resetCopyStatus();
-  fmTextDerivedFromUnicode.value = false;
-  if (isFmPreviewComposing.value || fmCompositionCommitTimer !== null) {
-    unicodeText.value = fmToUnicodePreservingNonSinhala(
-      fmText.value,
-      conjunctConversionOptions(),
-    );
-    return;
-  }
-
-  fmPreviewConversionTimer = window.setTimeout(() => {
-    fmPreviewConversionTimer = null;
-    refreshFmPreview({ preserveSelection: true });
-    unicodeText.value = fmToUnicodePreservingNonSinhala(
-      fmText.value,
-      conjunctConversionOptions(),
-    );
-    scheduleTextareaResize();
-  }, 120);
-
-  const preview = fmPreviewInput.value;
-  if (preview && preview.scrollHeight > preview.clientHeight) {
-    scheduleTextareaResize();
-  }
-}
-
-function flushFmPreviewConversion() {
-  if (isFmPreviewComposing.value || fmCompositionCommitTimer !== null) {
-    commitFmPreviewComposition();
-  }
-  if (fmPreviewConversionTimer === null) return;
-  window.clearTimeout(fmPreviewConversionTimer);
-  fmPreviewConversionTimer = null;
-  refreshFmPreview({ preserveSelection: true });
-  unicodeText.value = fmToUnicodePreservingNonSinhala(
-    fmText.value,
-    conjunctConversionOptions(),
-  );
-}
-
-function handleFmPreviewBlur() {
-  commitFmPreviewComposition();
+function handleLegacySourceChange() {
   flushFmPreviewConversion();
-  pendingFmHistoryEntry = null;
-  pendingFmHistoryInputType = "";
-  fmHistoryGroup = null;
-  isFmPreviewEditing.value = false;
-  scheduleTextareaResize();
-}
-
-function handleFmPreviewInput(event) {
-  const element = fmPreviewInput.value;
-  if (!element || !isDirectionReversed.value) return;
-  if (pendingFmClipboardInputType) {
-    clearExpectedFmClipboardInput();
-    refreshFmPreview({ preserveSelection: true });
-    return;
-  }
-  const nextText = editablePlainText(element);
-  if (nextText === fmText.value) {
-    pendingFmHistoryEntry = null;
-    pendingFmHistoryInputType = "";
-    return;
-  }
-
-  if (
-    isFmPreviewComposing.value ||
-    event.isComposing ||
-    fmCompositionCommitTimer !== null
-  ) {
-    resetCopyStatus();
-    fmTextDerivedFromUnicode.value = false;
-    fmText.value = nextText;
-    unicodeText.value = fmToUnicodePreservingNonSinhala(
-      fmText.value,
-      conjunctConversionOptions(),
-    );
-    return;
-  }
-
-  if (pendingFmHistoryEntry?.text !== nextText) {
-    pushFmHistory(fmUndoStack, pendingFmHistoryEntry);
-  }
-  fmRedoStack.length = 0;
-  fmHistoryGroup = FM_GROUPABLE_INPUT_TYPES.has(pendingFmHistoryInputType)
-    ? {
-        inputType: pendingFmHistoryInputType,
-        selection: editableSelection(element),
-        updatedAt: window.performance.now(),
-      }
-    : null;
-  pendingFmHistoryEntry = null;
-  pendingFmHistoryInputType = "";
-  fmText.value = nextText;
-  scheduleFmPreviewConversion();
-}
-
-function handleFmPreviewBeforeInput(event) {
-  if (!isDirectionReversed.value) return;
-  if (pendingFmClipboardInputType) {
-    event.preventDefault();
-    clearExpectedFmClipboardInput();
-    return;
-  }
-  if (
-    isFmPreviewComposing.value ||
-    event.isComposing ||
-    fmCompositionCommitTimer !== null
-  ) {
-    return;
-  }
-  if (event.inputType === "historyUndo") {
-    event.preventDefault();
-    applyFmHistory(fmUndoStack, fmRedoStack);
-    return;
-  }
-  if (event.inputType === "historyRedo") {
-    event.preventDefault();
-    applyFmHistory(fmRedoStack, fmUndoStack);
-    return;
-  }
-
-  const element = event.currentTarget;
-  const selection = editableSelection(element);
-  const now = window.performance.now();
-  const continuesHistoryGroup =
-    FM_GROUPABLE_INPUT_TYPES.has(event.inputType) &&
-    fmHistoryGroup?.inputType === event.inputType &&
-    now - fmHistoryGroup.updatedAt <= FM_HISTORY_GROUP_DELAY &&
-    fmHistoryGroup.selection?.start === selection?.start &&
-    fmHistoryGroup.selection?.end === selection?.end;
-
-  pendingFmHistoryEntry = continuesHistoryGroup
-    ? null
-    : {
-        text: editablePlainText(element),
-        selection,
-      };
-  pendingFmHistoryInputType = event.inputType;
-}
-
-function selectedFmPreviewText(element) {
-  const selection = editableSelection(element);
-  if (!selection || selection.start === selection.end) return null;
-  return {
-    selection,
-    text: fmText.value.slice(selection.start, selection.end),
-  };
-}
-
-function setFmPreviewClipboardText(event, text) {
-  if (!event.clipboardData) return false;
-  try {
-    event.clipboardData.setData("text/plain", text);
-    event.preventDefault();
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function replaceFmPreviewSelection(element, selection, replacement) {
-  const currentText = fmText.value;
-  const nextText = `${currentText.slice(0, selection.start)}${replacement}${currentText.slice(selection.end)}`;
-  const nextCaret = selection.start + replacement.length;
-
-  pushFmHistory(fmUndoStack, {
-    text: currentText,
-    selection,
-  });
-  fmRedoStack.length = 0;
-  pendingFmHistoryEntry = null;
-  pendingFmHistoryInputType = "";
-  fmHistoryGroup = null;
-  fmCompositionHistoryEntry = null;
-  window.clearTimeout(fmCompositionCommitTimer);
-  fmCompositionCommitTimer = null;
-  isFmPreviewComposing.value = false;
-  fmText.value = nextText;
-  fmTextDerivedFromUnicode.value = false;
-
-  const range = editableRange(element);
-  const currentSelection = window.getSelection();
-  if (range && currentSelection) {
-    range.deleteContents();
-    if (replacement) {
-      const textNode = document.createTextNode(replacement);
-      range.insertNode(textNode);
-      range.setStartAfter(textNode);
-    }
-    range.collapse(true);
-    currentSelection.removeAllRanges();
-    currentSelection.addRange(range);
-  } else {
-    refreshFmPreview({
-      selection: { start: nextCaret, end: nextCaret },
-    });
-  }
-
-  scheduleFmPreviewConversion();
-}
-
-function clearExpectedFmClipboardInput() {
-  window.clearTimeout(fmClipboardInputResetTimer);
-  fmClipboardInputResetTimer = null;
-  pendingFmClipboardInputType = "";
-}
-
-function expectFmClipboardInput(inputType) {
-  clearExpectedFmClipboardInput();
-  pendingFmClipboardInputType = inputType;
-  fmClipboardInputResetTimer = window.setTimeout(() => {
-    clearExpectedFmClipboardInput();
-  }, 0);
-}
-
-function handleFmPreviewCopy(event) {
-  const selected = selectedFmPreviewText(event.currentTarget);
-  if (!selected) return;
-  setFmPreviewClipboardText(event, selected.text);
-}
-
-function handleFmPreviewCut(event) {
-  if (!isDirectionReversed.value) return;
-  const selected = selectedFmPreviewText(event.currentTarget);
-  if (!selected || !setFmPreviewClipboardText(event, selected.text)) return;
-  expectFmClipboardInput("deleteByCut");
-  replaceFmPreviewSelection(event.currentTarget, selected.selection, "");
-}
-
-function handleFmPreviewPaste(event) {
-  if (!isDirectionReversed.value || !event.clipboardData) return;
-  const selection = editableSelection(event.currentTarget);
-  if (!selection) return;
-  const text = event.clipboardData
-    .getData("text/plain")
-    .replace(/\r\n?/gu, "\n");
-  event.preventDefault();
-  expectFmClipboardInput("insertFromPaste");
-  replaceFmPreviewSelection(event.currentTarget, selection, text);
-}
-
-function handleFmPreviewCompositionStart(event) {
-  if (!isDirectionReversed.value) return;
-  window.clearTimeout(fmPreviewConversionTimer);
-  fmPreviewConversionTimer = null;
-  window.clearTimeout(fmCompositionCommitTimer);
-  fmCompositionCommitTimer = null;
-  isFmPreviewComposing.value = true;
-  fmCompositionHistoryEntry = {
-    text: editablePlainText(event.currentTarget),
-    selection: editableSelection(event.currentTarget),
-  };
-  pendingFmHistoryEntry = null;
-  pendingFmHistoryInputType = "";
-  fmHistoryGroup = null;
-}
-
-function commitFmPreviewComposition() {
-  window.clearTimeout(fmCompositionCommitTimer);
-  fmCompositionCommitTimer = null;
-  clearExpectedFmClipboardInput();
-  isFmPreviewComposing.value = false;
-
-  const element = fmPreviewInput.value;
-  if (!element || !isDirectionReversed.value) {
-    fmCompositionHistoryEntry = null;
-    return;
-  }
-
-  const nextText = editablePlainText(element);
-  if (
-    fmCompositionHistoryEntry &&
-    fmCompositionHistoryEntry.text !== nextText
-  ) {
-    pushFmHistory(fmUndoStack, fmCompositionHistoryEntry);
-    fmRedoStack.length = 0;
-  }
-  fmCompositionHistoryEntry = null;
-  fmText.value = nextText;
-  fmTextDerivedFromUnicode.value = false;
-  unicodeText.value = fmToUnicodePreservingNonSinhala(
-    fmText.value,
-    conjunctConversionOptions(),
+  refreshFmPreview();
+  announce(
+    showLegacySource.value
+      ? translate("sinhala.sourceVisible")
+      : translate("sinhala.glyphsVisible"),
   );
-  refreshFmPreview({ preserveSelection: true });
   scheduleTextareaResize();
-}
-
-function handleFmPreviewCompositionEnd() {
-  isFmPreviewComposing.value = false;
-  window.clearTimeout(fmCompositionCommitTimer);
-  clearExpectedFmClipboardInput();
-  fmCompositionCommitTimer = window.setTimeout(commitFmPreviewComposition, 0);
-}
-
-function applyFmHistory(sourceStack, targetStack) {
-  const element = fmPreviewInput.value;
-  const entry = sourceStack.pop();
-  if (!element || !entry) return;
-
-  pushFmHistory(targetStack, {
-    text: editablePlainText(element),
-    selection: editableSelection(element),
-  });
-  pendingFmHistoryEntry = null;
-  pendingFmHistoryInputType = "";
-  fmHistoryGroup = null;
-  window.clearTimeout(fmPreviewConversionTimer);
-  fmPreviewConversionTimer = null;
-  window.clearTimeout(fmCompositionCommitTimer);
-  fmCompositionCommitTimer = null;
-  clearExpectedFmClipboardInput();
-  isFmPreviewComposing.value = false;
-  fmCompositionHistoryEntry = null;
-  fmText.value = entry.text;
-  fmTextDerivedFromUnicode.value = false;
-  unicodeText.value = fmToUnicodePreservingNonSinhala(
-    fmText.value,
-    conjunctConversionOptions(),
-  );
-  refreshFmPreview({ selection: entry.selection });
-  scheduleTextareaResize();
-}
-
-function handleFmPreviewKeydown(event) {
-  if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
-  const key = event.key.toLowerCase();
-  if (key === "a" && isDirectionReversed.value) {
-    event.preventDefault();
-    const range = document.createRange();
-    range.selectNodeContents(event.currentTarget);
-    const selection = window.getSelection();
-    selection?.removeAllRanges();
-    selection?.addRange(range);
-  } else if (key === "z") {
-    event.preventDefault();
-    applyFmHistory(
-      event.shiftKey ? fmRedoStack : fmUndoStack,
-      event.shiftKey ? fmUndoStack : fmRedoStack,
-    );
-  } else if (key === "y" && !event.shiftKey) {
-    event.preventDefault();
-    applyFmHistory(fmRedoStack, fmUndoStack);
-  }
-}
-
-function controlViewportTop(element) {
-  return (
-    element.getBoundingClientRect().top -
-    (window.visualViewport?.offsetTop ?? 0)
-  );
-}
-
-function captureControlViewport(event) {
-  if (
-    event instanceof KeyboardEvent &&
-    ![" ", "Enter", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(
-      event.key,
-    )
-  ) {
-    return;
-  }
-
-  const target = event.target instanceof Element ? event.target : null;
-  const element =
-    event.currentTarget?.id === "swap-direction"
-      ? event.currentTarget
-      : target?.closest("label");
-  if (element) {
-    pendingControlViewport = { element, top: controlViewportTop(element) };
-  }
-}
-
-function stabilizeControlViewport(event) {
-  stopControlViewportRestore?.();
-  if (!event) {
-    pendingControlViewport = null;
-    return;
-  }
-  const target = event?.target instanceof Element ? event.target : null;
-  const element = target?.closest("label") ?? event?.currentTarget;
-  const anchor = pendingControlViewport?.element.isConnected
-    ? pendingControlViewport
-    : element instanceof Element
-      ? { element, top: controlViewportTop(element) }
-      : null;
-  pendingControlViewport = null;
-  if (!anchor) return;
-
-  const restore = () => {
-    if (!anchor.element.isConnected) return;
-    const delta = controlViewportTop(anchor.element) - anchor.top;
-    if (Math.abs(delta) > 1) {
-      window.scrollTo({ top: window.scrollY + delta, behavior: "instant" });
-    }
-  };
-  const viewport = window.visualViewport;
-  const restoreAfterViewportResize = () =>
-    window.requestAnimationFrame(restore);
-  viewport?.addEventListener("resize", restoreAfterViewportResize);
-  const timer = window.setTimeout(() => {
-    viewport?.removeEventListener("resize", restoreAfterViewportResize);
-    stopControlViewportRestore = null;
-  }, 600);
-  stopControlViewportRestore = () => {
-    window.clearTimeout(timer);
-    viewport?.removeEventListener("resize", restoreAfterViewportResize);
-    stopControlViewportRestore = null;
-  };
-
-  nextTick(() => {
-    window.requestAnimationFrame(() => {
-      restore();
-      window.requestAnimationFrame(restore);
-    });
-  });
 }
 
 function handleConversionOptionsChange(event) {
   if (inputMode.value === "document") {
-    liveMessage.value = translate(
-      "sinhala.optionsUpdated",
-    );
+    announce(translate("sinhala.optionsUpdated"));
     stabilizeControlViewport(event);
     return;
   }
@@ -2315,21 +552,12 @@ function handleConversionOptionsChange(event) {
   resetCopyStatus();
   if (isDirectionReversed.value) {
     fmTextDerivedFromUnicode.value = false;
-    unicodeText.value = fmToUnicodePreservingNonSinhala(
-      fmText.value,
-      conjunctConversionOptions(),
-    );
+    convertFmToUnicode();
   } else {
-    fmText.value = unicodeToFmPreservingNonSinhala(unicodeText.value, {
-      ...conjunctConversionOptions(),
-      compactDaForms: compactDaForms.value,
-    });
-    fmTextDerivedFromUnicode.value = true;
+    convertUnicodeToFm();
   }
   refreshFmPreview({ preserveSelection: isFmPreviewEditing.value });
-  liveMessage.value = translate(
-    "sinhala.optionsUpdated",
-  );
+  announce(translate("sinhala.optionsUpdated"));
   stabilizeControlViewport(event);
 }
 
@@ -2337,9 +565,7 @@ function swapPanels(event) {
   if (inputMode.value === "document") {
     if (documentBusy.value) return;
     isDirectionReversed.value = !isDirectionReversed.value;
-    liveMessage.value = translate(
-      "sinhala.encodingsSwapped",
-    );
+    announce(translate("sinhala.encodingsSwapped"));
     stabilizeControlViewport(event);
     return;
   }
@@ -2348,9 +574,7 @@ function swapPanels(event) {
   isDirectionReversed.value = !isDirectionReversed.value;
   resetFmHistory();
   refreshFmPreview();
-  liveMessage.value = translate(
-    "sinhala.encodingsSwapped",
-  );
+  announce(translate("sinhala.encodingsSwapped"));
   stabilizeControlViewport(event);
 }
 
@@ -2377,45 +601,30 @@ function applyEncodingSuggestion() {
     const sourceText = fmText.value;
     isDirectionReversed.value = false;
     unicodeText.value = sourceText;
-    fmText.value = unicodeToFmPreservingNonSinhala(sourceText, {
-      ...conjunctConversionOptions(),
-      compactDaForms: compactDaForms.value,
-    });
-    fmTextDerivedFromUnicode.value = true;
+    convertUnicodeToFm();
   } else {
     const sourceText = unicodeText.value;
     isDirectionReversed.value = true;
     fmText.value = sourceText;
     fmTextDerivedFromUnicode.value = false;
-    unicodeText.value = fmToUnicodePreservingNonSinhala(
-      sourceText,
-      conjunctConversionOptions(),
-    );
+    convertFmToUnicode();
   }
   resetFmHistory();
   refreshFmPreview();
-  liveMessage.value = translate(
-    "sinhala.directionSwapped",
-  );
+  announce(translate("sinhala.directionSwapped"));
   scheduleTextareaResize();
 }
 
 async function clearText() {
   isUnicodeComposing = false;
-  window.clearTimeout(fmPreviewConversionTimer);
-  fmPreviewConversionTimer = null;
-  window.clearTimeout(fmCompositionCommitTimer);
-  fmCompositionCommitTimer = null;
-  clearExpectedFmClipboardInput();
-  isFmPreviewComposing.value = false;
-  fmCompositionHistoryEntry = null;
+  clearFmTransientState();
   unicodeText.value = "";
   fmText.value = "";
   fmTextDerivedFromUnicode.value = false;
   resetFmHistory();
   refreshFmPreview();
   resetCopyStatus();
-  liveMessage.value = translate("sinhala.contentCleared");
+  announce(translate("sinhala.contentCleared"));
   await nextTick();
   resizeAllTextareas();
   if (isDirectionReversed.value) {
@@ -2425,469 +634,55 @@ async function clearText() {
   }
 }
 
-onMounted(() => {
-  textareaViewportWidth = window.innerWidth;
-  textareaViewportHeight = window.innerHeight;
-  refreshFmPreview();
-  resizeAllTextareas();
-  unicodeInput.value?.focus({ preventScroll: true });
-  document.fonts?.ready.then(scheduleTextareaResize);
-  window.addEventListener("resize", handleWindowResize);
-  window.addEventListener("keydown", handleGlobalKeydown);
-});
-
-onBeforeUnmount(() => {
-  documentReadRequest++;
-  documentConversionRequest++;
-  clearDocumentResult();
-  stopControlViewportRestore?.();
-  unicodeFontRequest++;
-  legacyFontRequest++;
-  window.removeEventListener("resize", handleWindowResize);
-  window.removeEventListener("keydown", handleGlobalKeydown);
-  window.clearTimeout(resetCopyTimer);
-  window.clearTimeout(fmPreviewConversionTimer);
-  window.clearTimeout(fmCompositionCommitTimer);
-  clearExpectedFmClipboardInput();
-  if (textareaResizeFrame !== null) {
-    window.cancelAnimationFrame(textareaResizeFrame);
-  }
-});
-
-async function writeClipboard(text) {
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(text);
-    return;
-  }
-
-  const fallback = document.createElement("textarea");
-  fallback.value = text;
-  fallback.setAttribute("readonly", "");
-  fallback.style.position = "fixed";
-  fallback.style.opacity = "0";
-  document.body.appendChild(fallback);
-  fallback.select();
-  const copied = document.execCommand("copy");
-  fallback.remove();
-  if (!copied) throw new Error("Clipboard copy was rejected");
-}
-
-async function readClipboard() {
-  if (!navigator.clipboard?.readText) {
-    throw new Error("Clipboard read is unavailable");
-  }
-
-  return navigator.clipboard.readText();
-}
-
-async function pasteText(field) {
-  resetCopyStatus();
-
-  try {
-    const text = await readClipboard();
-    if (field === "unicode") {
-      unicodeText.value = text;
-      handleUnicodeInput();
-    } else {
-      fmText.value = text;
-      handleFmInput();
-    }
-
-    pastedField.value = field;
-    liveMessage.value =
-      field === "unicode"
-        ? translate("sinhala.unicodePasted")
-        : translate("sinhala.legacyPasted");
-
-    await nextTick();
-    if (field === "unicode") {
-      unicodeInput.value?.focus();
-      restoreEditableSelection(unicodeInput.value, {
-        start: text.length,
-        end: text.length,
-      });
-    } else {
-      fmPreviewInput.value?.focus();
-      restoreEditableSelection(fmPreviewInput.value, {
-        start: text.length,
-        end: text.length,
-      });
-    }
-  } catch {
-    pasteFailedField.value = field;
-    liveMessage.value = translate(
-      "sinhala.clipboardDenied",
-    );
-  }
-
-  resetCopyTimer = window.setTimeout(resetCopyStatus, 1800);
-}
-
-async function copyText(field) {
+function handleCopy(field) {
   if (field === "unicode" && isDirectionReversed.value) {
     flushFmPreviewConversion();
   }
   const text = field === "unicode" ? unicodeText.value : fmText.value;
-  resetCopyStatus();
-
-  try {
-    await writeClipboard(text);
-    copiedField.value = field;
-    liveMessage.value =
-      field === "unicode"
-        ? translate("sinhala.unicodeCopied")
-        : translate("sinhala.legacyCopied");
-  } catch {
-    copyFailedField.value = field;
-    liveMessage.value = translate(
-      "sinhala.clipboardFailed",
-    );
-  }
-
-  resetCopyTimer = window.setTimeout(resetCopyStatus, 1800);
+  void copyToClipboard(field, text);
 }
 
-async function legacyDocumentFontPair() {
-  if (legacyFontId.value === "abhaya-legacy") {
-    return {
-      sinhala: legacyBold.value ? "FMAbabld" : "FMAbhaya",
-      other: "Times New Roman",
-      otherBold: false,
-    };
-  }
-  if (legacyFontId.value === "gemunu-legacy") {
-    return { sinhala: "FMGemunu", other: "Arial", otherBold: false };
-  }
-  const selected = await legacyFontSelect.value?.selectedDocumentFontInfo();
-  const sinhala = selected?.family || "FMAbhaya";
-  const isFmAbabld = isFmAbabldFont(sinhala);
-  return {
-    sinhala,
-    other: /abhaya/iu.test(sinhala) || isFmAbabld ? "Times New Roman" : "Arial",
-    otherBold: isFmAbabld,
-  };
-}
-
-async function convertedLegacyDocumentSegments(
-  text = unicodeText.value,
-  options = {
-    ...conjunctConversionOptions(),
-    compactDaForms: compactDaForms.value,
-  },
-) {
-  const { sinhala, other, otherBold } = await legacyDocumentFontPair();
-  const sinhalaBold = legacyBold.value && !isFmAbabldFont(sinhala);
-  return unicodeToFmSegments(text, options).flatMap(({ text, useLegacyFont }) =>
-    text
-      .split(/([0-9]+)/gu)
-      .filter(Boolean)
-      .map((part) => {
-        const isNumber = /^[0-9]+$/u.test(part);
-        const isNonSinhala = !useLegacyFont && !isNumber;
-        return {
-          text: part,
-          fontFamily: useLegacyFont || isNumber ? sinhala : other,
-          bold: isNonSinhala ? legacyBold.value || otherBold : sinhalaBold,
-          sizeHalfPoints: useLegacyFont || isNumber ? 28 : 24,
-          noProof: true,
-        };
-      }),
-  );
-}
-
-async function systemDocumentFont(serifFonts) {
-  for (const family of serifFonts) {
-    try {
-      await new FontFace(family, `local(${JSON.stringify(family)})`).load();
-      return family;
-    } catch {
-      // Continue to the next installed system font.
-    }
-  }
-  return null;
-}
-
-async function unicodeDocumentFonts() {
-  const [western, eastAsia, sinhala] = await Promise.all([
-    systemDocumentFont([
-      "Times New Roman",
-      "Times",
-      "Liberation Serif",
-      "Noto Serif",
-    ]),
-    systemDocumentFont(["SimSun", "Songti SC", "Noto Serif CJK SC"]),
-    systemDocumentFont([
-      "Iskoola Pota",
-      "Sinhala MN",
-      "Noto Serif Sinhala",
-      "LKLUG",
-    ]),
-  ]);
-  return western && eastAsia && sinhala
-    ? { ascii: western, hAnsi: western, eastAsia, cs: sinhala }
-    : {
-        ascii: "Times New Roman",
-        hAnsi: "Times New Roman",
-        eastAsia: "SimSun",
-        cs: "Iskoola Pota",
-      };
-}
-
-function convertedUnicodeDocumentSegments(text, fontFamilies) {
-  return text
-    .split(/([\u0D80-\u0DFF\u200C\u200D]+)/gu)
-    .filter(Boolean)
-    .map((part) => {
-      const isSinhala = /^[\u0D80-\u0DFF\u200C\u200D]+$/u.test(part);
-      return {
-        text: part,
-        fontFamilies,
-        sizeHalfPoints: 24,
-        complexSizeHalfPoints: 28,
-        complexScript: isSinhala,
-        language: "en-US",
-        eastAsiaLanguage: "zh-CN",
-        bidiLanguage: "si-LK",
-      };
-    });
-}
-
-function clearDocumentResult() {
-  if (documentResult.value) URL.revokeObjectURL(documentResult.value.url);
-  documentResult.value = null;
-  if (documentText.value) documentError.value = "";
-}
-
-async function setDocumentFile(file) {
-  if (documentConverting.value) return;
-  const request = ++documentReadRequest;
-  clearDocumentResult();
-  documentHasConverted.value = false;
-  documentFile.value = file;
-  documentText.value = "";
-  documentSourceDocx.value = null;
-  documentPdfPages.value = null;
-  documentPdfSuggestedFormat.value = null;
-  documentDetectedEncoding.value = null;
-  documentError.value = "";
-  documentReadStage.value = "reading";
-  documentReading.value = Boolean(file);
-  if (!file) return;
-  try {
-    const extension = file.name.split(".").pop()?.toLowerCase();
-    if (extension === "doc" || extension === "ppt") {
-      throw new Error(
-        translate("sinhala.legacyDocumentUnsupported", {
-          p0: extension.toUpperCase(),
-          p1: `${extension}x`.toUpperCase(),
-        }),
-      );
-    }
-    await nextTick();
-    if (request !== documentReadRequest) return;
-    const { text, sourceDocx, pdfPages, pdfSuggestedFormat } =
-      await readSinhalaDocument(file, {
-        includeLayout: true,
-        onStage: (stage) => {
-          if (request === documentReadRequest) documentReadStage.value = stage;
-        },
+function handlePaste(field) {
+  void pasteFromClipboard(field, {
+    onApply: (text) => {
+      if (field === "unicode") {
+        unicodeText.value = text;
+        handleUnicodeInput();
+      } else {
+        fmText.value = text;
+        handleFmInput();
+      }
+    },
+    onAfterPaste: (text) => {
+      const target =
+        field === "unicode" ? unicodeInput.value : fmPreviewInput.value;
+      target?.focus();
+      restoreEditableSelection(target, {
+        start: text.length,
+        end: text.length,
       });
-    if (request !== documentReadRequest) return;
-    if (!text.trim())
-      throw new Error(
-        translate(
-          documentIsPdf.value
-            ? "sinhala.noSelectableText"
-            : "sinhala.noConvertibleText",
-        ),
-      );
-    documentReadStage.value = "detecting";
-    await nextTick();
-    if (request !== documentReadRequest) return;
-    const detectedEncoding = detectSinhalaEncoding(text);
-    documentText.value = text;
-    documentSourceDocx.value = sourceDocx;
-    documentPdfPages.value = pdfPages || null;
-    documentPdfSuggestedFormat.value = pdfSuggestedFormat || null;
-    documentDetectedEncoding.value = detectedEncoding;
-    if (detectedEncoding && !documentDirectionManual.value) {
-      documentDirectionReversed.value = detectedEncoding === "legacy";
-    }
-    liveMessage.value = detectedEncoding
-      ? translate("sinhala.encodingDetected", {
-          p0: file.name,
-          p1: detectedEncoding === "legacy" ? "Legacy" : "Unicode",
-        })
-      : translate(
-          "sinhala.encodingUndetected",
-          { p0: file.name },
-        );
-  } catch (error) {
-    if (request === documentReadRequest) {
-      documentError.value =
-        error instanceof Error
-          ? error.message
-          : translate("sinhala.readFailed");
-      liveMessage.value = localizeText(documentError.value);
-    }
-  } finally {
-    if (request === documentReadRequest) documentReading.value = false;
-  }
+    },
+  });
 }
 
-function handleDocumentSelection(event) {
-  const file = event.target.files?.[0];
-  event.target.value = "";
-  if (file && !documentBusy.value) setDocumentFile(file);
+function handleDownload(field) {
+  void downloadTextAsDocx(field, {
+    unicodeText,
+    fmText,
+    beforeDownload: () => {
+      if (isDirectionReversed.value) flushFmPreviewConversion();
+    },
+  });
 }
 
-function handleDocumentDragLeave(event) {
-  if (!event.currentTarget.contains(event.relatedTarget)) {
-    isDocumentDragging.value = false;
-  }
-}
+onMounted(() => {
+  refreshFmPreview();
+  resizeAllTextareas();
+  unicodeInput.value?.focus({ preventScroll: true });
+  window.addEventListener("keydown", handleGlobalKeydown);
+});
 
-function handleDocumentDrop(event) {
-  isDocumentDragging.value = false;
-  if (documentBusy.value) return;
-  const file = event.dataTransfer?.files?.[0];
-  if (file) setDocumentFile(file);
-}
-
-async function convertUploadedDocument() {
-  if (!documentFile.value || !documentText.value.trim() || documentBusy.value)
-    return;
-  const request = ++documentConversionRequest;
-  const file = documentFile.value;
-  const source = documentSourceDocx.value || file;
-  const pages = documentPdfPages.value;
-  const format = pages
-    ? documentPdfOutputFormat.value
-    : documentIsPptx.value
-      ? "pptx"
-      : "docx";
-  const key = documentConversionKey.value;
-  const target = documentDirectionReversed.value ? "unicode" : "legacy";
-  const options = {
-    ...conjunctConversionOptions(),
-    compactDaForms: compactDaForms.value,
-  };
-  clearDocumentResult();
-  documentConverting.value = true;
-  documentError.value = "";
-  try {
-    const legacyFonts =
-      target === "legacy" ? await legacyDocumentFontPair() : null;
-    const settings = {
-      target,
-      options,
-      legacyFontFamily:
-        legacyFonts && isFmAbabldFont(legacyFonts.sinhala)
-          ? "FMAbhaya"
-          : legacyFonts?.sinhala,
-      unicodeFontFamilies:
-        target === "unicode" ? await unicodeDocumentFonts() : null,
-    };
-    const blob = documentIsPptx.value
-      ? await (
-          await import("@/utils/sinhala/convert-pptx.js")
-        ).convertSinhalaPptx(file, settings)
-      : format === "pptx"
-        ? await (
-            await import("@/utils/sinhala/create-pdf-pptx.js")
-          ).createPdfPptx(pages, settings)
-        : await convertSinhalaDocx(source, settings);
-    if (
-      request !== documentConversionRequest ||
-      key !== documentConversionKey.value
-    )
-      return;
-    documentResult.value = {
-      url: URL.createObjectURL(blob),
-      filename: `${file.name.replace(/\.(docx|pptx|pdf)$/iu, "")}-${target}.${format}`,
-      format,
-    };
-    documentHasConverted.value = true;
-    liveMessage.value = translate(
-      "sinhala.documentReady",
-    );
-  } catch {
-    if (
-      request !== documentConversionRequest ||
-      key !== documentConversionKey.value
-    )
-      return;
-    documentError.value = localeMessage(
-      "sinhala.documentFailed",
-    );
-    liveMessage.value = documentError.value;
-  } finally {
-    if (request === documentConversionRequest) documentConverting.value = false;
-  }
-}
-
-async function downloadDocument(field) {
-  if (downloadingField.value) return;
-  if (isDirectionReversed.value) flushFmPreviewConversion();
-  if (!unicodeText.value && !fmText.value) return;
-
-  downloadingField.value = field;
-  try {
-    const segments =
-      field === "unicode"
-        ? convertedUnicodeDocumentSegments(
-            fmToUnicodePreservingNonSinhala(
-              fmText.value,
-              conjunctConversionOptions(),
-            ),
-            await unicodeDocumentFonts(),
-          )
-        : await convertedLegacyDocumentSegments();
-    const blob = await createSinhalaDocx(segments);
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `sinhala-${field}.docx`;
-    anchor.click();
-    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    liveMessage.value = translate(
-      "sinhala.documentDownloaded",
-      { p0: field === "unicode" ? "Unicode" : "Legacy" },
-    );
-  } catch {
-    liveMessage.value = translate(
-      "sinhala.exportFailed",
-    );
-  } finally {
-    downloadingField.value = "";
-  }
-}
-
-function copyLabel(field) {
-  if (copiedField.value === field)
-    return translate("sinhala.copied");
-  if (copyFailedField.value === field)
-    return translate("sinhala.copyFailed");
-  return field === "unicode"
-    ? translate("sinhala.copyUnicode")
-    : translate("sinhala.copyLegacy");
-}
-
-function copyIcon(field) {
-  return copiedField.value === field ? "ri-check-line" : "ri-file-copy-line";
-}
-
-function pasteLabel(field) {
-  if (pastedField.value === field)
-    return translate("sinhala.pasted");
-  if (pasteFailedField.value === field)
-    return translate("sinhala.pasteFailed");
-  return translate("common.actions.paste");
-}
-
-function pasteIcon(field) {
-  if (pastedField.value === field) return "ri-check-line";
-  if (pasteFailedField.value === field) return "ri-error-warning-line";
-  return "ri-clipboard-line";
-}
+onBeforeUnmount(() => {
+  window.removeEventListener("keydown", handleGlobalKeydown);
+});
 </script>

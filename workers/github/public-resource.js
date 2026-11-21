@@ -1,3 +1,4 @@
+import { sha256Hex } from "../lib/crypto.js";
 import { deleteGithubCache, readGithubCache, writeGithubCache } from "./cache.js";
 import { createGithubClient, githubErrorHeaders } from "./client.js";
 
@@ -67,8 +68,7 @@ export async function handleGithubResource(request, env, corsHeaders, resource) 
       entry = { ...cached, upstreamEtag: etag || cached.upstreamEtag };
     } else {
       const projected = resource.project(data);
-      const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(projected)));
-      const hash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+      const hash = await sha256Hex(JSON.stringify(projected));
       entry = { [cacheField]: projected, upstreamEtag: etag, publicEtag: `W/"${hash}"` };
     }
     entry.verifiedAt = Date.now();

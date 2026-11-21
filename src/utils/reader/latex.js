@@ -1,3 +1,5 @@
+import { rangeIntersectsNode } from "./dom.js";
+
 const LATEX_SELECTOR =
   ".reader-math-source, mjx-container[data-reader-latex-source]";
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
@@ -206,13 +208,7 @@ export const getLatexSelection = (range) => {
 
   const formulas = new Map();
   let hasOtherText = false;
-  const intersects = (node) => {
-    try {
-      return range.intersectsNode(node);
-    } catch {
-      return false;
-    }
-  };
+  const intersects = (node) => rangeIntersectsNode(range, node);
   const visit = (node) => {
     if (node instanceof Element) {
       const formula = getLatexFormula(node);

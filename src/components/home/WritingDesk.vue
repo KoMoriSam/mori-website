@@ -11,7 +11,12 @@
         <h2 id="home-writing-title" class="font-serif text-2xl font-bold md:text-3xl">
           {{ translate("home.writing.title") }}
         </h2>
-        <div class="tooltip" :data-tip="translate('home.writing.refresh')">
+        <Tooltip
+          as="div"
+          trigger-class=""
+          activation-class="tooltip"
+          :text="translate('home.writing.refresh')"
+        >
           <button
             type="button"
             class="btn btn-ghost btn-sm btn-square shrink-0 text-base-content/55"
@@ -21,7 +26,7 @@
           >
             <i class="ri-refresh-line text-base" :class="busy ? 'animate-spin motion-reduce:animate-none' : ''" aria-hidden="true"></i>
           </button>
-        </div>
+        </Tooltip>
       </div>
     </div>
     <div class="flex flex-wrap items-center gap-2">
@@ -94,6 +99,8 @@
 </template>
 
 <script setup>
+import Tooltip from "@/components/display/Tooltip.vue";
+
 import { computed, onBeforeUnmount, ref } from "vue";
 import { useLocale } from "@/i18n";
 import { useToast } from "@/composables/useToast";

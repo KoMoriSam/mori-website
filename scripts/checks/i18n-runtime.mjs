@@ -9,6 +9,7 @@ import { renderToString } from '@vue/server-renderer';
 import { createRouter, createMemoryHistory } from 'vue-router';
 import { createPinia } from 'pinia';
 import { advanceRoomTime, applyRoomAction, createPlayer, createRoom, roomView } from '../../workers/games/state.js';
+import { legalActions } from '../../shared/games/fogport/options.js';
 const cardRuntimeId = '\0virtual:avalon-cards';
 const cardTestPlugin = {
   name: 'card-interaction-test',
@@ -82,10 +83,11 @@ try {
   let tableRoom = createRoom('ABCDEFGH', 'avalon', tablePlayers[0]); tableRoom.players = tablePlayers;
   const lobbyTable = roomView(tableRoom, tableRoom.hostId);
   tableRoom = applyRoomAction(tableRoom, tableRoom.hostId, { id: crypto.randomUUID(), stage: tableRoom.stage, type: 'start' }).room;
-  const nightTable = roomView(tableRoom, tableRoom.hostId);
   const tableAction = (playerId, type) => {
     tableRoom = applyRoomAction(tableRoom, playerId, { id: crypto.randomUUID(), stage: tableRoom.stage, type }).room;
   };
+  for (const player of tablePlayers) tableAction(player.id, 'confirm_opening');
+  const nightTable = roomView(tableRoom, tableRoom.hostId);
   tableAction(tableRoom.hostId, 'peek_role');
   const revealedTable = roomView(tableRoom, tableRoom.hostId);
   tableAction(tableRoom.hostId, 'confirm_role');
@@ -127,9 +129,10 @@ try {
   const identityProps = { selfId: revealedTable.selfId, playerName: id => tablePlayers.find(player => player.id === id)?.nickname ?? id, faceUp: true, backTitle: '', backHint: '' };
   const cases = [
     ['/src/components/games/fogport/layout/PlayTable.vue',{room:fogView,canAct:true,run:()=>{}},'Hand cards','අතේ කාඩ්පත්'],
+    ['/src/components/games/fogport/display/Board.vue',{game:fogView.game},'Union Works','එක්සත් කම්හල්'],
     ['/src/components/games/fogport/display/Rulebook.vue',{},'How to play','ක්‍රීඩා ක්‍රමය'],
-    ['/src/components/games/fogport/display/PublicInfo.vue',{game:fogView.game},'Round spending','වටයේ වියදම'],
-    ...['build','network','develop','sell','loan','scout','pass'].map(kind=>['/src/components/games/fogport/interaction/ActionEditor.vue',{game:fogView.game,initial:{kind},canAct:true,run:()=>{}},'Confirm action','ක්‍රියාව තහවුරු කරන්න']),
+    ['/src/components/games/fogport/display/PlayerList.vue',{game:fogView.game},'Spent this round: 0','මෙම වටයේ වියදම 0'],
+    ...['loan','scout','pass'].map(kind=>['/src/components/games/fogport/interaction/ActionEditor.vue',{game:fogView.game,initial:{kind,command:legalActions(fogView.game,fogView.game.selfId,kind)[0]},canAct:true,run:()=>{}},'Confirm action','ක්‍රියාව තහවුරු කරන්න']),
     ['/src/components/games/avalon/display/DiscussionTimer.vue', { discussion: { mode: 'slow', startedAt: 0, endsAt: 150000, partnerId: null }, serverNow: 105000 }, 'Open discussion · 00:45', 'විවෘත සාකච්ඡාව · 00:45'],
     ['/src/components/games/avalon/display/DiscussionTimer.vue', { discussion: { mode: 'fast', startedAt: 0, endsAt: 15000, partnerId: null }, serverNow: 0 }, 'Choose partner · 00:15', 'සහකරු තේරීම · 00:15'],
     ['/src/components/games/avalon/display/DiscussionTimer.vue', { discussion: { mode: 'fast', startedAt: 0, endsAt: 60000, partnerId: 'partner' }, serverNow: 0 }, 'Pair dialogue · 01:00', 'දෙදෙනාගේ සංවාදය · 01:00'],
@@ -139,7 +142,7 @@ try {
     ['/src/components/games/avalon/layout/RoundTable.vue', { room: historyView, canAct: true, run: () => {} }, 'Public game record', 'පොදු ක්‍රීඩා වාර්තාව'],
     ['/src/components/games/avalon/display/IdentityCard.vue', { ...identityProps, self: { role: 'merlin', knownEvil: ['known-evil'] } }, 'known-evil', 'known-evil'],
     ['/src/components/games/avalon/display/IdentityCard.vue', { ...identityProps, self: { role: 'morgana', knownEvil: ['known-ally'] } }, 'known-ally', 'known-ally'],
-    ['/src/components/games/avalon/interaction/Discussion.vue', { room: discussionMessages, canAct: true, run: () => {} }, 'I claim to be Merlin.', 'මගේ චරිතය මර්ලින් බව මම ප්‍රකාශ කරනවා.'],
+    ['/src/components/games/avalon/interaction/Discussion.vue', { room: discussionMessages, canAct: true, run: () => {} }, 'I claim to be Merlin.', 'මා සතු චරිතය “මර්ලින්” ලෙස මම ප්‍රකාශ කරනවා.'],
     ['/src/components/games/avalon/interaction/BallotCards.vue', { active: true, canSubmit: true, submitted: false, context: 'room:1:2' }, 'Your ballot cards', 'ඔබේ ඡන්ද කාඩ්පත්'],
     ['/src/components/games/avalon/interaction/BallotCards.vue', { active: true, canSubmit: false, submitted: true, context: 'room:1:2' }, 'Submitted', 'යවා ඇත'],
     ['/src/components/games/avalon/interaction/BallotCards.vue', { active: true, canSubmit: false, submitted: true, autoApproved: true, context: 'room:1:2' }, 'Approved automatically; waiting for others', 'ස්වයංක්‍රීයව අනුමතයි; අනෙක් අය බලා සිටී'],
@@ -149,7 +152,7 @@ try {
     ['/src/views/games/Avalon.vue', {}, 'Create room', 'කාමරයක් සාදන්න'],
     ['/src/components/games/avalon/interaction/Settings.vue', { room: lobbyTable, canAct: true, run: () => {} }, 'Roles for this game', 'මෙම ක්‍රීඩාවේ චරිත'],
     ['/src/components/games/avalon/interaction/Settings.vue', { room: { ...lobbyTable, selfId: tablePlayers[1].id }, canAct: true, run: () => {} }, 'Merlin', 'මර්ලින්'],
-    ['/src/components/games/avalon/interaction/Settings.vue', { room: { ...lobbyTable, gameConfig: { specialRoles: ['morgana', 'mordred', 'oberon'] } }, canAct: true, run: () => {} }, 'Too many special roles', 'විශේෂ චරිත වැඩියි'],
+    ['/src/components/games/avalon/interaction/Settings.vue', { room: { ...lobbyTable, gameConfig: { specialRoles: ['morgana', 'mordred', 'oberon'] } }, canAct: true, run: () => {} }, 'Special roles exceed', 'විශේෂ චරිත පාර්ශ්වයේ සීමාව ඉක්මවයි'],
     ['/src/components/games/avalon/layout/RoundTable.vue', { room: percivalTable, canAct: true, run: () => {} }, 'Round table discussion', 'වට මේස සාකච්ඡාව'],
     ['/src/components/games/avalon/layout/RoundTable.vue', { room: nightTable, canAct: true, run: () => {} }, 'An unrevealed identity card', 'තවමත් විවෘත නොකළ අනන්‍යතා කාඩ්පතක්'],
     ['/src/components/games/avalon/layout/RoundTable.vue', { room: revealedTable, canAct: true, run: () => {} }, 'Remembered.', 'මතක තබාගත්තා'],
@@ -164,7 +167,7 @@ try {
     ['/src/components/interaction/overlay/Modal.vue', { visible: true }, 'Close', 'වසන්න'],
     ['/src/components/interaction/navigation/Pagination.vue', { currentPage: 1, totalPages: 3 }, 'Next page', 'ඊළඟ පිටුව'],
     ['/src/components/tools/sinhala/Info.vue', {}, 'About Sinhala', 'සිංහල පැරණි'],
-    ['/src/views/tools/SinhalaFontConverter.vue', {}, 'Unicode text', 'Unicode පෙළ'],
+    ['/src/views/tools/SinhalaFontConverter.vue', {}, 'Standard Unicode Sinhala text', 'සම්මත Unicode සිංහල පෙළ'],
     ['/src/views/tools/ImageConverter.vue', {}, 'Image converter', 'රූප පරිවර්තකය'],
   ];
   for (const [file, props, en, si] of cases) {
@@ -176,11 +179,9 @@ try {
       : file.endsWith('/ImageConverter.vue') ? ['image-converter'] : [];
     await a.loadRoute({ meta: { localeGroups } });
     const { default: component } = await server.ssrLoadModule(file);
-    const renderProps = file.endsWith('/RoundTable.vue')
-      ? { playersTargetId: 'i18n-test-players', ...props }
-      : file.endsWith('/BallotCards.vue')
-        ? { self: revealedTable.game.self, selfId: revealedTable.selfId, playerName: identityProps.playerName, ...props }
-        : props;
+    const renderProps = file.endsWith('/BallotCards.vue')
+      ? { self: revealedTable.game.self, selfId: revealedTable.selfId, playerName: identityProps.playerName, ...props }
+      : props;
     for (const [code, expected] of [['en', en], ['si', si]]) {
       const app = createSSRApp({ render: () => h(component, renderProps) });
       app.use(createPinia()); app.use(router); a.install(app);

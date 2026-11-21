@@ -1,3 +1,5 @@
+export const MAX_IMAGE_QUEUE_FILES = 100;
+
 export const IMAGE_FORMATS = Object.freeze({
   png: { label: "PNG", mime: "image/png", extension: "png", alpha: true },
   jpeg: { label: "JPEG", mime: "image/jpeg", extension: "jpg", alpha: false },
@@ -6,6 +8,29 @@ export const IMAGE_FORMATS = Object.freeze({
   bmp: { label: "BMP", mime: "image/bmp", extension: "bmp", alpha: false },
   gif: { label: "GIF", mime: "image/gif", extension: "gif", alpha: true },
 });
+
+export function createDefaultExportSettings() {
+  return {
+    format: "webp",
+    quality: 82,
+    lossless: false,
+    pngOptimize: true,
+    pngLevel: 2,
+    avifSpeed: 6,
+    gifColors: 256,
+    gifAlphaThreshold: 128,
+    animationMode: "frames",
+    backgroundColor: "#ffffff",
+    resize: {
+      enabled: false,
+      mode: "width",
+      width: 1920,
+      height: 1080,
+      lockAspectRatio: true,
+      preventUpscale: true,
+    },
+  };
+}
 
 const ASCII = new TextDecoder("ascii");
 
@@ -62,6 +87,18 @@ export function isAnimatedWebP(input) {
     offset += 8 + size + (size & 1);
   }
   return false;
+}
+
+export function countWebPFrames(input) {
+  const bytes = input instanceof Uint8Array ? input : new Uint8Array(input);
+  let count = 0;
+  for (let offset = 12; offset + 8 <= bytes.length; ) {
+    const type = ASCII.decode(bytes.subarray(offset, offset + 4));
+    const size = readUint32LE(bytes, offset + 4);
+    if (type === "ANMF") count += 1;
+    offset += 8 + size + (size & 1);
+  }
+  return count;
 }
 
 export function readWebPLoopCount(input) {
@@ -174,7 +211,13 @@ export function formatBytes(bytes) {
 }
 
 function readUint32LE(bytes, offset) {
-  return bytes[offset] | (bytes[offset + 1] << 8) | (bytes[offset + 2] << 16) | (bytes[offset + 3] << 24);
+  return (
+    (bytes[offset] |
+      (bytes[offset + 1] << 8) |
+      (bytes[offset + 2] << 16) |
+      (bytes[offset + 3] << 24)) >>>
+    0
+  );
 }
 
 function readUint16LE(bytes, offset) {
@@ -208,7 +251,7 @@ function readJpegDimensions(bytes) {
 function readWebPDimensions(bytes) {
   for (let offset = 12; offset + 10 <= bytes.length; ) {
     const type = ASCII.decode(bytes.subarray(offset, offset + 4));
-    const size = readUint32LE(bytes, offset + 4) >>> 0;
+    const size = readUint32LE(bytes, offset + 4);
     const data = offset + 8;
     if (type === "VP8X" && size >= 10) {
       return { width: 1 + bytes[data + 4] + (bytes[data + 5] << 8) + (bytes[data + 6] << 16), height: 1 + bytes[data + 7] + (bytes[data + 8] << 8) + (bytes[data + 9] << 16) };
