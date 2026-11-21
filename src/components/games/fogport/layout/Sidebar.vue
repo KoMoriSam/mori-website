@@ -2,12 +2,15 @@
   <div class="flex h-full min-h-0 min-w-0 flex-col">
     <SidebarNavigation
       :items="items"
-      :panel="panel"
+      :panel="sidebarPanel"
       :panel-id="panelId"
       :label="t('fogport.visual.views')"
-      @select-panel="emit('select-panel', $event)"
+      @select-panel="selectPanel"
     />
-    <ScrollableContainer class="flex-1 lg:is-drawer-close:hidden" v-show="panel === 'players'">
+    <ScrollableContainer
+      v-show="sidebarPanel === 'players'"
+      class="flex-1 lg:is-drawer-close:hidden"
+    >
       <section
         :id="`${panelId}-players`"
         role="region"
@@ -17,7 +20,10 @@
         <PlayerList :game="room.game" :players="room.players" />
       </section>
     </ScrollableContainer>
-    <ScrollableContainer class="flex-1 lg:is-drawer-close:hidden" v-show="panel === 'market'">
+    <ScrollableContainer
+      v-show="sidebarPanel === 'market'"
+      class="flex-1 lg:is-drawer-close:hidden"
+    >
       <section
         :id="`${panelId}-market`"
         role="region"
@@ -28,14 +34,17 @@
       </section>
     </ScrollableContainer>
     <section
-      v-show="midDesktop && panel === 'hand'"
+      v-show="midDesktop && sidebarPanel === 'hand'"
       :id="`${panelId}-hand`"
       class="min-h-0 flex-1 lg:is-drawer-close:hidden"
       :aria-labelledby="`${panelId}-menu-hand`"
     >
       <div :id="inventoryTargetId" class="flex h-full min-h-0 flex-col"></div>
     </section>
-    <ScrollableContainer class="flex-1 lg:is-drawer-close:hidden" v-show="panel === 'history'">
+    <ScrollableContainer
+      v-show="sidebarPanel === 'history'"
+      class="flex-1 lg:is-drawer-close:hidden"
+    >
       <section
         :id="`${panelId}-history`"
         role="region"
@@ -46,7 +55,7 @@
       </section>
     </ScrollableContainer>
     <section
-      v-show="panel === 'reference'"
+      v-show="sidebarPanel === 'reference'"
       :id="`${panelId}-reference`"
       role="region"
       :aria-labelledby="`${panelId}-menu-reference`"
@@ -56,24 +65,32 @@
     </section>
   </div>
 </template>
+
 <script setup>
-import ScrollableContainer from "@/components/layout/ScrollableContainer.vue";
 import { computed, useId, watch } from "vue";
+import { useMediaQuery } from "@vueuse/core";
+import ScrollableContainer from "@/components/layout/ScrollableContainer.vue";
 import SidebarNavigation from "../../layout/SidebarNavigation.vue";
 import PlayerList from "../display/PlayerList.vue";
 import Market from "../display/Market.vue";
 import History from "../display/History.vue";
 import Rulebook from "../display/Rulebook.vue";
-import { useMediaQuery } from "@vueuse/core";
+import {
+  FOGPORT_MID_DESKTOP_QUERY,
+  useFogportLayout,
+} from "@/composables/games/fogport/useFogportLayout";
 import { useLocale } from "@/i18n";
-const props = defineProps({
+
+defineProps({
   room: { type: Object, required: true },
-  inventoryTargetId: { type: String, required: true },
-  panel: { type: String, default: "players" },
 });
-const emit = defineEmits(["select-panel"]);
+const emit = defineEmits(["expand"]);
+
 const { t } = useLocale();
 const panelId = `fogport-sidebar-${useId()}`;
+const { inventoryTargetId, sidebarPanel, setSidebarPanel, syncMobilePanel } =
+  useFogportLayout();
+
 const baseItems = [
   { id: "players", icon: "ri-group-line", label: "fogport.players" },
   { id: "market", icon: "ri-exchange-line", label: "fogport.market" },
@@ -84,7 +101,8 @@ const baseItems = [
     label: "fogport.visual.reference",
   },
 ];
-const midDesktop = useMediaQuery("(min-width: 1024px) and (max-width: 1535px)");
+
+const midDesktop = useMediaQuery(FOGPORT_MID_DESKTOP_QUERY);
 const items = computed(() =>
   midDesktop.value
     ? [
@@ -93,7 +111,14 @@ const items = computed(() =>
       ]
     : baseItems,
 );
+
+function selectPanel(panel) {
+  setSidebarPanel(panel);
+  syncMobilePanel(panel);
+  emit("expand");
+}
+
 watch(midDesktop, (value) => {
-  if (!value && props.panel === "hand") emit("select-panel", "players");
+  if (!value && sidebarPanel.value === "hand") setSidebarPanel("players");
 });
 </script>

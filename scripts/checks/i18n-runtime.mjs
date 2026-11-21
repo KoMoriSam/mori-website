@@ -128,7 +128,8 @@ try {
   const finishedTable = roomView(tableRoom, tableRoom.hostId);
   const identityProps = { selfId: revealedTable.selfId, playerName: id => tablePlayers.find(player => player.id === id)?.nickname ?? id, faceUp: true, backTitle: '', backHint: '' };
   const cases = [
-    ['/src/components/games/fogport/layout/PlayTable.vue',{room:fogView,canAct:true,run:()=>{},inventoryTargetId:'i18n-test-inventory'},'Hand cards','අතේ කාඩ්පත්'],
+    ['/src/components/games/fogport/layout/PlayTable.vue',{room:fogView,canAct:true,run:()=>{}},'Hand cards','අතේ කාඩ්පත්'],
+    ['/src/components/games/fogport/display/Board.vue',{game:fogView.game},'Union Works','එක්සත් කම්හල්'],
     ['/src/components/games/fogport/display/Rulebook.vue',{},'How to play','ක්‍රීඩා ක්‍රමය'],
     ['/src/components/games/fogport/display/PlayerList.vue',{game:fogView.game},'Spent this round: 0','මෙම වටයේ වියදම 0'],
     ...['loan','scout','pass'].map(kind=>['/src/components/games/fogport/interaction/ActionEditor.vue',{game:fogView.game,initial:{kind,command:legalActions(fogView.game,fogView.game.selfId,kind)[0]},canAct:true,run:()=>{}},'Confirm action','ක්‍රියාව තහවුරු කරන්න']),

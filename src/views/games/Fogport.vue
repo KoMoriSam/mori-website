@@ -4,8 +4,13 @@
     :entry-notice="`${t('fogport.testStatus')} · ${t('fogport.testNotice')}`"
   >
     <template #page-notice>
-      <p class="flex items-start gap-2 text-xs leading-5 text-base-content/75" role="status">
-        <span class="badge badge-warning badge-soft badge-sm shrink-0">{{ t("fogport.testStatus") }}</span>
+      <p
+        class="flex items-start gap-2 text-xs leading-5 text-base-content/75"
+        role="status"
+      >
+        <span class="badge badge-warning badge-soft badge-sm shrink-0">{{
+          t("fogport.testStatus")
+        }}</span>
         <span>{{ t("fogport.testNotice") }}</span>
       </p>
     </template>
@@ -48,38 +53,23 @@
       </section>
     </template>
     <template #default="{ room, canAct, run, error }"
-      ><PlayTable
-        ref="playTable"
-        :room="room"
-        :can-act="canAct"
-        :run="run"
-        :error="error"
-        :inventory-target-id="inventoryTargetId"
-        @request-sidebar-panel="sidebarPanel = $event"
+      ><PlayTable :room="room" :can-act="canAct" :run="run" :error="error"
     /></template>
     <template #sidebar="{ room, expandSidebar }"
-      ><Sidebar
-        :room="room"
-        :panel="sidebarPanel"
-        :inventory-target-id="inventoryTargetId"
-        @select-panel="
-          sidebarPanel = $event;
-          playTable?.selectPanel($event);
-          expandSidebar();
-        "
+      ><Sidebar :room="room" @expand="expandSidebar()"
     /></template>
   </Room>
 </template>
+
 <script setup>
 import Room from "@/components/games/Room.vue";
 import PlayTable from "@/components/games/fogport/layout/PlayTable.vue";
 import ReferenceDialog from "@/components/games/fogport/display/ReferenceDialog.vue";
 import Sidebar from "@/components/games/fogport/layout/Sidebar.vue";
 import PlayGuide from "@/components/games/fogport/display/PlayGuide.vue";
-import { ref, useId } from "vue";
+import { provideFogportLayout } from "@/composables/games/fogport/useFogportLayout";
 import { useLocale } from "@/i18n";
+
 const { t } = useLocale();
-const playTable = ref(null),
-  sidebarPanel = ref("players");
-const inventoryTargetId = `fogport-inventory-${useId()}`;
+provideFogportLayout();
 </script>

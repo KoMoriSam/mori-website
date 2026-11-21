@@ -174,11 +174,12 @@
   - **阿瓦隆 Worker 规则**：将 `workers/avalon/rules.js`（830 行 → 26 行）拆分为 `workers/avalon/{config.js,engine.js,view.js}` 与适配入口 `rules.js`，收口 `create()` 重复 3 次的 `normalizeConfig`，清除 `view()` 对 `create()` 必有字段的 11 处冗余 `|| {}` / `?? {}` / `?.` 防御（保留被测试覆盖的历史/可空字段分支）；同步修正 `scripts/checks/avalon.mjs` 旧版单文件语言包路径与 `loyaltyCheck` 守卫漂移。
 - **验证**：`pnpm check games`、`pnpm check game-room-client`、`pnpm check room-dissolution`、`pnpm check avalon`、`pnpm check i18n-runtime`、`pnpm check i18n-quantities`、`pnpm check i18n-loading`、`pnpm check site-perf`、SSR 零警告冒烟与人工全项验收通过。
 
-### - [ ] P3-4：优化雾港 `Board.vue`（919 行）渲染性能与整理 `PlayTable.vue`（873 行）
-- **改造动作**：
-  - 在 `Board.vue` 中使用 `computed` 预建 `buildingsBySlot`、`builtLinksMap`、`liquidationOfferBySlot` 等 `Map` 索引，将模板中每格 12+ 次 O(N) `find()` 降为 O(1) 查表；抽出 `useBoardViewport.js` 独立管理缩放与平移手势。
-  - 在 `PlayTable.vue` 中合并两处完全相同（各 13 个 Props）的 `<InventoryTray>` 挂载点，并用 `provide/inject` 替代 `Fogport.vue` 跨兄弟透传 `inventoryTargetId`。
-- **验证**：`pnpm check fogport`、`pnpm check games`；本地双开浏览器验证运河/铁路时代建路、建筑、清算、拖拽出牌与移动端/桌面端切换。
+### - [x] P3-4：优化雾港 `Board.vue`（919 行 → 238 行）渲染性能与整理 `PlayTable.vue`（873 行 → 363 行）
+- **目标结构**：
+  - **棋盘渲染与手势**：在 `src/composables/games/fogport/useBoardIndex.js` 静态预计算 `MAP_PLACES`（含 `isPort`/槽位变换/商人坐标）并预建 `playersById`、`builtLinksMap`、`buildingsById`、`buildingsBySlot`、`merchantsById`、`merchantsByLocation`、`liquidationOfferBySlot`、`activePlaceIds`、`chosenPlaceIds`、`hoveredPlaceId` 等 O(1) `Map`/`Set` 索引；在 `src/games/fogport/map-layout.js` 为 `routePath` / `routeSegments` / `routeMark` 补充惰性几何缓存；抽出 `useBoardViewport.js` 独立管理缩放与平移手势并去重 `setPointerCapture`/清理防误触计时器；拆分 SVG 图层为 `BoardLinksLayer.vue`（3 Props）与 `BoardPlacesLayer.vue`（4 Props），平移缩放仅更新顶层 `<g :transform>` 且按 `hoverTarget` 前缀隔离两层重渲染。
+  - **桌台壳层与跨兄弟状态**：在 `PlayTable.vue` 中合并两处重复的 13-Prop `<InventoryTray>` 为单一 `<Teleport><InventoryTray /></Teleport>` 挂载点；新增 `useFogportLayout.js` 通过 `provide/inject` 替代 `Fogport.vue` 跨兄弟透传 `inventoryTargetId`、`sidebarPanel` 与 `ref="playTable"`（移除死暴露 API `open`）；抽离 `TableHeader.vue`（6 Props）、`useFogportInteraction.js` 与纯函数 `src/games/fogport/interaction.js`（复用 `useActionMode.js` 导出的 `actionFilterFor` 与 `presentation.js` 共享色调常量）；`Sidebar.vue` 离开中等桌面视口时仅修正自身页签为 `players`，不再强制展开抽屉或切换移动端面板。
+  - **校验脚本同步**：清理 `scripts/checks/i18n-runtime.mjs` 中 `PlayTable.vue` 废弃的 `inventoryTargetId` 测试 prop 并补充 `Board.vue` 双语 SSR 校验；修正 `scripts/checks/fogport.mjs` L128/L151 两处历史 `l30` 节点与边数漂移断言，补充 `useBoardViewport` 与 `map-layout.js` 缓存单测。
+- **验证**：`pnpm check fogport`、`pnpm check fogport -- --map`、`pnpm check games`、`pnpm check game-room-client`、`pnpm check i18n-runtime`、`pnpm check i18n-quantities`、`pnpm check i18n-loading`、`pnpm check site-perf`、四语言 SSR 零警告冒烟与人工全项验收通过。
 
 ### - [ ] P3-5：拆解 `PagedReader.vue`（1750 行）与 `create-reader-share-card.js`（2368 行）
 - **改造动作**：
