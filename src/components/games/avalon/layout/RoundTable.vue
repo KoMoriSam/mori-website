@@ -1340,9 +1340,9 @@ async function showLoyaltyResult(entry) {
 }
 
 function clearSwitchTimers() {
-  window.clearTimeout(switchFlipTimer);
-  window.clearTimeout(switchCloseTimer);
-  window.clearTimeout(switchResumeTimer);
+  clearTimeout(switchFlipTimer);
+  clearTimeout(switchCloseTimer);
+  clearTimeout(switchResumeTimer);
 }
 
 function resetSwitchPresentation() {

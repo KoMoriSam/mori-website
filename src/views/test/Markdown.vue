@@ -294,7 +294,7 @@ import { useReaderTextContext } from "@/composables/reader/useReaderTextContext"
 import Renderer from "@/components/markdown/Renderer.vue";
 import FormatSetting from "@/components/reader/interaction/FormatSetting.vue";
 import ReadingLayout from "@/components/reader/layout/ReadingLayout.vue";
-import { useParagraphCommentsStorage } from "@/composables/storage/useParagraphCommentsStorage";
+import { useParagraphCommentsCache } from "@/composables/reader/useParagraphCommentsCache";
 import { useArticleApi } from "@/services/api-articles";
 import { createArticleWikiLinkResolver } from "@/utils/blog/article-wiki-links";
 import { WIKI_LINK_RESOLVER } from "@/utils/markdown/markdown-it-wikilink";
@@ -314,7 +314,7 @@ const ContextMenu = defineAsyncComponent(
 const readerStore = useReaderStore();
 const route = useRoute();
 const router = useRouter();
-const { setCount } = useParagraphCommentsStorage();
+const { setCount } = useParagraphCommentsCache();
 const markdownPreviewRef = ref(null);
 const sampleTabs = ref(null);
 const previewLayout = ref(null);

@@ -36,7 +36,6 @@ import { getBlogPagePath } from "@/constants/blog-pagination";
 import { useSearchResultHighlight } from "@/composables/useSearchResultHighlight";
 
 import { useStorageMigration } from "@/composables/storage/useStorageMigration";
-import { useDiscardStorage } from "@/composables/storage/useDiscardStorage";
 import { useLocale } from "@/i18n";
 import { useThemeTransition } from "@/composables/layout/useThemeTransition";
 import { useGlobalStorage } from "@/composables/storage/useGlobalStorage";
@@ -386,20 +385,13 @@ onMounted(() => {
     return;
   }
 
+  const { migrateStorage } = useStorageMigration();
+  migrateStorage();
+
   void restoreLocale(GLOBAL_INFO).catch(() =>
     localeToast.error(translate("common.languageLoadFailed")),
   );
 
-  const { migrateStorage } = useStorageMigration();
-
-  try {
-    migrateStorage();
-    useDiscardStorage();
-  } catch {
-    // Storage restrictions must not prevent session language selection.
-  }
-
-  announcementStore.migrateLegacyUpdateState();
   void announcementStore.fetchAnnouncements().then((announcements) => {
     if (announcements) announcementStore.showImportantSummary();
   });

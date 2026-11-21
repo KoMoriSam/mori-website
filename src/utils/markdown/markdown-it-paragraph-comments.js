@@ -3,7 +3,7 @@ import ParagraphQuote from "@/components/reader/display/ParagraphQuote.vue";
 import { h, watch } from "vue";
 import { useModal } from "@/composables/useModal";
 import { useGlobalEventListener } from "@/composables/useGlobalEventListener";
-import { useParagraphCommentsStorage } from "@/composables/storage/useParagraphCommentsStorage";
+import { useParagraphCommentsCache } from "@/composables/reader/useParagraphCommentsCache";
 import { useLocale } from "@/i18n";
 import { RESPONSIVE_COMMENT_DIALOG_SIZE_CLASS } from "@/constants/reader-layout";
 
@@ -11,7 +11,7 @@ export const useParagraphComments = ({ enabled, resolver } = {}) => {
   const modal = useModal();
   const { t: translate, locale } = useLocale();
   const MAX_TITLE_LENGTH = 36;
-  const { getCount, setCount } = useParagraphCommentsStorage();
+  const { getCount, setCount } = useParagraphCommentsCache();
 
   const normalizeParagraphText = (value = "") => {
     return String(value)

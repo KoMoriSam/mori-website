@@ -25,7 +25,7 @@ const { t: translate } = useLocale();
 
 import { computed, ref, watch } from "vue";
 import { useGlobalEventListener } from "@/composables/useGlobalEventListener";
-import { useParagraphCommentsStorage } from "@/composables/storage/useParagraphCommentsStorage";
+import { useParagraphCommentsCache } from "@/composables/reader/useParagraphCommentsCache";
 
 const props = defineProps({
   paragraphId: {
@@ -39,7 +39,7 @@ const props = defineProps({
 });
 const emit = defineEmits(["open"]);
 
-const { getCount } = useParagraphCommentsStorage();
+const { getCount } = useParagraphCommentsCache();
 const count = ref(0);
 const countLabel = computed(() => {
   if (count.value <= 0) return "";

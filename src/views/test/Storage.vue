@@ -38,7 +38,7 @@ import { useModal } from "@/composables/useModal";
 import { useGlobalStorage } from "@/composables/storage/useGlobalStorage";
 import { useReaderSettingsStorage } from "@/composables/storage/useReaderSettingsStorage";
 import { useReadingStateStorage } from "@/composables/storage/useReadingStateStorage";
-import { useParagraphCommentsStorage } from "@/composables/storage/useParagraphCommentsStorage";
+import { useParagraphCommentsCache } from "@/composables/reader/useParagraphCommentsCache";
 
 import PageShell from "./PageShell.vue";
 const modal = useModal();
@@ -50,7 +50,7 @@ const {
   PARAGRAPH_COMMENTS,
   PARAGRAPH_COMMENTS_FETCHED,
   setCount,
-} = useParagraphCommentsStorage();
+} = useParagraphCommentsCache();
 const refreshVersion = ref(0);
 const TEST_PARAGRAPH_ID = "storage-test-1";
 

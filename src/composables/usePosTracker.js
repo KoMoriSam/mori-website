@@ -40,8 +40,6 @@ export function usePosTracker(router, onRestoreTitle, options = {}) {
     return () => {};
   }
 
-  // const READ_POS_KEY = "READ_POS";
-  // const readPos = useStorage(READ_POS_KEY, "");
   const { getState, setState } = options.storage || useReadingStateStorage();
   const readPosKey = options.readPosKey || "READ_POS";
   const readContextKey = options.readContextKey || "READ_CH_ID";

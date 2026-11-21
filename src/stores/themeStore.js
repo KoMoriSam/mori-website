@@ -4,12 +4,11 @@ import { usePreferredDark } from "@vueuse/core";
 import { useGlobalStorage } from "@/composables/storage/useGlobalStorage";
 import { DEFAULT_THEME, SITE_THEME_NAMES } from "@/utils/layout/site-theme";
 
-const isDark = usePreferredDark();
-
 const manualThemeValues = new Set(SITE_THEME_NAMES);
 
 export const useThemeStore = defineStore("theme", () => {
-  const { GLOBAL_INFO, getInfo } = useGlobalStorage();
+  const isDark = usePreferredDark();
+  const { getInfo, setInfo } = useGlobalStorage();
   const theme = computed({
     get: () => {
       const storedTheme = getInfo("SET_THEME", DEFAULT_THEME);
@@ -19,9 +18,9 @@ export const useThemeStore = defineStore("theme", () => {
     },
     set: (value) => {
       if (value !== DEFAULT_THEME && !manualThemeValues.has(value)) return;
-      GLOBAL_INFO.value.SET_THEME = value;
+      setInfo("SET_THEME", value);
       if (manualThemeValues.has(value)) {
-        GLOBAL_INFO.value.MANUAL_THEME = value;
+        setInfo("MANUAL_THEME", value);
       }
     },
   });
@@ -55,14 +54,14 @@ export const useThemeStore = defineStore("theme", () => {
 
   const manualTheme = computed({
     get: () => {
-      const storedManualTheme = GLOBAL_INFO.value.MANUAL_THEME;
+      const storedManualTheme = getInfo("MANUAL_THEME");
       if (manualThemeValues.has(storedManualTheme)) return storedManualTheme;
       if (manualThemeValues.has(theme.value)) return theme.value;
       return isDark.value ? "forest" : "lemonade";
     },
     set: (value) => {
       if (manualThemeValues.has(value)) {
-        GLOBAL_INFO.value.MANUAL_THEME = value;
+        setInfo("MANUAL_THEME", value);
       }
     },
   });

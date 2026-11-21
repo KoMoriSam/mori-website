@@ -6,6 +6,7 @@ import { messageLoaders, getRouteMessageGroups } from "./message-groups.js";
 import {
   DEFAULT_LOCALE,
   LOCALES,
+  normalizeLocale,
   getLocaleFallbacks,
   detectLocale,
   readLocalePreference,
@@ -217,7 +218,9 @@ export function createLocaleService({ loaders = messageLoaders } = {}) {
     async restoreLocale(info = null) {
       globalInfo = info;
       const storage = getBrowserStorage();
-      const saved = storage ? readLocalePreference(storage) : null;
+      const saved =
+        normalizeLocale(info?.value?.SET_LOCALE) ||
+        (storage ? readLocalePreference(storage) : null);
       const detected = detectLocale(
         navigator.languages?.length
           ? navigator.languages

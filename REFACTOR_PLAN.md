@@ -78,7 +78,7 @@
   - 修复 `src/services/search-content.js:349-360` 静默 `catch {}` 与 `L448-457` 同对象双检、`L393-396` 重复计算 metadata。
 - **验证**：`pnpm check responsive-images`、`pnpm check markdown-avatars`、`pnpm check blog`、`pnpm check game-room-client`、`pnpm check announcements`、`pnpm check changelog`。
 
-### - [ ] P1-3：治理持久化 Storage 层与消除 `computed()` 状态写入副作用
+### - [x] P1-3：治理持久化 Storage 层与消除 `computed()` 状态写入副作用
 - **现状问题**：
   - `announcementStore.js:100-103`、`useGlobalStorage.js:59`、`useReadingStateStorage.js:50` 在 `computed()` getter 或 getter 函数内直接修改响应式 Storage。
   - 4 处复制相同的旧键正则解析；恒等 `keyMapping` 空转；8 处业务直接绕过 `useHydratedStorage` 访问 `localStorage`。

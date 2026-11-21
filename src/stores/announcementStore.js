@@ -1,6 +1,5 @@
 import { computed, ref } from "vue";
 import { defineStore } from "pinia";
-import { useStorage } from "@vueuse/core";
 
 import { fetchAnnouncements as requestAnnouncements } from "@/services/api-announcements";
 import {
@@ -11,12 +10,14 @@ import {
   isAnnouncementRead,
   withAnnouncementRead,
 } from "@/utils/announcement/state";
-import { useGlobalStorage } from "@/composables/storage/useGlobalStorage";
+import { useHydratedStorage } from "@/composables/storage/useHydratedStorage";
 
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 const SESSION_PROMPTED_KEY = "ANNOUNCEMENT_PROMPTED_V1";
-const STORAGE_MIGRATION_KEY = "ANNOUNCEMENT_STORAGE_MIGRATION_V1";
 const PROMPT_VISIT_ID = Symbol.for("komori.announcementPromptVisitId");
+
+const isPlainObject = (value) =>
+  Boolean(value) && typeof value === "object" && !Array.isArray(value);
 
 const getPromptVisitId = () => {
   if (typeof window === "undefined") return "";
@@ -72,35 +73,21 @@ export const useAnnouncementStore = defineStore("announcements", () => {
   const overlayMode = ref("");
   const selectedAnnouncementId = ref("");
   const summaryAnnouncementKeys = ref([]);
-  const storage = useStorage("ANNOUNCEMENT_STATE_V1", {
+  const { storage } = useHydratedStorage("ANNOUNCEMENT_STATE_V1", {
     readRevisions: {},
   });
-  const migrationDone = useStorage(STORAGE_MIGRATION_KEY, false);
 
   let requestPromise = null;
 
-  const ensureStorageShape = () => {
-    if (!storage.value || typeof storage.value !== "object") {
-      storage.value = { readRevisions: {} };
-    }
-    if (
-      !storage.value.readRevisions ||
-      typeof storage.value.readRevisions !== "object" ||
-      Array.isArray(storage.value.readRevisions)
-    ) {
-      storage.value.readRevisions = {};
-    }
-  };
+  const readRevisions = computed(() =>
+    isPlainObject(storage.value?.readRevisions)
+      ? storage.value.readRevisions
+      : {},
+  );
 
-  const isRead = (announcement) => {
-    ensureStorageShape();
-    return isAnnouncementRead(storage.value.readRevisions, announcement);
-  };
+  const isRead = (announcement) =>
+    isAnnouncementRead(readRevisions.value, announcement);
 
-  const readRevisions = computed(() => {
-    ensureStorageShape();
-    return storage.value.readRevisions;
-  });
   const activeAnnouncements = computed(() =>
     getPrioritizedActiveAnnouncements(items.value, readRevisions.value),
   );
@@ -136,30 +123,21 @@ export const useAnnouncementStore = defineStore("announcements", () => {
 
   const markRead = (announcement) => {
     if (!announcement) return;
-    ensureStorageShape();
-    storage.value.readRevisions = withAnnouncementRead(
-      storage.value.readRevisions,
-      announcement,
-    );
+    storage.value = {
+      readRevisions: withAnnouncementRead(readRevisions.value, announcement),
+    };
   };
 
   const markAllRead = (announcements = activeAnnouncements.value) => {
-    announcements.forEach(markRead);
-  };
-
-  const migrateLegacyUpdateState = () => {
-    if (typeof localStorage === "undefined") return;
-    ensureStorageShape();
-
-    if (migrationDone.value) return;
-
-    const { GLOBAL_INFO } = useGlobalStorage();
-    if (GLOBAL_INFO.value && typeof GLOBAL_INFO.value === "object") {
-      const { APP_VERSION: _legacyVersion, ...remainingInfo } = GLOBAL_INFO.value;
-      GLOBAL_INFO.value = remainingInfo;
+    let nextRevisions = readRevisions.value;
+    for (const announcement of announcements) {
+      if (announcement) {
+        nextRevisions = withAnnouncementRead(nextRevisions, announcement);
+      }
     }
-    localStorage.removeItem("APP_VERSION");
-    migrationDone.value = true;
+    if (nextRevisions !== readRevisions.value) {
+      storage.value = { readRevisions: nextRevisions };
+    }
   };
 
   const fetchAnnouncements = async ({ force = false } = {}) => {
@@ -269,7 +247,6 @@ export const useAnnouncementStore = defineStore("announcements", () => {
     isRead,
     markRead,
     markAllRead,
-    migrateLegacyUpdateState,
     fetchAnnouncements,
     refreshIfStale,
     showImportantSummary,

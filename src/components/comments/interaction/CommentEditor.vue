@@ -431,12 +431,13 @@ import {
   useId,
   watch,
 } from "vue";
-import { useElementSize, useStorage, useWindowSize } from "@vueuse/core";
+import { useElementSize, useWindowSize } from "@vueuse/core";
 import LoginButton from "@/components/auth/LoginButton.vue";
 import Modal from "@/components/interaction/overlay/Modal.vue";
 import MarkdownToolbar from "./MarkdownToolbar.vue";
 import ActionMenu from "@/components/display/menu/ActionMenu.vue";
 import Tooltip from "@/components/display/Tooltip.vue";
+import { useHydratedStorage } from "@/composables/storage/useHydratedStorage";
 import { useCommentAttachments } from "@/composables/useCommentAttachments";
 import { mediaAttachmentAccept } from "@/../shared/comment-attachments.js";
 import { githubDiscussionUrl } from "@/utils/github-discussion-url";
@@ -504,9 +505,7 @@ watch(
   },
 );
 const textarea = ref(null);
-const monospace = useStorage("mori:comments:monospace", false, undefined, {
-  initOnMounted: true,
-});
+const { storage: monospace } = useHydratedStorage("mori:comments:monospace", false);
 const tabGroup = useId();
 const { t } = useLocale();
 const fieldLabel = computed(() => t(`comments.editor.${props.action}.label`));
