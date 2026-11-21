@@ -1,3 +1,4 @@
+import { normalizeGithubImageUrl } from "../lib/http.js";
 import { GITHUB_USERNAME, handleGithubResource } from "./public-resource.js";
 
 const repositoryPreviewQuery = `
@@ -14,14 +15,6 @@ const repositoryPreviewQuery = `
     }
   }
 `;
-
-function githubImageUrl(value, ...hosts) {
-  if (typeof value !== "string" || !URL.canParse(value)) return "";
-  const url = new URL(value);
-  return url.protocol === "https:" && !url.username && !url.password && hosts.includes(url.host)
-    ? url.href
-    : "";
-}
 
 const repository = {
   endpoint: "repos",
@@ -52,9 +45,11 @@ const repository = {
       stars: Number.isSafeInteger(data.stargazerCount) ? data.stargazerCount : null,
       forks: Number.isSafeInteger(data.forkCount) ? data.forkCount : null,
       coverUrl: data.usesCustomOpenGraphImage === true
-        ? githubImageUrl(data.openGraphImageUrl, "repository-images.githubusercontent.com", "opengraph.githubassets.com")
+        ? normalizeGithubImageUrl(data.openGraphImageUrl, {
+            hosts: ["repository-images.githubusercontent.com", "opengraph.githubassets.com"],
+          })
         : "",
-      ownerAvatarUrl: githubImageUrl(data.owner?.avatarUrl, "avatars.githubusercontent.com"),
+      ownerAvatarUrl: normalizeGithubImageUrl(data.owner?.avatarUrl),
     };
   },
 };

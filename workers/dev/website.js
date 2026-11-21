@@ -27,10 +27,9 @@ export default {
       })().catch((error) => { seed = undefined; throw error; });
       await seed;
     }
-    if (/^\/api\/(?:games|github|analytics|announcements|changelog|random-hero)(?:\/|$)/.test(url.pathname)) {
-      url.pathname = url.pathname.slice(4);
-      return env.LOCAL_API.fetch(new Request(url, request));
-    }
-    return site.fetch(request, env);
+    return site.fetch(request, {
+      ...env,
+      PUBLIC_API: env.PUBLIC_API || env.LOCAL_API,
+    });
   },
 };

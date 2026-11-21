@@ -55,8 +55,14 @@ export default {
       return api.fetch(request, env, ctx);
     try {
       return await api.fetch(request, await discussionEnvironment(env), ctx);
-    } catch {
-      return Response.json({ error: "DISCUSSIONS_UNAVAILABLE" }, { status: 503 });
+    } catch (error) {
+      const requestId = crypto.randomUUID();
+      console.error(JSON.stringify({
+        event: "discussions_counts_failed",
+        requestId,
+        error: String(error?.message || error),
+      }));
+      return Response.json({ error: "DISCUSSIONS_UNAVAILABLE", requestId }, { status: 503 });
     }
   },
   scheduled: api.scheduled,
@@ -71,8 +77,14 @@ export class CommentsInternal extends WorkerEntrypoint {
       const scope = configuredDiscussionScopes(env)[target.scope];
       if (!scope) return { status: 404, body: { error: "DISCUSSION_NOT_FOUND" } };
       return handler(request, env, token, { ...target, ...scope, privateRepository: true });
-    } catch {
-      return { status: 503, body: { error: "DISCUSSIONS_UNAVAILABLE" } };
+    } catch (error) {
+      const requestId = crypto.randomUUID();
+      console.error(JSON.stringify({
+        event: "comments_internal_failed",
+        requestId,
+        error: String(error?.message || error),
+      }));
+      return { status: 503, body: { error: "DISCUSSIONS_UNAVAILABLE", requestId } };
     }
   }
 }

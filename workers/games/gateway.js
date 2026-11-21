@@ -1,33 +1,24 @@
-import { ensure, GameError, randomInt } from './utils.js';
+import { isOriginAllowed } from '../lib/cors.js';
+import { readJsonObject } from '../lib/http.js';
+import { ensure, randomInt } from './utils.js';
 import { getGame } from './registry.js';
 import { hashToken } from './room.js';
 
 const PREFIX = '/games/rooms';
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const DEFAULT_ORIGINS = 'https://komori.cc,https://www.komori.cc,http://localhost:5173,http://127.0.0.1:5173';
-async function readBody(request) {
-  ensure(request.headers.get('Content-Type')?.split(';')[0].trim() === 'application/json', 'INVALID', 415);
-  ensure(Number(request.headers.get('Content-Length') || 0) <= 2048, 'INVALID', 413);
-  const reader = request.body?.getReader();
-  ensure(reader, 'INVALID');
-  const chunks = []; let size = 0;
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      size += value.byteLength;
-      if (size > 2048) { await reader.cancel(); throw new GameError('INVALID', 413); }
-      chunks.push(value);
-    }
-  } finally { reader.releaseLock(); }
-  const bytes = new Uint8Array(size); let offset = 0;
-  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
-  try { return JSON.parse(new TextDecoder().decode(bytes)); } catch { throw new GameError('INVALID'); }
-}
+const readBody = (request) =>
+  readJsonObject(request, {
+    maxBytes: 2048,
+    requireJsonContentType: true,
+    unsupportedMediaCode: 'INVALID',
+    tooLargeCode: 'INVALID',
+    invalidCode: 'INVALID',
+  });
 export async function handleGames(request, env) {
   const origin = request.headers.get('Origin') || '';
   const configured = env.GAMES_ALLOWED_ORIGINS || (env.ALLOWED_ORIGIN && env.ALLOWED_ORIGIN !== '*' ? env.ALLOWED_ORIGIN : DEFAULT_ORIGINS);
-  const allowed = configured.split(',').map(s => s.trim().replace(/\/$/, '')).includes(origin);
+  const allowed = isOriginAllowed(request, configured, { allowWildcard: false });
   const headers = {
     'Cache-Control': 'no-store', 'Vary': 'Origin',
     ...(allowed ? { 'Access-Control-Allow-Origin': origin } : {}),

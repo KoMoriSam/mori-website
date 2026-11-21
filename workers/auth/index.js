@@ -1,5 +1,6 @@
 import { testAuthPrefix, testCallback, testOrigin } from "../../shared/test-preview.js";
 import { WorkerEntrypoint } from "cloudflare:workers";
+import { normalizeGithubImageUrl } from "../lib/http.js";
 import { AUTH, SITE, COOKIE, json, opaque, readCookie, redirect, returnPath, sessionCookie } from "./http.js";
 import { credentials, exchange, githubClient, userGraphql } from "./github.js";
 import { hash, randomToken } from "./crypto.js";
@@ -84,8 +85,8 @@ async function complete(request, env, url, requestId) {
     if (!Number.isSafeInteger(user.id) || !user.login) return fail(stage);
     const userId = crypto.randomUUID();
     const name = String(user.name || user.login).slice(0, 160);
-    const avatar = new URL(user.avatar_url);
-    if (avatar.protocol !== "https:" || avatar.hostname !== "avatars.githubusercontent.com") return fail(stage);
+    const avatarUrl = normalizeGithubImageUrl(user.avatar_url);
+    if (!avatarUrl) return fail(stage);
     const now = Date.now();
     const identityId = String(user.id);
     stage = "database";
@@ -95,7 +96,7 @@ async function complete(request, env, url, requestId) {
         SELECT ?, ?, ?, ? WHERE NOT EXISTS (
           SELECT 1 FROM identities WHERE provider = 'github' AND provider_user_id = ?
         )
-      `).bind(userId, name, avatar.href, now, identityId),
+      `).bind(userId, name, avatarUrl, now, identityId),
       db.prepare(`
         INSERT INTO identities (provider, provider_user_id, user_id, login)
         SELECT 'github', ?, id, ? FROM users WHERE id = ?
@@ -114,7 +115,7 @@ async function complete(request, env, url, requestId) {
     const family = crypto.randomUUID();
     const old = await findSession(env, readCookie(request, COOKIE.center), "auth");
     const [, , session] = await db.batch([
-      db.prepare("UPDATE users SET name = ?, avatar_url = ? WHERE id = ?").bind(name, avatar.href, id),
+      db.prepare("UPDATE users SET name = ?, avatar_url = ? WHERE id = ?").bind(name, avatarUrl, id),
       db.prepare("UPDATE identities SET login = ? WHERE provider = 'github' AND user_id = ?").bind(user.login, id),
       db.prepare(`
         INSERT INTO sessions (hash, user_id, family, audience, device, created_at, expires_at)
@@ -136,7 +137,13 @@ async function complete(request, env, url, requestId) {
     return grantRedirect(env, grant, [
       sessionCookie(COOKIE.center, token, SESSION_SECONDS), sessionCookie(COOKIE.oauth),
     ]);
-  } catch {
+  } catch (error) {
+    console.error(JSON.stringify({
+      event: "mori_auth_complete_failed",
+      stage,
+      requestId,
+      error: String(error?.message || error),
+    }));
     return fail(stage);
   }
 }

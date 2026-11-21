@@ -58,7 +58,9 @@ mori-website/
 │   └── games/{messages.js, avalon/*, fogport/*}
 ├── workers/                    # Cloudflare Workers 边缘后端
 │   ├── website.js / novel.js   # 站点主网关与 R2 小说内容分发
-│   ├── api-entry.js / api.js   # API 入口（RPC + 公共 REST + DO 导出）
+│   ├── api-entry.js / api.js   # API 入口（RPC + 公共 REST 路由 + DO 导出）
+│   ├── api/                    # 公共 REST 业务模块（announcements、changelog、analytics、hero）
+│   ├── lib/                    # Worker 公共基础库（http、cors、crypto、kv-json）
 │   ├── auth/                   # 独立认证中心（OAuth2、Session、加密、RPC）
 │   ├── github/                 # GitHub App JWT、GraphQL 评论、附件直传、SWR 缓存
 │   ├── games/                  # 通用房间网关、GameRoom DO、房间状态机、游戏注册表

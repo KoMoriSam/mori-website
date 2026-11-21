@@ -1,5 +1,7 @@
 import { affectsCommentHeat, commentHeat, initialReplyCount, legacyDiscussionQuery } from "../../shared/discussions.js";
 import { githubAttachmentPreview } from "../../shared/comment-attachments.js";
+import { digestHex } from "../lib/crypto.js";
+import { readJsonObject } from "../lib/http.js";
 import { githubErrorHeaders } from "./client.js";
 import { countDiscussion, updateDiscussionCount } from "./discussions.js";
 import { discussionGithub } from "./installation.js";
@@ -82,8 +84,7 @@ async function createDiscussion(github, createClient, env, target) {
     after = pageState.endCursor;
   }
   const writer = await createClient(env, target.repo.name, "write");
-  const digest = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(target.term));
-  const sha = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  const sha = await digestHex(target.term, "SHA-1");
   const { createDiscussion: created } = await writer.graphql(`
     mutation CreateDiscussion($input: CreateDiscussionInput!) {
       createDiscussion(input: $input) { discussion { ${discussionFields} } }
@@ -361,26 +362,6 @@ async function writeComment(github, user, auth, createClient, env, target, input
   }
 }
 
-async function readJson(request) {
-  const reader = request.body?.getReader();
-  if (!reader) throw error(400, "INVALID_COMMENT");
-  const decoder = new TextDecoder();
-  let size = 0;
-  let text = "";
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    size += value.length;
-    if (size > 64_000) {
-      await reader.cancel();
-      throw error(413, "INVALID_COMMENT_BODY");
-    }
-    text += decoder.decode(value, { stream: true });
-  }
-  try { return JSON.parse(text + decoder.decode()); }
-  catch { throw error(400, "INVALID_COMMENT"); }
-}
-
 export async function handleComments(request, env, token, target, {
   createClient = discussionGithub,
   userGraphql,
@@ -393,8 +374,13 @@ export async function handleComments(request, env, token, target, {
       throw error(429, "COMMENT_RATE_LIMITED");
     const signedIn = token && await auth.user(token);
     if (write && !signedIn) throw error(401, "LOGIN_REQUIRED");
-    const input = write ? await readJson(request) : Object.fromEntries(new URL(request.url).searchParams);
-    if (!input || typeof input !== "object") throw error(400, "INVALID_COMMENT");
+    const input = write
+      ? await readJsonObject(request, {
+          maxBytes: 64_000,
+          tooLargeCode: "INVALID_COMMENT_BODY",
+          invalidCode: "INVALID_COMMENT",
+        })
+      : Object.fromEntries(new URL(request.url).searchParams);
     const github = await createClient(env, target.repo.name);
     const user = signedIn && { token, async graphql(query, variables) {
       if (userGraphql) return userGraphql(signedIn, query, variables);

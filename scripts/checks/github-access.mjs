@@ -389,6 +389,7 @@ test("legacy discussion mapping, user permissions, reply counts and idempotent m
     assert.equal(data.discussion.title, "123 historical title");
     const input = { action: "post", requestId: crypto.randomUUID(), body: "new comment" };
     assert.equal((await website.fetch(req(input, null), env)).status, 401);
+    assert.equal((await website.fetch(req([]), env)).status, 400);
     const result = await website.fetch(req(input), env);
     assert.equal(result.status, 200);
     assert.deepEqual(await result.json(), { ok: true, delta: 1, count: 4 });

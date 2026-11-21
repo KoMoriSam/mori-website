@@ -98,7 +98,7 @@
   - 将 `App.vue` 中约 280 行 SEO/Head/JSON-LD 计算抽离为 `src/composables/layout/useSiteHead.js`（同时修掉 `findRouteGame` 重复调用）。
 - **验证**：全量 `git grep` 确认无旧 `*Store` 路径残留；运行 `pnpm check site-perf`、`pnpm check i18n-runtime`、`pnpm check blog`、`pnpm check announcements`、`pnpm check changelog`、`pnpm check build-assets`。
 
-### - [ ] P1-5：拆解 `workers/api.js`（1332 行）并统一 Worker 公共库与 Dev 对齐
+### - [x] P1-5：拆解 `workers/api.js`（1332 行）并统一 Worker 公共库与 Dev 对齐
 - **现状问题**：`workers/api.js` 混杂 6 个域；流式限字节 `readJson`（3 处）、CORS/Origin 匹配（3 处）、SHA-256 hex（4 处）、GitHub 头像 URL 校验（3 处）重复；`workers/api-entry.js` 与 `workers/auth/index.js` 有裸 `catch {}` 丢日志；`workers/dev/website.js` 代理了 `/api/changelog` 导致与生产 `workers/website.js` 回退逻辑漂移。
 - **改造动作**：
   - 新建 `workers/lib/{http.js,cors.js,crypto.js,kv-json.js}`，收口限字节 JSON 解析（同步修补 `workers/github/comments.js:397` 未拒绝对数组 `[]` 的缺口）、CORS 匹配、SHA-256 hex 与 KV 读-验-响应模板。

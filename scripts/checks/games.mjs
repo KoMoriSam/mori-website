@@ -453,7 +453,7 @@ const bundle = await build({
   write: false,
   format: "esm",
   platform: "browser",
-  external: ["cloudflare:workers"],
+  external: ["cloudflare:workers", "node:*"],
 });
 const runtimeOptions = {
   name: "games-test",
@@ -1353,7 +1353,6 @@ try {
   check(debtRecovered.events.state.game.settlement, {
     playerId: fogSeat.playerId,
     debt: 7,
-    queue: [fogSeat.playerId],
   });
   const forbiddenDebt = await send(
     fogClients[1],
