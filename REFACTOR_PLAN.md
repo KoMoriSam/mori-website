@@ -194,7 +194,7 @@
 
 > **目标**：消除 `scripts/` 中的工具重复与脆弱解析，确保菜单、本地联调与 CI/CD 底层逻辑完全一致。
 
-### - [ ] P4-1：整理发布脚本公共工具与修复 JSONC 解析脆弱点
+### - [x] P4-1：整理发布脚本公共工具与修复 JSONC 解析脆弱点
 - **改造动作**：
   - 新建 `scripts/lib/release-utils.mjs`：收拢 `scripts/release/{announcement,changelog,changelog-content}.mjs` 重复的 `parseEditorCommand`/`openEditor`、`formatLocalIso`、`printDiff`。
   - 将 `scripts/release/announcement.mjs:413-442` 自写的 `runWrangler` 切换为复用 `scripts/lib/commands.mjs:run()`。

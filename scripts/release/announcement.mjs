@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import { spawn } from "node:child_process";
 import { mkdir, readFile, readdir, unlink, writeFile } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -14,21 +13,18 @@ import {
   ANNOUNCEMENT_TONES,
   ANNOUNCEMENTS_SCHEMA_VERSION,
 } from "../../shared/announcements.js";
+import { PROJECT_ROOT, run } from "../lib/commands.mjs";
+import {
+  formatLocalIso,
+  openEditor,
+  printDiff,
+} from "../lib/release-utils.mjs";
 
-const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
-const PROJECT_ROOT = resolve(SCRIPT_DIR, "../..");
 const ANNOUNCEMENTS_DIR = join(PROJECT_ROOT, "announcements");
 const CONFIG_PATH = "wrangler.api.jsonc";
 const KV_BINDING = "ANNOUNCEMENTS_KV";
 const KV_KEY = "announcements:v1";
 const PUBLIC_ENDPOINT = "https://api.komori.cc/announcements";
-const WRANGLER_BIN = join(
-  PROJECT_ROOT,
-  "node_modules",
-  "wrangler",
-  "bin",
-  "wrangler.js",
-);
 const BACKUP_DIR = join(PROJECT_ROOT, ".tmp", "announcement-backups");
 const TEMP_DIR = join(PROJECT_ROOT, ".tmp", "announcements");
 const BODY_PLACEHOLDER = "请在这里填写公告正文。";
@@ -53,20 +49,6 @@ const helpText = `撰写网站公告，安排展示时间，并将公告发布�
   --dry-run                   预览公告发布结果
   --yes                       跳过发布确认
 `;
-
-const formatLocalIso = (date = new Date()) => {
-  const offsetMinutes = -date.getTimezoneOffset();
-  const sign = offsetMinutes >= 0 ? "+" : "-";
-  const absoluteOffset = Math.abs(offsetMinutes);
-  const pad = (value) => String(value).padStart(2, "0");
-  const milliseconds = String(date.getMilliseconds()).padStart(3, "0");
-
-  return [
-    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`,
-    `T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${milliseconds}`,
-    `${sign}${pad(Math.floor(absoluteOffset / 60))}:${pad(absoluteOffset % 60)}`,
-  ].join("");
-};
 
 const normalizeDateValue = (value) =>
   value instanceof Date ? value.toISOString() : value;
@@ -246,39 +228,6 @@ const writeAnnouncementFile = async (announcement, existingPath) => {
   return path;
 };
 
-const parseEditorCommand = (value) => {
-  const parts = String(value || "").match(/(?:[^\s"]+|"[^"]*")+/g) || [];
-  return parts.map((part) => part.replace(/^"|"$/g, ""));
-};
-
-const openEditor = async (path) => {
-  const configuredEditor = process.env.VISUAL || process.env.EDITOR;
-  const parts = configuredEditor
-    ? parseEditorCommand(configuredEditor)
-    : process.platform === "win32"
-      ? ["notepad.exe"]
-      : ["vi"];
-  const [command, ...editorArgs] = parts;
-
-  if (!command) {
-    console.log(`公告已保存，请手动编辑：${path}`);
-    return;
-  }
-
-  await new Promise((resolvePromise, rejectPromise) => {
-    const child = spawn(command, [...editorArgs, path], {
-      cwd: PROJECT_ROOT,
-      stdio: "inherit",
-      windowsHide: false,
-    });
-    child.on("error", rejectPromise);
-    child.on("exit", (code) => {
-      if (code === 0) resolvePromise();
-      else rejectPromise(new Error(`编辑器退出，状态码：${code}`));
-    });
-  });
-};
-
 const withPrompt = async (callback) => {
   const prompt = createInterface({ input: process.stdin, output: process.stdout });
   try {
@@ -410,34 +359,8 @@ const expireAnnouncement = async (id) => {
 };
 
 const runWrangler = async (args, { capture = false } = {}) => {
-  const result = await new Promise((resolvePromise, rejectPromise) => {
-    const child = spawn(process.execPath, [WRANGLER_BIN, ...args], {
-      cwd: PROJECT_ROOT,
-      env: process.env,
-      stdio: capture ? ["ignore", "pipe", "pipe"] : "inherit",
-      windowsHide: true,
-    });
-    let stdout = "";
-    let stderr = "";
-    if (capture) {
-      child.stdout.setEncoding("utf8");
-      child.stderr.setEncoding("utf8");
-      child.stdout.on("data", (chunk) => (stdout += chunk));
-      child.stderr.on("data", (chunk) => (stderr += chunk));
-    }
-    child.on("error", rejectPromise);
-    child.on("exit", (code) => {
-      if (code === 0) resolvePromise({ stdout, stderr });
-      else {
-        rejectPromise(
-          new Error(
-            `Wrangler 命令失败（${code}）${stderr.trim() ? `：\n${stderr.trim()}` : ""}`,
-          ),
-        );
-      }
-    });
-  });
-  return result;
+  const stdout = await run(["wrangler", ...args], { capture });
+  return { stdout };
 };
 
 const kvArguments = (command) => [
@@ -552,22 +475,6 @@ export const findRevisionRollback = (localItems, remoteItems) => {
   });
 };
 
-const printDiff = ({ added, changed, removed }) => {
-  const printGroup = (symbol, label, items) => {
-    if (!items.length) return;
-    console.log(`\n${label}（${items.length}）`);
-    for (const item of items) {
-      console.log(`  ${symbol} ${item.id} r${item.revision} · ${item.title}`);
-    }
-  };
-  printGroup("+", "新增", added);
-  printGroup("~", "修改", changed);
-  printGroup("-", "移除", removed);
-  if (!added.length && !changed.length && !removed.length) {
-    console.log("公告内容已与网站一致。本次发布将更新同步时间。");
-  }
-};
-
 const verifyRemoteWrite = async (expectedUpdatedAt) => {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const { payload, hasBom } = await getRemotePayload();
@@ -619,7 +526,10 @@ export const publishAnnouncements = async ({ dryRun = false, yes = false } = {})
   if (remote.hasBom) {
     console.log("已发布数据的文本格式将统一为 UTF-8。");
   }
-  printDiff(diff);
+  printDiff(diff, {
+    formatItem: (item) => `${item.id} r${item.revision} · ${item.title}`,
+    emptyMessage: "公告内容已与网站一致。本次发布将更新同步时间。",
+  });
   if (dryRun) {
     console.log("\n公告发布预览完成。确认以上内容后，移除 --dry-run 再次运行以正式发布。");
     return { published: false };

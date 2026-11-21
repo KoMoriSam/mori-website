@@ -15,6 +15,7 @@ import {
   compareVersions,
   isValidDate,
 } from "../../shared/changelog.js";
+import { formatLocalIso } from "../lib/release-utils.mjs";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 export const PROJECT_ROOT = resolve(SCRIPT_DIR, "../..");
@@ -43,20 +44,7 @@ const PLACEHOLDERS = [
   "请说明破坏性变化和升级方式。",
 ];
 
-export const formatLocalIso = (date = new Date()) => {
-  const offsetMinutes = -date.getTimezoneOffset();
-  const sign = offsetMinutes >= 0 ? "+" : "-";
-  const absoluteOffset = Math.abs(offsetMinutes);
-  const pad = (value) => String(value).padStart(2, "0");
-
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
-    date.getDate(),
-  )}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(
-    date.getSeconds(),
-  )}${sign}${pad(Math.floor(absoluteOffset / 60))}:${pad(
-    absoluteOffset % 60,
-  )}`;
-};
+export { formatLocalIso };
 
 export const formatLocalDate = (date = new Date()) => {
   const pad = (value) => String(value).padStart(2, "0");

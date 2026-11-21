@@ -148,8 +148,8 @@ test("Git history keeps a failed release pending but skips an untouched old draf
   const commit = (subject) => { git("add", "-A"); git("commit", "-qm", subject); return git("rev-parse", "HEAD"); };
   git("init", "-q", "-b", "main");
   for (const file of ["scripts/lib/commands.mjs", "scripts/lib/build-environment.mjs", "scripts/lib/worker-config.mjs",
-    "scripts/build/snapshot-store.mjs", "scripts/release/changelog-content.mjs", "scripts/release/changelog.mjs",
-    "scripts/release/verify-published.mjs", "scripts/release/cli.mjs", "shared/changelog.js"])
+    "scripts/lib/release-utils.mjs", "scripts/build/snapshot-store.mjs", "scripts/release/changelog-content.mjs",
+    "scripts/release/changelog.mjs", "scripts/release/verify-published.mjs", "scripts/release/cli.mjs", "shared/changelog.js"])
     await copy(file);
   await put(".gitignore", "node_modules\n");
   await put("package.json", '{"type":"module","version":"1.0.0"}');
