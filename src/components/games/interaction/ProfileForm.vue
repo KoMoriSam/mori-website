@@ -78,6 +78,10 @@ import { computed, ref, useId } from "vue";
 import Avatar from "@/components/auth/Avatar.vue";
 import { useMoriAuth } from "@/composables/auth/useMoriAuth";
 import { useLocale } from "@/i18n";
+import {
+  isValidNickname,
+  PROFILE_SOURCE_STORAGE_KEY,
+} from "@/utils/games/validation";
 const props = defineProps({
   nickname: { type: String, default: "" },
   github: Boolean,
@@ -99,12 +103,7 @@ const displayName = computed(() => props.nickname);
 const usingGithubNickname = computed(
   () => !!profile.value?.name && displayName.value === profile.value.name,
 );
-const validName = computed(
-  () =>
-    displayName.value.trim().length > 0 &&
-    displayName.value.length <= 24 &&
-    !/[\p{Cc}\p{Cf}]/u.test(displayName.value),
-);
+const validName = computed(() => isValidNickname(displayName.value));
 const updateNickname = (event) => {
   emit("update:nickname", event.target.value);
 };
@@ -114,7 +113,7 @@ const chooseGithub = (event) => {
     emit("update:github", true);
     // 授权返回后保留此次选择，包括从大厅编辑弹窗发起的登录。
     try {
-      localStorage.setItem("mori:games:profile-source", "github");
+      localStorage.setItem(PROFILE_SOURCE_STORAGE_KEY, "github");
     } catch {
       /* Storage can be unavailable. */
     }

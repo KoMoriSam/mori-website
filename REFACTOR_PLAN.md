@@ -167,12 +167,12 @@
 - **顺手治理**：清理 `src/utils/sinhala/converter.js` 内部流水线 18 处重复 `String(input ?? "")` 强转（收口至 7 个公开入口一次规范化）并简化 `containsSinhala`；合并重复的 `encodingSuggestion` 对象构造；修复 `refreshFmPreview` 潜在空解引用与只读态拦截 `Ctrl+Z/Y`。
 - **验证**：`pnpm check sinhala`、`pnpm check sinhala-documents`、`pnpm check i18n-runtime`、`pnpm check i18n-quantities`、`pnpm check i18n-loading`、`pnpm check site-perf`、双模式四语言 SSR 验证与人工全项验收通过。
 
-### - [ ] P3-3：解耦通用游戏壳 `Room.vue`（1479 行）与拆解阿瓦隆 `RoundTable.vue`（2146 行）
-- **改造动作**：
-  - **净化 `Room.vue`**：通过游戏 `definition` 声明视口/夜晚模式配置，彻底移除 `Room.vue:795,836` 对 Avalon `["opening", "night"]` 阶段的硬编码；拆出 `RoomEntryForm.vue`、`RoomLobby.vue`、`useRoomProfile.js`（消除 3 处重复昵称正则校验）；移除未 scoped `<style>` 与对 `querySelector("main")` 的脆弱 DOM 穿透。
-  - **拆解 `RoundTable.vue`**：按阶段拆分 `OpeningPhase.vue`、`NightPhase.vue`、`ActionTable.vue`、`PlayerRoster.vue`、`AvalonModals.js`；用 `provide/inject` 替代 `Avalon.vue` 跨兄弟传 DOM ID `playersTargetId`；将 `RoundTable` 与 `avalon/layout/Sidebar.vue` 重复的 `gameRoom` 展平、未读监听、`recordedQuests` 与 4 处 `DiscussionTimer` 收拢为共享 Composable/组件；同步修复 `RoundTable.vue:2131-2135` 的任务卡合法性校验与 `playQuest` 不一致的细微规则偏差。
-  - **拆分 `workers/avalon/rules.js`（830 行）**：参照 Fogport 模式拆分为状态流转与视角投影模块，清除 `view()` 中对 `create()` 必有字段的冗余 `|| {}` / `?? {}` 防御。
-- **验证**：`pnpm check games`、`pnpm check game-room-client`、`pnpm check room-dissolution`、`pnpm check avalon`；本地双开浏览器完整跑通阿瓦隆建房、夜晚、组队投票、任务与讨论全流程。
+### - [x] P3-3：解耦通用游戏壳 `Room.vue`（1479 行 → 752 行）与拆解阿瓦隆 `RoundTable.vue`（2146 行 → 522 行）
+- **目标结构**：
+  - **通用游戏壳**：在 `src/games/catalog.js` 通过 `fullscreenPhases` 声明全屏阶段配置，彻底移除 `Room.vue` 对 Avalon `["opening", "night"]` 阶段的硬编码；`ContentPage.vue` 显式暴露 `mainElement` ref 消除 `querySelector("main")`；抽离 `src/components/games/{RoomEntryForm.vue,RoomLobby.vue}`、`src/composables/games/{useRoomProfile.js,useRoomViewport.js}`、`src/utils/games/validation.js`（统一 4 处昵称校验、2 处房间码校验与存储键常量）与 `src/assets/game-room.css`（替代未 scoped `<style>`）。
+  - **阿瓦隆前端**：拆分 `src/components/games/avalon/layout/{OpeningPhase.vue,NightPhase.vue,ActionTable.vue,PlayerRoster.vue}`、`src/components/games/avalon/display/DiscussionTimerBar.vue`（合并 4 处倒计时条）与 `src/composables/games/avalon/{useAvalonRoom.js,useAvalonLayout.js,useAvalonModals.js}`；以 `provide/inject` 消除 `Avalon.vue` 跨兄弟透传 `playersTargetId` 及 `ref="roundTable"`；收拢 `RoundTable` 与 `Sidebar` 重复的 `gameRoom` 展平、未读监听与 `recordedQuests`；修复 `confirmGameAction` 任务卡合法性校验偏差（统一使用 `allowedQuestCards`）并清理死分支与 `i18n-runtime.mjs` 废弃测试 prop。
+  - **阿瓦隆 Worker 规则**：将 `workers/avalon/rules.js`（830 行 → 26 行）拆分为 `workers/avalon/{config.js,engine.js,view.js}` 与适配入口 `rules.js`，收口 `create()` 重复 3 次的 `normalizeConfig`，清除 `view()` 对 `create()` 必有字段的 11 处冗余 `|| {}` / `?? {}` / `?.` 防御（保留被测试覆盖的历史/可空字段分支）；同步修正 `scripts/checks/avalon.mjs` 旧版单文件语言包路径与 `loyaltyCheck` 守卫漂移。
+- **验证**：`pnpm check games`、`pnpm check game-room-client`、`pnpm check room-dissolution`、`pnpm check avalon`、`pnpm check i18n-runtime`、`pnpm check i18n-quantities`、`pnpm check i18n-loading`、`pnpm check site-perf`、SSR 零警告冒烟与人工全项验收通过。
 
 ### - [ ] P3-4：优化雾港 `Board.vue`（919 行）渲染性能与整理 `PlayTable.vue`（873 行）
 - **改造动作**：

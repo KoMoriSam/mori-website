@@ -1,6 +1,7 @@
 import { onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { fetchJson, normalizeEndpoint } from "@/services/http";
+import { isValidRoomCode } from "@/utils/games/validation";
 
 const ENDPOINT = normalizeEndpoint(
   import.meta.env.VITE_GAMES_API ||
@@ -8,7 +9,6 @@ const ENDPOINT = normalizeEndpoint(
       ? "https://api.komori.cc/games/rooms"
       : "/api/games/rooms"),
 );
-const VALID_CODE = /^[A-HJ-NP-Z2-9]{8}$/;
 const MAX_RECONNECT_ATTEMPTS = 3;
 const key = (code) => `mori:games:room:${code}`;
 function commandId() {
@@ -294,7 +294,7 @@ export function useGameRoom(gameType) {
     busy.value = true;
     try {
       const roomCode = code.value.trim().toUpperCase();
-      if (join && !VALID_CODE.test(roomCode)) throw new Error("ROOM_CODE");
+      if (join && !isValidRoomCode(roomCode)) throw new Error("ROOM_CODE");
       if (join) {
         const saved = readCredentials(roomCode);
         if (saved) {
@@ -397,7 +397,7 @@ export function useGameRoom(gameType) {
         /* Optional convenience. */
       }
     }
-    if (!VALID_CODE.test(roomCode)) return;
+    if (!isValidRoomCode(roomCode)) return;
     code.value = roomCode;
     const saved = readCredentials(roomCode);
     if (saved) void enter(saved);
@@ -415,7 +415,7 @@ export function useGameRoom(gameType) {
       room.value = null;
       connection.value = "offline";
       code.value = roomCode;
-      if (VALID_CODE.test(roomCode)) {
+      if (isValidRoomCode(roomCode)) {
         credentials = readCredentials(roomCode);
         canReconnect.value = Boolean(credentials);
         if (credentials) void connect(epoch);

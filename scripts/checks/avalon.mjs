@@ -816,9 +816,9 @@ check(
   new Set(QUICK_PHRASES.map((phrase) => phrase.id)).size,
   QUICK_PHRASES.length,
 );
-for (const code of ["zh-CN", "en", "si"]) {
+for (const code of ["zh-CN", "en", "fr", "si"]) {
   const items = JSON.parse(
-    fs.readFileSync(`src/i18n/messages/${code}.json`, "utf8"),
+    fs.readFileSync(`src/i18n/messages/${code}/avalon.json`, "utf8"),
   ).avalon.phrases.items;
   check(
     Object.keys(items).sort(),
@@ -1151,9 +1151,9 @@ for (let count = 5; count <= 10; count++) {
     check(actual.filter((role) => !isEvil(role)).length, GOOD_COUNTS[count]);
   }
 }
-for (const locale of ["zh-CN", "en", "si"]) {
+for (const locale of ["zh-CN", "en", "fr", "si"]) {
   const messages = JSON.parse(
-    fs.readFileSync(`src/i18n/messages/${locale}.json`, "utf8"),
+    fs.readFileSync(`src/i18n/messages/${locale}/avalon.json`, "utf8"),
   ).avalon;
   check(typeof messages.records.types.reveal_role, "string");
   for (const role of SPECIAL_ROLES) {
@@ -1181,9 +1181,10 @@ for (const player of paired.players) {
 }
 for (const player of paired.players)
   paired = act(paired, player.id, "peek_role");
-paired = act(paired, openingLeaderId, "report_loyalty", {
-  alignment: paired.gameState.allegiances[openingLeaderId],
-});
+if (paired.gameState.loyaltyCheck)
+  paired = act(paired, openingLeaderId, "report_loyalty", {
+    alignment: paired.gameState.allegiances[openingLeaderId],
+  });
 for (const role of LANCELOTS) {
   const partnerRole = LANCELOTS.find((other) => other !== role);
   const view = playerView(paired, pairedId(role));

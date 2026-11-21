@@ -15,41 +15,28 @@
       <Settings :room="room" :can-act="canAct" :run="run" />
     </template>
     <template #default="{ room, canAct, run }">
-      <RoundTable
-        ref="roundTable"
-        :room="room"
-        :can-act="canAct"
-        :run="run"
-        :players-target-id="playersTargetId"
-        @request-sidebar-panel="sidebarPanel = $event"
-      />
+      <RoundTable :room="room" :can-act="canAct" :run="run" />
     </template>
     <template #sidebar="{ room, canAct, run, expandSidebar }">
       <Sidebar
         :room="room"
         :can-act="canAct"
         :run="run"
-        :panel="sidebarPanel"
-        :players-target-id="playersTargetId"
-        @select-panel="
-          sidebarPanel = $event;
-          expandSidebar();
-        "
-        @end-discussion="roundTable?.endCurrentDiscussion()"
+        @expand="expandSidebar()"
       />
     </template>
   </Room>
 </template>
+
 <script setup>
 import Room from "@/components/games/Room.vue";
 import RoundTable from "@/components/games/avalon/layout/RoundTable.vue";
 import Sidebar from "@/components/games/avalon/layout/Sidebar.vue";
 import Settings from "@/components/games/avalon/interaction/Settings.vue";
 import ReferenceDialog from "@/components/games/avalon/display/ReferenceDialog.vue";
+import { provideAvalonLayout } from "@/composables/games/avalon/useAvalonLayout";
 import { useLocale } from "@/i18n";
-import { ref, useId } from "vue";
+
 const { t } = useLocale();
-const sidebarPanel = ref("discussion");
-const roundTable = ref(null);
-const playersTargetId = `avalon-sidebar-players-${useId()}`;
+provideAvalonLayout();
 </script>

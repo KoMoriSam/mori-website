@@ -178,11 +178,9 @@ try {
       : file.endsWith('/ImageConverter.vue') ? ['image-converter'] : [];
     await a.loadRoute({ meta: { localeGroups } });
     const { default: component } = await server.ssrLoadModule(file);
-    const renderProps = file.endsWith('/RoundTable.vue')
-      ? { playersTargetId: 'i18n-test-players', ...props }
-      : file.endsWith('/BallotCards.vue')
-        ? { self: revealedTable.game.self, selfId: revealedTable.selfId, playerName: identityProps.playerName, ...props }
-        : props;
+    const renderProps = file.endsWith('/BallotCards.vue')
+      ? { self: revealedTable.game.self, selfId: revealedTable.selfId, playerName: identityProps.playerName, ...props }
+      : props;
     for (const [code, expected] of [['en', en], ['si', si]]) {
       const app = createSSRApp({ render: () => h(component, renderProps) });
       app.use(createPinia()); app.use(router); a.install(app);

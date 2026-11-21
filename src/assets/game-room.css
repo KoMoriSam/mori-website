@@ -1,0 +1,9 @@
+@media (max-width: 1023px) {
+  html.game-room-viewport,
+  body.game-room-viewport {
+    height: 100dvh;
+    min-height: 100dvh;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+}
