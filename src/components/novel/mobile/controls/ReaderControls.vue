@@ -145,13 +145,50 @@
     </Transition>
 
     <dialog
-      ref="searchDialogRef"
+      ref="panelDialogRef"
       class="modal modal-bottom z-[90]"
       @cancel.prevent="requestPlatformCloseDialog"
     >
-      <div class="modal-box flex max-h-[72dvh] flex-col rounded-t-box p-0">
-        <ReaderDialogHeader :title="translate('reader.controls.search')" @back="requestCloseDialog" />
-        <section class="min-h-0 overflow-hidden p-4">
+      <div
+        class="modal-box flex flex-col overflow-hidden p-0"
+        :class="activeDialogBoxClass"
+      >
+        <ReaderDialogHeader
+          class="shrink-0"
+          :title="activeDialogTitle"
+          :subtitle="activeDialogSubtitle"
+          @back="requestCloseDialog"
+        >
+          <template #action>
+            <button
+              v-if="renderedDialog === 'format'"
+              type="button"
+              class="btn btn-ghost btn-sm shrink-0"
+              :disabled="isMobileLayoutDefault"
+              @click="readerStore.resetReaderLayout({ mobile: true })"
+            >
+              <i class="ri-reset-left-line" aria-hidden="true"></i>
+              {{ translate('reader.format.reset') }}
+            </button>
+            <button
+              v-else-if="renderedDialog === 'comments'"
+              type="button"
+              class="btn btn-info btn-soft btn-xs shrink-0"
+              @click="commentToggle"
+            >
+              {{
+                currentMapping === "title"
+                  ? translate('novel.reader.showBookComments')
+                  : translate('novel.reader.showChapterComments')
+              }}
+            </button>
+          </template>
+        </ReaderDialogHeader>
+
+        <section
+          v-show="renderedDialog === 'search'"
+          class="min-h-0 overflow-hidden p-4"
+        >
           <ContentSearch
             :active="activeDialog === 'search'"
             :initial-keyword="searchKeyword"
@@ -159,20 +196,8 @@
             @select="closeAll"
           />
         </section>
-      </div>
-      <form method="dialog" class="modal-backdrop">
-        <button @click.prevent="requestCloseDialog">{{ translate('reader.controls.back') }}</button>
-      </form>
-    </dialog>
 
-    <dialog
-      ref="tocDialogRef"
-      class="modal modal-bottom z-[90]"
-      @cancel.prevent="requestPlatformCloseDialog"
-    >
-      <div class="modal-box flex max-h-[76dvh] flex-col rounded-t-box p-0">
-        <ReaderDialogHeader :title="translate('reader.chapters.title')" @back="requestCloseDialog" />
-        <section class="min-h-0 p-4">
+        <section v-if="renderedDialog === 'toc'" class="min-h-0 p-4">
           <ChapterToc
             mobile
             embedded
@@ -182,89 +207,23 @@
             @select="closeAll"
           />
         </section>
-      </div>
-      <form method="dialog" class="modal-backdrop">
-        <button @click.prevent="requestCloseDialog">{{ translate('reader.controls.back') }}</button>
-      </form>
-    </dialog>
 
-    <dialog
-      ref="formatDialogRef"
-      class="modal modal-bottom z-[90]"
-      @cancel.prevent="requestPlatformCloseDialog"
-    >
-      <div
-        class="modal-box flex flex-col overflow-hidden p-0"
-        :class="MOBILE_READER_DIALOG_SIZE_CLASS"
-      >
-        <ReaderDialogHeader
-          :title="translate('reader.controls.layout')"
-          :subtitle="translate('reader.format.previewHint')"
-          @back="requestCloseDialog"
+        <div
+          v-show="renderedDialog === 'format'"
+          class="flex min-h-0 flex-1 flex-col overflow-hidden"
         >
-          <template #action>
-            <button
-              type="button"
-              class="btn btn-ghost btn-sm shrink-0"
-              :disabled="isMobileLayoutDefault"
-              @click="readerStore.resetReaderLayout({ mobile: true })"
-            >
-              <i class="ri-reset-left-line" aria-hidden="true"></i>
-              {{ translate('reader.format.reset') }}
-            </button>
-          </template>
-        </ReaderDialogHeader>
-        <FormatSetting mobile :show-header="false" />
-      </div>
-      <form method="dialog" class="modal-backdrop">
-        <button @click.prevent="requestCloseDialog">{{ translate('reader.controls.back') }}</button>
-      </form>
-    </dialog>
+          <FormatSetting mobile :show-header="false" />
+        </div>
 
-    <dialog
-      ref="moreDialogRef"
-      class="modal modal-bottom z-[90]"
-      @cancel.prevent="requestPlatformCloseDialog"
-    >
-      <div class="modal-box flex max-h-[78dvh] flex-col overflow-hidden rounded-t-box p-0">
-        <ReaderDialogHeader class="shrink-0" :title="translate('common.moreSettings')" @back="requestCloseDialog" />
-        <ScrollableContainer class="flex-1">
+        <ScrollableContainer v-show="renderedDialog === 'more'" class="flex-1">
           <div class="min-h-0 overflow-y-auto overscroll-contain scrollbar-thin">
             <ReaderMoreSettings @edit-tap-zones="openTapZoneEditor" />
           </div>
         </ScrollableContainer>
-      </div>
-      <form method="dialog" class="modal-backdrop">
-        <button @click.prevent="requestCloseDialog">{{ translate('reader.controls.back') }}</button>
-      </form>
-    </dialog>
 
-    <dialog
-      ref="commentsDialogRef"
-      class="modal modal-bottom z-[90]"
-      @cancel.prevent="requestPlatformCloseDialog"
-    >
-      <div
-        class="modal-box flex flex-col overflow-hidden p-0"
-        :class="MOBILE_READER_DIALOG_SIZE_CLASS"
-      >
-        <ReaderDialogHeader
-          class="shrink-0"
-          :title="currentMapping === 'title' ? translate('novel.reader.chapterComments') : translate('novel.reader.bookComments')"
-          @back="requestCloseDialog"
-        >
-          <template #action>
-            <button
-              type="button"
-              class="btn btn-info btn-soft btn-xs shrink-0"
-              @click="commentToggle"
-            >
-              {{ currentMapping === "title" ? translate('novel.reader.showBookComments') : translate('novel.reader.showChapterComments') }}
-            </button>
-          </template>
-        </ReaderDialogHeader>
         <Thread
           v-if="commentsStarted"
+          v-show="renderedDialog === 'comments'"
           :key="commentKey"
           class="p-4"
           scroll-mode="dialog"
@@ -286,33 +245,41 @@
 </template>
 
 <script setup>
-import { bookTerm } from "@/../shared/discussions.js";
-import ScrollableContainer from "@/components/layout/ScrollableContainer.vue";
-import { useLocale } from '@/i18n';
-const { t: translate } = useLocale();
-
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import { storeToRefs } from "pinia";
 import { useRouter } from "vue-router";
+import { bookTerm } from "@/../shared/discussions.js";
 import Thread from "@/components/comments/Thread.vue";
-import { MOBILE_READER_DIALOG_SIZE_CLASS } from "@/constants/reader-layout";
-import { useNovelStore } from "@/stores/novel";
-import { useReaderStore } from "@/stores/reader";
+import ScrollableContainer from "@/components/layout/ScrollableContainer.vue";
+import ChapterToc from "@/components/novel/ChapterToc.vue";
+import ContentSearch from "@/components/novel/ContentSearch.vue";
+import FormatSetting from "@/components/reader/interaction/FormatSetting.vue";
 import { useChapters } from "@/composables/novel/useChapters";
 import { useCommentScope } from "@/composables/novel/useCommentScope";
 import { useModalClose } from "@/composables/useModal";
-import { getChapterContextTitle } from "@/utils/novel/format-label";
 import {
   MOBILE_READING_MODES,
   MOBILE_READER_NAVBAR_HIDE_EVENT,
 } from "@/constants/reader";
-import ChapterToc from "@/components/novel/ChapterToc.vue";
-import ContentSearch from "@/components/novel/ContentSearch.vue";
-import FormatSetting from "@/components/reader/interaction/FormatSetting.vue";
+import { MOBILE_READER_DIALOG_SIZE_CLASS } from "@/constants/reader-layout";
+import { useLocale } from "@/i18n";
+import { useNovelStore } from "@/stores/novel";
+import { useReaderStore } from "@/stores/reader";
+import { getChapterContextTitle } from "@/utils/novel/format-label";
+import ReaderDialogHeader from "../display/ReaderDialogHeader.vue";
 import ReaderMoreSettings from "./ReaderMoreSettings.vue";
 import TapZoneEditor from "./TapZoneEditor.vue";
-import ReaderDialogHeader from "../display/ReaderDialogHeader.vue";
 
+const DIALOG_EXIT_DURATION_MS = 300;
+const { t: translate } = useLocale();
+
+const DIALOG_BOX_CLASSES = {
+  search: "max-h-[72dvh] rounded-t-box",
+  toc: "max-h-[76dvh] rounded-t-box",
+  format: MOBILE_READER_DIALOG_SIZE_CLASS,
+  more: "max-h-[78dvh] rounded-t-box",
+  comments: MOBILE_READER_DIALOG_SIZE_CLASS,
+};
 
 const props = defineProps({
   currentPage: { type: Number, default: 1 },
@@ -337,14 +304,13 @@ const { isMobileLayoutDefault } = storeToRefs(readerStore);
 const { hasPrevious, hasNext } = useChapters();
 const router = useRouter();
 const activeDialog = ref(null);
+const renderedDialog = ref(null);
 const searchKeyword = ref("");
-const searchDialogRef = ref(null);
-const tocDialogRef = ref(null);
-const formatDialogRef = ref(null);
-const moreDialogRef = ref(null);
-const commentsDialogRef = ref(null);
+const panelDialogRef = ref(null);
 const commentsStarted = ref(false);
 const tapZoneEditorOpen = ref(false);
+let dialogCloseTimer = 0;
+
 const safeTotalPages = computed(() =>
   Math.max(1, Math.trunc(props.totalPages || 1)),
 );
@@ -381,37 +347,62 @@ const commentTerm = computed(() =>
 const commentKey = computed(
   () => `${currentMapping.value}-${commentTerm.value}-${commentVersion.value}`,
 );
-const dialogRefs = {
-  search: searchDialogRef,
-  toc: tocDialogRef,
-  format: formatDialogRef,
-  more: moreDialogRef,
-  comments: commentsDialogRef,
-};
+const activeDialogTitle = computed(() => {
+  switch (renderedDialog.value) {
+    case "search":
+      return translate("reader.controls.search");
+    case "toc":
+      return translate("reader.chapters.title");
+    case "format":
+      return translate("reader.controls.layout");
+    case "more":
+      return translate("common.moreSettings");
+    case "comments":
+      return currentMapping.value === "title"
+        ? translate("novel.reader.chapterComments")
+        : translate("novel.reader.bookComments");
+    default:
+      return "";
+  }
+});
+const activeDialogSubtitle = computed(() =>
+  renderedDialog.value === "format" ? translate("reader.format.previewHint") : "",
+);
+const activeDialogBoxClass = computed(
+  () => DIALOG_BOX_CLASSES[renderedDialog.value] || "rounded-t-box",
+);
 
 const closeDialogImmediately = () => {
-  const dialog = dialogRefs[activeDialog.value]?.value;
-  if (dialog?.open) dialog.close();
+  if (panelDialogRef.value?.open) panelDialogRef.value.close();
   activeDialog.value = null;
   tapZoneEditorOpen.value = false;
+  window.clearTimeout(dialogCloseTimer);
+  dialogCloseTimer = window.setTimeout(() => {
+    dialogCloseTimer = 0;
+    if (!activeDialog.value) renderedDialog.value = null;
+  }, DIALOG_EXIT_DURATION_MS);
 };
 const dialogClose = useModalClose({
   onClose: closeDialogImmediately,
 });
 
 const openDialog = async (name) => {
-  if (!dialogRefs[name] || activeDialog.value === name) return;
-  if (activeDialog.value) {
+  if (!Object.hasOwn(DIALOG_BOX_CLASSES, name) || activeDialog.value === name) {
+    return;
+  }
+  window.clearTimeout(dialogCloseTimer);
+  if (tapZoneEditorOpen.value) {
     dialogClose.discard();
   }
 
   activeDialog.value = name;
+  renderedDialog.value = name;
   if (name === "comments") commentsStarted.value = true;
   await nextTick();
-  const dialog = dialogRefs[name].value;
-  if (!dialog || dialog.open) return;
-  dialogClose.activate();
-  dialog.showModal();
+  const dialog = panelDialogRef.value;
+  if (!dialog) return;
+  if (!dialogClose.isActive()) dialogClose.activate();
+  if (!dialog.open) dialog.showModal();
 };
 
 const requestCloseDialog = () => dialogClose.requestClose();
@@ -478,9 +469,8 @@ onMounted(() => {
   );
 });
 onBeforeUnmount(() => {
-  Object.values(dialogRefs).forEach(
-    (item) => item.value?.open && item.value.close(),
-  );
+  window.clearTimeout(dialogCloseTimer);
+  if (panelDialogRef.value?.open) panelDialogRef.value.close();
   window.removeEventListener(
     "mobile-reader:open-control",
     handleExternalDialogRequest,

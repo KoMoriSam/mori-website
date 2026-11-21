@@ -143,15 +143,7 @@
                 v-for="comment in comments"
                 :key="comment.id"
                 :comment="comment"
-                :author-login="authorLogin"
-                :viewer-login="moriSession.profile?.login"
-                :now="now"
-                :load-history="loadEditHistory"
-                :history-revision="moriSession.revision"
-                :permissions="permissions"
                 :can-reply="!discussion.locked"
-                :authenticated="moriSession.authenticated"
-                :busy="busy"
                 :editing="editor.id === comment.id && editor.action === 'edit'"
                 :replies-open="repliesOpen(comment)"
                 @toggle-replies="toggleReplies(comment)"
@@ -170,20 +162,10 @@
                 >
                   <CommentEditor
                     v-model="editor.body"
-                    :attachment-target="attachmentTarget"
-                    :prepare-discussion="prepareAttachmentDiscussion"
-                    :github-attachment-url="
-                      githubDiscussionUrl(comment.url) || discussionUrl
-                    "
-                    :return-hash="returnHash"
-                    :login-action="auth.login"
+                    :github-attachment-url="comment.url"
+                    :action="editor.action"
                     embedded
                     cancelable
-                    :compact="compactEditor"
-                    :authenticated="moriSession.authenticated"
-                    :busy="busy || moriSession.checking"
-                    :action="editor.action"
-                    :error="error"
                     @cancel="resetEditor"
                     @submit="submitEditor"
                   />
@@ -204,17 +186,11 @@
                       v-for="reply in visibleReplies(comment)"
                       :key="reply.id"
                       :comment="reply"
-                      :author-login="authorLogin"
-                      :now="now"
-                      :load-history="loadEditHistory"
-                      :history-revision="moriSession.revision"
                       reply
                       :can-quote="!discussion.locked && !comment.isMinimized"
-                      :permissions="
-                        permissions &&
+                      :include-permissions="
                         comment.replies.includePermissions !== false
                       "
-                      :busy="busy"
                       @quote="quoteReply(comment, reply)"
                       @edit="startEditor('edit', reply, comment.id)"
                       @delete="remove(reply)"
@@ -223,20 +199,10 @@
                       <template v-if="editor.id === reply.id" #editor>
                         <CommentEditor
                           v-model="editor.body"
-                          :attachment-target="attachmentTarget"
-                          :prepare-discussion="prepareAttachmentDiscussion"
-                          :github-attachment-url="
-                            githubDiscussionUrl(reply.url) || discussionUrl
-                          "
-                          :return-hash="returnHash"
-                          :login-action="auth.login"
+                          :github-attachment-url="reply.url"
+                          action="edit"
                           embedded
                           cancelable
-                          :compact="compactEditor"
-                          :authenticated="moriSession.authenticated"
-                          :busy="busy || moriSession.checking"
-                          action="edit"
-                          :error="error"
                           @cancel="resetEditor"
                           @submit="submitEditor"
                         />
@@ -307,17 +273,8 @@
           (loaded && !discussion?.locked && editor.action === 'post')
         "
         v-model="editor.body"
-        :attachment-target="attachmentTarget"
-        :prepare-discussion="prepareAttachmentDiscussion"
-        :github-attachment-url="discussionUrl"
         class="shrink-0"
-        :compact="compactEditor"
-        :return-hash="returnHash"
-        :login-action="auth.login"
-        :authenticated="moriSession.authenticated"
         :loading="showPlaceholder"
-        :busy="busy || moriSession.checking"
-        :error="error"
         @submit="submitEditor"
       />
     </Teleport>
@@ -350,6 +307,7 @@ import { useToast } from "@/composables/useToast";
 import { useCommentCountsStore } from "@/stores/comment-counts";
 import { githubDiscussionUrl } from "@/utils/github-discussion-url";
 import { MARKDOWN_RESOURCE_OVERRIDES } from "@/constants/markdown";
+import { COMMENT_THREAD_CONTEXT } from "./context";
 import CommentEntry from "./display/CommentEntry.vue";
 import ReactionButtons from "./display/ReactionButtons.vue";
 import CommentEditor from "./interaction/CommentEditor.vue";
@@ -433,6 +391,24 @@ const attachmentTarget = computed(() => ({
   scope: props.scope, target: props.target, editor: editor.value.id || editor.value.action,
   account: moriSession.profile?.id || moriSession.profile?.login || "",
 }));
+provide(COMMENT_THREAD_CONTEXT, {
+  authorLogin,
+  viewerLogin: computed(() => moriSession.profile?.login),
+  now,
+  loadHistory: loadEditHistory,
+  historyRevision: computed(() => moriSession.revision),
+  permissions,
+  authenticated: computed(() => Boolean(moriSession.authenticated)),
+  busy,
+  editorBusy: computed(() => Boolean(busy.value || moriSession.checking)),
+  error,
+  compactEditor: computed(() => Boolean(props.compactEditor)),
+  returnHash,
+  loginAction: auth.login,
+  discussionUrl,
+  attachmentTarget,
+  prepareDiscussion: prepareAttachmentDiscussion,
+});
 const threadReactions = computed(() =>
   discussion.value?.reactionGroups?.map((group) => ({
     ...group,

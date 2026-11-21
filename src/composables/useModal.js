@@ -6,196 +6,19 @@ import {
   captureTrackedPosition,
   restoreTrackedPosition,
 } from "@/composables/usePosTracker";
+import {
+  beginModalFallback,
+  createModalHistoryFallback,
+  endModalFallback,
+  finishModalFallbackRestore,
+} from "@/utils/layout/modal-history";
 
-const MODAL_FALLBACK_STATE_KEY = "__moriModalFallback";
-const retiredFallbackListeners = new Map();
-let modalFallbackSequence = 0;
-let activeModalFallbacks = 0;
-let modalFallbackRestoreFrame = 0;
-const modalPopstateHandlers = [];
-
-const beginModalFallback = () => {
-  activeModalFallbacks += 1;
-  globalThis.__moriModalFallbackActive = true;
-};
-
-const endModalFallback = () => {
-  activeModalFallbacks = Math.max(0, activeModalFallbacks - 1);
-  globalThis.__moriModalFallbackActive = activeModalFallbacks > 0;
-};
-
-const finishModalFallbackRestore = (
-  restore,
-  scrollRestoration,
-  snapshot = null,
-) => {
-  window.cancelAnimationFrame(modalFallbackRestoreFrame);
-  globalThis.__moriModalFallbackRestoring = true;
-  const restoreViewport = () => {
-    const scrollX = Number(snapshot?.scrollX);
-    const scrollY = Number(snapshot?.scrollY);
-    if (Number.isFinite(scrollX) && Number.isFinite(scrollY)) {
-      document.scrollingElement?.scrollTo(scrollX, scrollY);
-    } else {
-      restore();
-    }
-  };
-  const finish = () => {
-    window.history.scrollRestoration = scrollRestoration;
-    globalThis.__moriModalFallbackRestoring = false;
-  };
-
-  restoreViewport();
-  restore();
-  modalFallbackRestoreFrame = window.requestAnimationFrame(() => {
-    restoreViewport();
-    modalFallbackRestoreFrame = window.requestAnimationFrame(finish);
+const createHistoryFallback = (onBack, options = {}) =>
+  createModalHistoryFallback(onBack, {
+    ...options,
+    capturePosition: captureTrackedPosition,
+    restorePosition: restoreTrackedPosition,
   });
-};
-
-const getFallbackState = (state = window.history.state) =>
-  state?.[MODAL_FALLBACK_STATE_KEY] ?? null;
-
-const setModalPopstateHandler = (handler) => {
-  const index = modalPopstateHandlers.indexOf(handler);
-  if (index !== -1) modalPopstateHandlers.splice(index, 1);
-  modalPopstateHandlers.push(handler);
-  globalThis.__moriModalFallbackPopstateHandler = modalPopstateHandlers.at(-1);
-};
-
-const clearModalPopstateHandler = (handler) => {
-  const index = modalPopstateHandlers.indexOf(handler);
-  if (index !== -1) modalPopstateHandlers.splice(index, 1);
-  globalThis.__moriModalFallbackPopstateHandler =
-    modalPopstateHandlers.at(-1) ?? null;
-};
-
-const withoutFallbackState = (state = window.history.state) => {
-  if (!state || typeof state !== "object") return {};
-  const { [MODAL_FALLBACK_STATE_KEY]: _fallback, ...rest } = state;
-  return rest;
-};
-
-const removeRetiredFallbackListener = (token, { restore = false } = {}) => {
-  const fallback = retiredFallbackListeners.get(token);
-  if (!fallback) return;
-  clearModalPopstateHandler(fallback.listener);
-  retiredFallbackListeners.delete(token);
-  if (restore) window.history.scrollRestoration = fallback.scrollRestoration;
-};
-
-const retireHistoryFallback = (token, scrollRestoration) => {
-  const fallback = getFallbackState();
-  if (fallback?.token !== token || fallback.status !== "active") return;
-
-  window.history.replaceState(
-    {
-      ...withoutFallbackState(),
-      [MODAL_FALLBACK_STATE_KEY]: { token, status: "retired" },
-    },
-    "",
-    `${window.location.pathname}${window.location.search}${window.location.hash}`,
-  );
-
-  const skipRetiredEntry = () => {
-    removeRetiredFallbackListener(token);
-    window.history.back();
-    window.setTimeout(() => {
-      window.history.scrollRestoration = scrollRestoration;
-    }, 0);
-  };
-  retiredFallbackListeners.set(token, {
-    listener: skipRetiredEntry,
-    scrollRestoration,
-  });
-  setModalPopstateHandler(skipRetiredEntry);
-};
-
-const createHistoryFallback = (
-  onBack,
-  { snapshot: preservedSnapshot, scrollRestoration: preservedRestoration } = {},
-) => {
-  const currentFallback = getFallbackState();
-  if (currentFallback?.status === "retired") {
-    removeRetiredFallbackListener(currentFallback.token, { restore: true });
-  }
-
-  const scrollRestoration =
-    preservedRestoration ?? window.history.scrollRestoration;
-  window.history.scrollRestoration = "manual";
-
-  const token = `modal-${Date.now()}-${modalFallbackSequence++}`;
-  const fallbackUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-  const fallbackAnchorToken = window.location.hash;
-  const fallbackPosition =
-    preservedSnapshot ||
-    captureTrackedPosition() || {
-      scrollX: window.scrollX,
-      scrollY: window.scrollY,
-    };
-  const nextState = {
-    ...withoutFallbackState(),
-    [MODAL_FALLBACK_STATE_KEY]: { token, status: "active" },
-  };
-
-  if (currentFallback?.status === "retired") {
-    window.history.replaceState(nextState, "", fallbackUrl);
-  } else {
-    window.history.pushState(nextState, "", fallbackUrl);
-  }
-
-  const handlePopState = () => {
-    clearModalPopstateHandler(handlePopState);
-    const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    if (currentUrl !== fallbackUrl) {
-      window.history.replaceState(
-        window.history.state,
-        "",
-        fallbackUrl,
-      );
-    }
-    onBack();
-    const restorePosition = (suppressNavigationRestore = false) =>
-      restoreTrackedPosition({
-        anchorToken: fallbackAnchorToken,
-        snapshot: fallbackPosition,
-        suppressNavigationRestore,
-      });
-
-    if (!restorePosition(true)) {
-      finishModalFallbackRestore(
-        () => {},
-        scrollRestoration,
-        fallbackPosition,
-      );
-      return;
-    }
-
-    finishModalFallbackRestore(
-      () => restorePosition(false),
-      scrollRestoration,
-      fallbackPosition,
-    );
-  };
-  setModalPopstateHandler(handlePopState);
-
-  return {
-    snapshot: fallbackPosition,
-    scrollRestoration,
-    retire: () => {
-      clearModalPopstateHandler(handlePopState);
-      if (getFallbackState()?.token === token) {
-        retireHistoryFallback(token, scrollRestoration);
-      } else {
-        window.history.scrollRestoration = scrollRestoration;
-      }
-    },
-    release: () => {
-      clearModalPopstateHandler(handlePopState);
-      window.history.scrollRestoration = scrollRestoration;
-    },
-  };
-};
 
 export function useModalClose({
   onClose = () => {},
@@ -246,7 +69,7 @@ export function useModalClose({
   };
 
   const activate = () => {
-    if (active || typeof window === "undefined") return;
+    if (active || import.meta.env.SSR) return;
     active = true;
     beginModalFallback();
 
@@ -320,6 +143,17 @@ const modal = {
       onBack = () => {},
     } = options;
 
+    const resolvedButtonMode =
+      variant === "confirm" ? "confirm" : buttonMode;
+    const resolvedShowBack =
+      typeof showBack === "string"
+        ? localeService.text(showBack)
+        : showBack
+          ? localeService.text(backLabel) || true
+          : false;
+    const resolvedCancelText =
+      cancelText === false ? false : localeService.text(cancelText);
+
     const container = document.createElement("div");
     document.body.appendChild(container);
     let requestClose = () => {};
@@ -349,13 +183,11 @@ const modal = {
               title,
               description,
               buttonText: localeService.text(buttonText),
-              cancelText: localeService.text(cancelText),
-              buttonMode,
-              variant,
+              cancelText: resolvedCancelText,
+              buttonMode: resolvedButtonMode,
               scrollContent,
               panelClass,
-              showBack,
-              backLabel: localeService.text(backLabel),
+              showBack: resolvedShowBack,
               onSubmit,
               onCancel,
               onBack,
@@ -365,7 +197,11 @@ const modal = {
             {
               title: () =>
                 typeof title === "string"
-                  ? h("h3", { class: "text-lg font-serif font-bold" }, localeService.text(title))
+                  ? h(
+                      "h3",
+                      { class: "text-lg font-serif font-bold" },
+                      localeService.text(title),
+                    )
                   : h(
                       "hgroup",
                       { class: "text-lg font-serif font-bold" },
@@ -374,9 +210,16 @@ const modal = {
               description: () =>
                 typeof description === "string"
                   ? h("p", localeService.text(description))
-                  : h("article", {
-                      class: scrollContent === "nested" ? "flex min-h-0 flex-1 flex-col" : undefined,
-                    }, description),
+                  : h(
+                      "article",
+                      {
+                        class:
+                          scrollContent === "nested"
+                            ? "flex min-h-0 flex-1 flex-col"
+                            : undefined,
+                      },
+                      description,
+                    ),
               "leading-action": () => leadingAction,
             },
           );
@@ -398,11 +241,18 @@ export function useModal() {
   const router = inject(routerKey, null);
   return {
     show: (options) => modal.show({ ...options, localeService, router }),
-    info: (title, description, options = {}) => modal.show({ title, description, ...options, localeService, router }),
-    confirm: (title, description, options = {}) => modal.show({
-      title, description, ...options, localeService, router, variant: "confirm",
-      buttonText: options.buttonText || "确认",
-      cancelText: options.cancelText || "取消",
-    }),
+    info: (title, description, options = {}) =>
+      modal.show({ title, description, ...options, localeService, router }),
+    confirm: (title, description, options = {}) =>
+      modal.show({
+        title,
+        description,
+        ...options,
+        localeService,
+        router,
+        buttonMode: "confirm",
+        buttonText: options.buttonText || "确认",
+        cancelText: options.cancelText ?? "取消",
+      }),
   };
 }

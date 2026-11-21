@@ -68,6 +68,10 @@ import {
 import { onClickOutside } from "@vueuse/core";
 import { useLocale } from "@/i18n";
 import { useModalClose } from "@/composables/useModal";
+import {
+  animateBlockedDismiss,
+  cancelBlockedDismissAnimation,
+} from "@/utils/layout/modal-history";
 import IdentityCard from "../display/IdentityCard.vue";
 import SkillCard from "../display/SkillCard.vue";
 import { SKILL_CARDS } from "@/games/avalon/presentation";
@@ -127,19 +131,12 @@ const modalClose = useModalClose({
   shouldCloseFromFallback: () => !props.persistent,
   onBlockedFallback: indicateBlockedDismiss,
 });
-let blockedDismissAnimation = null;
 function indicateBlockedDismiss() {
   const element = popover.value;
   if (!element?.open) return;
-  element.focus({ preventScroll: true });
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  blockedDismissAnimation?.cancel();
-  blockedDismissAnimation = element.animate(
-    [0, -8, 6, -4, 2, 0].map((x) => ({ transform: `translateX(${x}px)` })),
-    { duration: 280, easing: "ease-out" },
-  );
+  animateBlockedDismiss(element, { focus: true });
 }
-onBeforeUnmount(() => blockedDismissAnimation?.cancel());
+onBeforeUnmount(() => cancelBlockedDismissAnimation(popover.value));
 onClickOutside(popover, () => {
   if (
     props.persistent &&

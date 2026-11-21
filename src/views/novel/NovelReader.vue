@@ -210,44 +210,23 @@
     </template>
   </ReadingLayout>
 
-  <dialog
-    v-if="!isMobileReader"
-    ref="chapterCommentsDialogRef"
-    class="modal"
-    @cancel.prevent="requestPlatformCloseChapterComments"
+  <Modal
+    :visible="!isMobileReader && chapterCommentsOpen"
+    :title="translate('novel.reader.chapterComments')"
+    button-mode="close"
+    scroll-content="nested"
+    @close="chapterCommentsOpen = false"
   >
-    <section class="modal-box flex max-h-[82dvh] flex-col overflow-hidden p-0">
-      <header
-        class="flex shrink-0 items-center justify-between gap-3 border-b border-base-300 px-5 py-4"
-      >
-        <h2 class="text-xl font-serif font-bold">
-          {{ translate("novel.reader.chapterComments") }}
-        </h2>
-        <button
-          type="button"
-          class="btn btn-ghost btn-sm btn-circle"
-          :aria-label="translate('novel.reader.closeComments')"
-          @click="requestCloseChapterComments"
-        >
-          <i class="ri-close-line text-xl" aria-hidden="true"></i>
-        </button>
-      </header>
+    <template #description>
       <Thread
-        v-if="chapterCommentsStarted"
         :key="`chapter-comments-dialog-${commentKey}`"
-        class="p-5"
         scroll-mode="dialog"
         compact-editor
         scope="chapter"
         :target="currentChapterUuid"
       />
-    </section>
-    <form method="dialog" class="modal-backdrop">
-      <button @click.prevent="requestCloseChapterComments">
-        {{ translate("novel.reader.closeComments") }}
-      </button>
-    </form>
-  </dialog>
+    </template>
+  </Modal>
 </template>
 
 <script setup>
@@ -268,6 +247,7 @@ import { useRoute, useRouter } from "vue-router";
 import { bookTerm } from "@/../shared/discussions.js";
 import Thread from "@/components/comments/Thread.vue";
 import FloatingActionButton from "@/components/interaction/controls/FloatingActionButton.vue";
+import Modal from "@/components/interaction/overlay/Modal.vue";
 import Renderer from "@/components/markdown/Renderer.vue";
 import ChapterController from "@/components/novel/ChapterController.vue";
 import ChapterHeader from "@/components/novel/ChapterHeader.vue";
@@ -286,7 +266,6 @@ import {
   buildReaderShareMeta,
   useReaderShell,
 } from "@/composables/reader/useReaderShell";
-import { useModalClose } from "@/composables/useModal";
 import { usePosTracker } from "@/composables/usePosTracker";
 import {
   MOBILE_READER_VOLUME_KEY_EVENT,
@@ -350,8 +329,7 @@ const mobileReaderControlsOpen = ref(false);
 const mobileChapterLoading = ref(false);
 const activeMobileReaderRef = ref(null);
 const mobileReaderControlsRef = ref(null);
-const chapterCommentsDialogRef = ref(null);
-const chapterCommentsStarted = ref(false);
+const chapterCommentsOpen = ref(false);
 const restoreMobileScrollToChapterStart = ref(false);
 let mobileControlOpenTimer = 0;
 const mobileControllerState = ref({
@@ -473,31 +451,11 @@ const openMobileControl = async (name, keyword = "", mapping = "") => {
     void mobileReaderControlsRef.value?.openControl({ name, keyword, mapping });
   }, 0);
 };
-const closeChapterCommentsImmediately = () => {
-  if (chapterCommentsDialogRef.value?.open) {
-    chapterCommentsDialogRef.value.close();
-  }
-};
-const chapterCommentsModal = useModalClose({
-  onClose: closeChapterCommentsImmediately,
-});
-const openDesktopChapterComments = async () => {
-  await nextTick();
-  const dialog = chapterCommentsDialogRef.value;
-  if (!dialog || dialog.open) return;
-
-  chapterCommentsStarted.value = true;
-  chapterCommentsModal.activate();
-  dialog.showModal();
-};
-const requestCloseChapterComments = () => chapterCommentsModal.requestClose();
-const requestPlatformCloseChapterComments = () =>
-  chapterCommentsModal.requestPlatformClose();
 const handleChapterComments = (event) => {
   event?.preventDefault?.();
   currentMapping.value = "title";
   if (!isMobileReader.value) {
-    void openDesktopChapterComments();
+    chapterCommentsOpen.value = true;
     return;
   }
 

@@ -3,17 +3,15 @@
     :visible="Boolean(mode)"
     :button-mode="buttonMode"
     :button-text="buttonText"
-    :variant="summaryRequiresConfirmation ? 'confirm' : 'default'"
-    :show-cancel="mode !== 'summary'"
+    :cancel-text="displayMode !== 'summary' && translate('common.modal.cancel')"
     scroll-content
-    :show-back="canGoBack"
-    :back-label="translate('common.modal.backToList')"
+    :show-back="canGoBack && translate('common.modal.backToList')"
     :on-submit="submit"
     @back="emit('back')"
     @close="emit('close')"
   >
     <template #title>
-      <hgroup v-if="mode === 'summary'">
+      <hgroup v-if="displayMode === 'summary'">
         <h3 class="font-serif text-lg font-bold flex items-center gap-2">
           {{ translate('common.modal.announcements') }}
           <span
@@ -27,21 +25,21 @@
       </hgroup>
 
       <div
-        v-else-if="mode === 'detail' && selectedAnnouncement"
+        v-else-if="displayMode === 'detail' && displayAnnouncement"
         class="flex flex-wrap items-center gap-2"
       >
         <NoticeBadges
-          :announcement="selectedAnnouncement"
-          :read="announcementStore.isRead(selectedAnnouncement)"
+          :announcement="displayAnnouncement"
+          :read="announcementStore.isRead(displayAnnouncement)"
         />
       </div>
     </template>
 
     <template #header-details>
-      <div v-if="mode === 'detail' && selectedAnnouncement" class="min-w-0">
+      <div v-if="displayMode === 'detail' && displayAnnouncement" class="min-w-0">
         <div class="flex min-w-0 items-center justify-between gap-4">
           <h3 class="min-w-0 flex-1 font-serif text-lg font-bold text-balance">
-            {{ selectedAnnouncement.title }}
+            {{ displayAnnouncement.title }}
           </h3>
 
           <dl
@@ -50,20 +48,20 @@
             <div>
               <dt class="sr-only">{{ translate('common.modal.published') }}</dt>
               <dd>
-                <time :datetime="selectedAnnouncement.startsAt">
+                <time :datetime="displayAnnouncement.startsAt">
                   {{
-                    formatAnnouncementDate(selectedAnnouncement.startsAt, true, uiLocale)
+                    formatAnnouncementDate(displayAnnouncement.startsAt, true, uiLocale)
                   }}
                 </time>
               </dd>
             </div>
-            <div v-if="selectedAnnouncement.endsAt">
+            <div v-if="displayAnnouncement.endsAt">
               <dt class="sr-only">{{ translate('common.modal.ends') }}</dt>
               <dd>
                 {{ translate('common.modal.to') }}
-                <time :datetime="selectedAnnouncement.endsAt">
+                <time :datetime="displayAnnouncement.endsAt">
                   {{
-                    formatAnnouncementDate(selectedAnnouncement.endsAt, true, uiLocale)
+                    formatAnnouncementDate(displayAnnouncement.endsAt, true, uiLocale)
                   }}
                 </time>
               </dd>
@@ -74,13 +72,13 @@
         <p
           class="w-full text-sm leading-relaxed font-normal text-base-content/65 text-pretty"
         >
-          <span lang="zh-CN">{{ selectedAnnouncement.summary }}</span>
+          <span lang="zh-CN">{{ displayAnnouncement.summary }}</span>
         </p>
       </div>
     </template>
 
     <template #description>
-      <section v-if="mode === 'summary'" :aria-label="translate('common.modal.listLabel')">
+      <section v-if="displayMode === 'summary'" :aria-label="translate('common.modal.listLabel')">
         <ul class="grid gap-3">
           <li
             v-for="announcement in summaryAnnouncements"
@@ -125,8 +123,8 @@
       <Renderer
         v-else-if="showsAnnouncementDetail"
         lang="zh-CN"
-        :content="selectedAnnouncement.body"
-        :content-id="`announcement-${selectedAnnouncement.id}-${selectedAnnouncement.revision}`"
+        :content="displayAnnouncement.body"
+        :content-id="`announcement-${displayAnnouncement.id}-${displayAnnouncement.revision}`"
         mode="standard"
         prose-size="sm"
         :manage-route-anchor="false"
@@ -196,17 +194,34 @@ const emit = defineEmits([
   "open",
 ]);
 
+const displayMode = ref(props.mode);
+const displayAnnouncement = ref(props.selectedAnnouncement);
+watch(
+  () => [props.mode, props.selectedAnnouncement],
+  ([nextMode, nextAnnouncement]) => {
+    if (nextMode) displayMode.value = nextMode;
+    if (nextAnnouncement) displayAnnouncement.value = nextAnnouncement;
+  },
+  { immediate: true },
+);
+
 const showsAnnouncementDetail = computed(
-  () => props.mode === "detail" && Boolean(props.selectedAnnouncement),
+  () => displayMode.value === "detail" && Boolean(displayAnnouncement.value),
 );
 watch(() => [props.mode, props.selectedAnnouncement?.id], () => {
   if (showsAnnouncementDetail.value && rendererFailed.value) retryRenderer();
 });
 const buttonMode = computed(() =>
-  props.mode === "summary" || showsAnnouncementDetail.value ? "footer" : "none",
+  displayMode.value === "summary"
+    ? summaryRequiresConfirmation.value
+      ? "confirm"
+      : "footer"
+    : showsAnnouncementDetail.value
+      ? "footer"
+      : "none",
 );
 const buttonText = computed(() =>
-  props.mode === "summary"
+  displayMode.value === "summary"
     ? unreadSummaryCount.value
       ? translate('common.modal.markRead')
       : translate('common.modal.close')
@@ -219,7 +234,7 @@ const unreadSummaryCount = computed(
     ).length,
 );
 const summaryRequiresConfirmation = computed(
-  () => props.mode === "summary" && unreadSummaryCount.value > 0,
+  () => displayMode.value === "summary" && unreadSummaryCount.value > 0,
 );
 const submit = () => {
   if (props.mode === "summary") {

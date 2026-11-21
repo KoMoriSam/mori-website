@@ -1,29 +1,16 @@
 import { gameRoutes } from "@/games/catalog";
 import { getBlogListScroll } from "@/utils/blog/list-scroll";
+import {
+  installModalHistoryDispatcher,
+  isModalFallbackRestoring,
+} from "@/utils/layout/modal-history";
 import { getNavbarScrollOffset } from "@/utils/layout/navbar";
 
 const testRoutes = import.meta.env.DEV
   ? (await import("./test-routes")).testRoutes
   : [];
 
-if (
-  !import.meta.env.SSR &&
-  typeof window !== "undefined" &&
-  !globalThis.__moriModalFallbackDispatcherInstalled
-) {
-  globalThis.__moriModalFallbackDispatcherInstalled = true;
-  window.addEventListener(
-    "popstate",
-    (event) => {
-      const handleModalFallback = globalThis.__moriModalFallbackPopstateHandler;
-      if (typeof handleModalFallback !== "function") return;
-
-      event.stopImmediatePropagation();
-      handleModalFallback(event);
-    },
-    { capture: true },
-  );
-}
+installModalHistoryDispatcher();
 
 export const routes = [
   {
@@ -196,7 +183,7 @@ export const routes = [
 ];
 
 export function scrollBehavior(to, from, savedPosition) {
-  if (globalThis.__moriModalFallbackRestoring) return false;
+  if (isModalFallbackRestoring()) return false;
   if (savedPosition) return savedPosition;
   if (
     to.meta.blogList &&
@@ -206,7 +193,7 @@ export function scrollBehavior(to, from, savedPosition) {
     const position = getBlogListScroll(to);
     if (position) return position;
   }
-  if (to.hash && typeof document !== "undefined") {
+  if (to.hash && !import.meta.env.SSR) {
     const rawHash = to.hash.slice(1);
     let anchorId = rawHash;
 

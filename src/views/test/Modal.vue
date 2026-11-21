@@ -73,8 +73,7 @@
         </article>
       </div>
       <Modal
-        v-if="inlineModal"
-        :visible="true"
+        :visible="inlineModal"
         title="声明式 Modal"
         description="这是通过 &lt;Modal :visible /&gt; 直接声明的弹窗。"
         button-text="关闭"

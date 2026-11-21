@@ -137,7 +137,7 @@
   - 统一 `src/utils/reader/dom.js`（收拢 4 处 `range.intersectsNode`、3 处 `decodeAnchor` 与双 rAF `waitForReaderLayout`）及 `src/utils/canvas/backdrop.js`（收拢 4 处 Backdrop 调色板混合与光晕绘制）。
 - **验证**：`pnpm check blog`、`pnpm check markdown`、`pnpm check site-perf`、`pnpm check i18n-quantities`；人工验证博客与小说桌面端/移动端翻页/滚动阅读、目录联动、划词菜单、分享卡片与样式面板。
 
-### - [ ] P2-4：收敛弹窗、浮层与 `useModal.js` 全局变量耦合
+### - [x] P2-4：收敛弹窗、浮层与 `useModal.js` 全局变量耦合
 - **涉及文件**：`src/composables/useModal.js`、`src/router/index.js`、`src/composables/usePosTracker.js`、`src/components/interaction/overlay/Modal.vue`、`src/components/novel/mobile/controls/ReaderControls.vue`、`src/components/comments/{Thread.vue,interaction/CommentEditor.vue}`。
 - **改造动作**：
   - 将 `useModal.js` 挂在 `globalThis.__moriModalFallback*` 上的 3 个全局标志抽为显式模块 `src/utils/layout/modal-history.js`，由 `router`、`useModal`、`usePosTracker` 显式导入，彻底消除 `globalThis` 隐式耦合。

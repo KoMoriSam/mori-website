@@ -1,6 +1,6 @@
 <template>
   <dialog
-    v-if="visible"
+    v-if="rendered"
     ref="dialogRef"
     class="modal modal-bottom sm:modal-middle"
     @cancel="handleNativeCancel"
@@ -21,10 +21,10 @@
       >
         <div class="flex min-w-0 items-center gap-2">
           <button
-            v-if="showBack"
+            v-if="hasBack"
             type="button"
             class="btn btn-ghost btn-circle btn-sm shrink-0"
-            :aria-label="localizeText(backLabel)"
+            :aria-label="resolvedBackLabel"
             @click="emit('back')"
           >
             <i class="ri-arrow-left-line text-lg" aria-hidden="true"></i>
@@ -37,7 +37,7 @@
           </div>
 
           <button
-            v-if="!isConfirm && buttonMode === 'close'"
+            v-if="buttonMode === 'close'"
             class="btn btn-sm btn-circle btn-ghost shrink-0"
             type="button"
             :aria-label="translate('common.modal.close')"
@@ -59,7 +59,6 @@
         >
           <slot name="description">
             {{ localizeText(description) || translate('common.modal.defaultDescription') }}
-            <!-- fallback -->
           </slot>
         </section>
       </ScrollableContainer>
@@ -76,12 +75,12 @@
           {{ localizeText(buttonText) }}
         </button>
         <button
-          v-if="showCancel"
+          v-if="hasCancel"
           class="btn"
           type="button"
           @click="handleCancel"
         >
-          {{ localizeText(cancelText) }}
+          {{ resolvedCancelText }}
         </button>
       </form>
       <form
@@ -102,13 +101,18 @@
 </template>
 
 <script setup>
-import ScrollableContainer from "@/components/layout/ScrollableContainer.vue";
-import { useLocale } from '@/i18n';
-const { t: translate, text: localizeText } = useLocale();
-
-import { computed, ref, nextTick, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { onClickOutside } from "@vueuse/core";
+import ScrollableContainer from "@/components/layout/ScrollableContainer.vue";
 import { useModalClose } from "@/composables/useModal";
+import { useLocale } from "@/i18n";
+import {
+  animateBlockedDismiss,
+  cancelBlockedDismissAnimation,
+} from "@/utils/layout/modal-history";
+
+const MODAL_EXIT_DURATION_MS = 300;
+const { t: translate, text: localizeText } = useLocale();
 
 const props = defineProps({
   title: {
@@ -124,22 +128,14 @@ const props = defineProps({
     default: "关闭",
   },
   cancelText: {
-    type: String,
+    type: [String, Boolean],
     default: "取消",
-  },
-  showCancel: {
-    type: Boolean,
-    default: true,
   },
   buttonMode: {
     type: String,
     default: "footer",
-    validator: (value) => ["none", "close", "footer"].includes(value),
-  },
-  variant: {
-    type: String,
-    default: "default",
-    validator: (value) => ["default", "confirm"].includes(value),
+    validator: (value) =>
+      ["none", "close", "footer", "confirm"].includes(value),
   },
   visible: {
     type: Boolean,
@@ -152,73 +148,86 @@ const props = defineProps({
   },
   panelClass: { type: [String, Array], default: undefined },
   showBack: {
-    type: Boolean,
+    type: [Boolean, String],
     default: false,
-  },
-  backLabel: {
-    type: String,
-    default: "返回",
   },
   onSubmit: {
     type: Function,
     default: () => {},
   },
-  onCancel: {
-    type: Function,
-    default: () => {},
-  },
 });
 
-const emit = defineEmits(["back", "close"]);
+const emit = defineEmits(["back", "cancel", "close"]);
 
 const modalRef = ref(null);
 const dialogRef = ref(null);
-const isConfirm = computed(() => props.variant === "confirm");
-let blockedDismissAnimation = null;
+const rendered = ref(props.visible);
+let closeTimer = 0;
 
-const indicateBlockedDismiss = () => {
-  const modal = modalRef.value;
-  if (
-    !modal?.animate ||
-    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
-  ) {
+const isConfirm = computed(() => props.buttonMode === "confirm");
+const hasBack = computed(() => Boolean(props.showBack));
+const resolvedBackLabel = computed(() =>
+  typeof props.showBack === "string"
+    ? localizeText(props.showBack)
+    : localizeText("返回"),
+);
+const hasCancel = computed(() => Boolean(props.cancelText));
+const resolvedCancelText = computed(() =>
+  typeof props.cancelText === "string"
+    ? localizeText(props.cancelText)
+    : localizeText("取消"),
+);
+
+const indicateBlockedDismiss = () => animateBlockedDismiss(modalRef.value);
+
+const scheduleUnmount = () => {
+  if (import.meta.env.SSR) {
+    rendered.value = false;
     return;
   }
-
-  blockedDismissAnimation?.cancel();
-  blockedDismissAnimation = modal.animate(
-    [
-      { transform: "translateX(0)" },
-      { transform: "translateX(-0.5rem)" },
-      { transform: "translateX(0.4rem)" },
-      { transform: "translateX(-0.25rem)" },
-      { transform: "translateX(0.15rem)" },
-      { transform: "translateX(0)" },
-    ],
-    { duration: 280, easing: "ease-out" },
-  );
+  window.clearTimeout(closeTimer);
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+    rendered.value = false;
+    return;
+  }
+  closeTimer = window.setTimeout(() => {
+    closeTimer = 0;
+    if (!props.visible && !dialogRef.value?.open) {
+      rendered.value = false;
+    }
+  }, MODAL_EXIT_DURATION_MS);
 };
 
+onBeforeUnmount(() => {
+  if (!import.meta.env.SSR) window.clearTimeout(closeTimer);
+  cancelBlockedDismissAnimation(modalRef.value);
+});
+
 const closeImmediately = () => {
-  if (dialogRef.value?.close) {
+  if (dialogRef.value?.open) {
     dialogRef.value.close();
   }
+  scheduleUnmount();
   emit("close");
 };
 const modalClose = useModalClose({
   onClose: closeImmediately,
-  shouldCloseFromFallback: () => !isConfirm.value && !props.showBack,
+  shouldCloseFromFallback: () => !isConfirm.value && !hasBack.value,
   onBlockedFallback: () => {
     if (isConfirm.value) indicateBlockedDismiss();
-    else if (props.showBack) emit("back");
+    else if (hasBack.value) emit("back");
   },
 });
 
 const open = async () => {
+  if (!import.meta.env.SSR) window.clearTimeout(closeTimer);
+  rendered.value = true;
   await nextTick();
   const dialog = dialogRef.value;
   if (!props.visible || !dialog || dialog.open) return;
 
+  // 确保首次挂载的 <dialog> 先完成闭合态样式计算，再进入 [open] 触发入场过渡。
+  void dialog.offsetWidth;
   modalClose.activate();
   dialog.showModal();
 };
@@ -230,18 +239,19 @@ const handleSubmit = () => {
 };
 
 const handleDismiss = () => {
+  if (!dialogRef.value?.open) return;
   if (isConfirm.value) return indicateBlockedDismiss();
-  if (props.showBack) return emit("back");
+  if (hasBack.value) return emit("back");
   close();
 };
 
 const handleCancel = () => {
-  props.onCancel();
+  emit("cancel");
   close();
 };
 
 const handleEscapeKeydown = (event) => {
-  if (!isConfirm.value && !props.showBack) return;
+  if (!isConfirm.value && !hasBack.value) return;
   event.preventDefault();
   event.stopPropagation();
 
@@ -252,7 +262,7 @@ const handleEscapeKeydown = (event) => {
 const handleNativeCancel = (event) => {
   event.preventDefault();
   if (isConfirm.value) return indicateBlockedDismiss();
-  if (props.showBack) return emit("back");
+  if (hasBack.value) return emit("back");
   modalClose.requestPlatformClose();
 };
 
@@ -261,8 +271,19 @@ onClickOutside(modalRef, handleDismiss);
 watch(
   () => props.visible,
   (visible) => {
-    if (visible) void open();
-    else if (modalClose.isActive()) modalClose.discard();
+    if (visible) {
+      void open();
+      return;
+    }
+    if (modalClose.isActive()) {
+      modalClose.discard({ close: false });
+    }
+    if (dialogRef.value?.open) {
+      dialogRef.value.close();
+    }
+    if (rendered.value) {
+      scheduleUnmount();
+    }
   },
   { immediate: true },
 );

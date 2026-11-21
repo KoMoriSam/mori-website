@@ -228,7 +228,7 @@
 
 <script setup>
 import { COMMENT_MARKDOWN } from "@/utils/comments/comment-markdown";
-import { computed, nextTick, ref, useId, watch } from "vue";
+import { computed, inject, nextTick, ref, useId, watch } from "vue";
 import { useClipboard, useResizeObserver } from "@vueuse/core";
 import Avatar from "@/components/auth/Avatar.vue";
 import Renderer from "@/components/markdown/Renderer.vue";
@@ -236,6 +236,7 @@ import ReactionButtons from "./ReactionButtons.vue";
 import ActionMenu from "@/components/display/menu/ActionMenu.vue";
 import Tooltip from "@/components/display/Tooltip.vue";
 import EditHistory from "../interaction/EditHistory.vue";
+import { COMMENT_THREAD_CONTEXT } from "../context";
 import { useLocale } from "@/i18n";
 import { formatRelativeDate } from "@/i18n/format-date";
 import {
@@ -245,21 +246,15 @@ import {
 import { useToast } from "@/composables/useToast";
 import { githubDiscussionUrl } from "@/utils/github-discussion-url";
 import { collectReaderBodyTextRects } from "@/utils/reader/measure-mobile-pages";
+
 const props = defineProps({
   comment: { type: Object, required: true },
-  authorLogin: { type: String, required: true },
-  viewerLogin: String,
-  now: { type: Number, required: true },
-  loadHistory: { type: Function, required: true },
-  historyRevision: Number,
-  permissions: Boolean,
-  canReply: Boolean,
-  authenticated: Boolean,
-  canQuote: Boolean,
-  repliesOpen: Boolean,
   reply: Boolean,
+  canReply: Boolean,
+  canQuote: Boolean,
+  includePermissions: { type: Boolean, default: true },
+  repliesOpen: Boolean,
   editing: Boolean,
-  busy: Boolean,
 });
 const emit = defineEmits([
   "reply",
@@ -269,6 +264,18 @@ const emit = defineEmits([
   "react",
   "toggle-replies",
 ]);
+const threadContext = inject(COMMENT_THREAD_CONTEXT);
+const authorLogin = computed(() => threadContext.authorLogin.value);
+const viewerLogin = computed(() => threadContext.viewerLogin.value);
+const now = computed(() => threadContext.now.value);
+const loadHistory = (id, cursor, signal) =>
+  threadContext.loadHistory(id, cursor, signal);
+const historyRevision = computed(() => threadContext.historyRevision.value);
+const authenticated = computed(() => threadContext.authenticated.value);
+const busy = computed(() => threadContext.busy.value);
+const permissions = computed(
+  () => Boolean(threadContext.permissions.value && props.includePermissions),
+);
 const { t, locale, date: formatDate, number } = useLocale();
 const bodyId = `comment-body-${useId()}`;
 const authorName = ref(null);
@@ -373,13 +380,13 @@ const minimizedMessage = computed(() => {
 });
 const login = computed(() => props.comment.author?.login?.toLowerCase());
 const isOwnComment = computed(() =>
-  Boolean(login.value && login.value === props.viewerLogin?.toLowerCase()),
+  Boolean(login.value && login.value === viewerLogin.value?.toLowerCase()),
 );
 const isSiteOwner = computed(
   () => login.value === siteOwnerLogin.toLowerCase(),
 );
 const isContentAuthor = computed(
-  () => login.value === props.authorLogin.toLowerCase(),
+  () => login.value === authorLogin.value.toLowerCase(),
 );
 const badgeLabels = computed(() => [
   ...(isSiteOwner.value ? [t("comments.siteOwner")] : []),
@@ -431,7 +438,7 @@ const publishedAt = computed(() =>
   }),
 );
 const relativeTime = computed(() =>
-  formatRelativeDate(props.comment.createdAt, locale.value, props.now),
+  formatRelativeDate(props.comment.createdAt, locale.value, now.value),
 );
 const toast = useToast();
 const { copy, copied } = useClipboard({ legacy: true });
@@ -444,13 +451,13 @@ const canQuoteComment = computed(
 );
 const canEditComment = computed(
   () =>
-    props.permissions &&
+    permissions.value &&
     !props.comment.isMinimized &&
     props.comment.viewerCanUpdate,
 );
 const canDeleteComment = computed(
   () =>
-    props.permissions &&
+    permissions.value &&
     !props.comment.isMinimized &&
     props.comment.viewerCanDelete,
 );
@@ -503,7 +510,7 @@ const avatar = computed(() =>
 const reactionGroups = computed(() =>
   props.comment.reactionGroups?.map((group) => ({
     ...group,
-    viewerHasReacted: props.permissions && group.viewerHasReacted,
+    viewerHasReacted: permissions.value && group.viewerHasReacted,
   })),
 );
 </script>

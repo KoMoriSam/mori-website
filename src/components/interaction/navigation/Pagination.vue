@@ -131,8 +131,7 @@
 
     <!-- 移动端页码弹窗 -->
     <Modal
-      v-if="isCompactLayout && isPageMenuOpen"
-      :visible="true"
+      :visible="isCompactLayout && isPageMenuOpen"
       button-mode="close"
       :title="translate('common.pagination.choose')"
       @close="closePageMenu"

@@ -1,6 +1,7 @@
 import { useEventListener, useThrottleFn } from "@vueuse/core";
 import { computed } from "vue";
 import { useReadingStateStorage } from "@/composables/storage/useReadingStateStorage";
+import { isModalHistoryBusy } from "@/utils/layout/modal-history";
 
 const FULL_PARAGRAPH_ID_RE =
   /^([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})-(\d+)$/i;
@@ -32,11 +33,7 @@ export function restoreTrackedPosition(options = {}) {
 
 export function usePosTracker(router, onRestoreTitle, options = {}) {
   // 位置追踪依赖 window、document、requestAnimationFrame，只能在浏览器运行。
-  if (
-    import.meta.env.SSR ||
-    typeof window === "undefined" ||
-    typeof document === "undefined"
-  ) {
+  if (import.meta.env.SSR) {
     return () => {};
   }
 
@@ -646,8 +643,7 @@ export function usePosTracker(router, onRestoreTitle, options = {}) {
   const recordCurrentPos = (ignoreSuppression = false) => {
     if (
       !isTrackingActive() ||
-      globalThis.__moriModalFallbackActive ||
-      globalThis.__moriModalFallbackRestoring ||
+      isModalHistoryBusy() ||
       (!ignoreSuppression && shouldSkipCurrentScrollUpdate())
     ) {
       return;
@@ -705,10 +701,7 @@ export function usePosTracker(router, onRestoreTitle, options = {}) {
     updateCurrentPos();
     window.clearTimeout(settledScrollTimer);
     settledScrollTimer = window.setTimeout(() => {
-      if (
-        globalThis.__moriModalFallbackActive ||
-        globalThis.__moriModalFallbackRestoring
-      ) {
+      if (isModalHistoryBusy()) {
         return;
       }
       recordCurrentPos(true);
@@ -724,14 +717,7 @@ export function usePosTracker(router, onRestoreTitle, options = {}) {
   // 监听 hash 变化（支持任意 #id）
   trackListener(
     useEventListener(window, "hashchange", () => {
-      if (!isTrackingActive()) {
-        return;
-      }
-
-      if (
-        globalThis.__moriModalFallbackActive ||
-        globalThis.__moriModalFallbackRestoring
-      ) {
+      if (!isTrackingActive() || isModalHistoryBusy()) {
         return;
       }
 
@@ -807,14 +793,7 @@ export function usePosTracker(router, onRestoreTitle, options = {}) {
 
   trackListener(
     router.afterEach((to, from) => {
-      if (!isTrackingActive()) {
-        return;
-      }
-
-      if (
-        globalThis.__moriModalFallbackActive ||
-        globalThis.__moriModalFallbackRestoring
-      ) {
+      if (!isTrackingActive() || isModalHistoryBusy()) {
         return;
       }
 
@@ -854,12 +833,6 @@ export function usePosTracker(router, onRestoreTitle, options = {}) {
     cancelPreciseRestore();
     window.clearTimeout(settledScrollTimer);
     window.cancelAnimationFrame(skippedScrollResetFrame);
-    stopListeners.forEach((stop) => {
-      try {
-        stop();
-      } catch {
-        // no-op
-      }
-    });
+    stopListeners.forEach((stop) => stop());
   };
 }
