@@ -11,6 +11,7 @@ import { testNovelBucket } from "../release/environment.mjs";
 
 const source = resolve(".output/preview");
 const fixtures = resolve(".tmp/mori-dev/assets");
+const novelFixtureFile = resolve(".tmp/mori-dev/novel.json");
 const vars = {
   MORI_ENV: "test",
   MORI_SITE_ORIGIN: testOrigin,
@@ -29,11 +30,52 @@ const novel = JSON.parse(await readFile(resolve(fixtures, releaseFile), "utf8"))
 if (!novelVersionPattern.test(novel?.version || "") || !novel.catalog || typeof novel.catalog !== "object")
   throw new Error("Invalid test novel catalog");
 
+async function ensureTestNovelVersion(version, root, env) {
+  const versionKey = `${testNovelBucket}/v1/versions/${version}.json`;
+  const manifestFile = resolve(root, "novel-manifest.json");
+  try {
+    await run(["wrangler", "r2", "object", "get", versionKey, "--remote", "--file", manifestFile], { env });
+    return;
+  } catch {
+    // 远端测试桶尚无该版本测试小说，继续从本地 fixture 同步上传。
+  }
+
+  const fixture = JSON.parse(await readFile(novelFixtureFile, "utf8"));
+  if (fixture?.version !== version || !fixture.manifest || !fixture.objects) {
+    throw new Error(`本地测试小说数据与版本 ${version} 不一致，请先运行 pnpm dev:seed。`);
+  }
+
+  console.log(`正在将测试小说版本 ${version.slice(0, 12)} 同步到 ${testNovelBucket}…`);
+  const objectsDir = resolve(root, "novel-objects");
+  await mkdir(objectsDir, { recursive: true });
+
+  const entries = Object.entries(fixture.objects);
+  let cursor = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(4, entries.length) }, async () => {
+      while (cursor < entries.length) {
+        const [digest, base64] = entries[cursor++];
+        const file = resolve(objectsDir, digest);
+        await writeFile(file, Buffer.from(base64, "base64"));
+        await run(
+          ["wrangler", "r2", "object", "put", `${testNovelBucket}/v1/objects/${digest}`, "--remote", "--file", file],
+          { env, capture: true },
+        );
+      }
+    }),
+  );
+
+  await writeFile(manifestFile, JSON.stringify(fixture.manifest));
+  await run(
+    ["wrangler", "r2", "object", "put", versionKey, "--remote", "--file", manifestFile, "--content-type", "application/json"],
+    { env, capture: true },
+  );
+}
+
 await mkdir(".tmp", { recursive: true });
 const root = await mkdtemp(resolve(".tmp/test-preview-"));
 try {
-  await run(["wrangler", "r2", "object", "get", `${testNovelBucket}/v1/versions/${novel.version}.json`,
-    "--remote", "--file", resolve(root, "novel-manifest.json")], { env });
+  await ensureTestNovelVersion(novel.version, root, env);
   const assets = resolve(root, "assets");
   await cp(source, assets, { recursive: true });
   const registry = JSON.parse(await readFile(resolve(fixtures, discussionRegistry), "utf8"));
