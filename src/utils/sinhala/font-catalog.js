@@ -125,6 +125,10 @@ export function normalizeSinhalaFontName(name) {
     .replace(/(?:regular|semilight|semibold|medium|light|bold|variable)$/u, "");
 }
 
+export function isFmAbabldFont(family) {
+  return /^fmababld$/iu.test(family.replace(/[\s_-]/gu, ""));
+}
+
 const sinhalaUnicodeDeviceFontOrder = new Map(
   SINHALA_UNICODE_DEVICE_FONT_NAMES.map((name, index) => [
     normalizeSinhalaFontName(name),

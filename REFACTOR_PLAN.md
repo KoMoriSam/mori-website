@@ -159,13 +159,13 @@
 - **顺手治理**：拆散 28-getter 巨型 `watch`；替换 7 处硬编码中文为 i18n Key（并修复队列超限描述隐藏问题）；修复孤立 ARIA/label ID 与 `watermark.js` 的 `textHeight` 未定义缺陷；不再静默吞掉水印渲染/动画解码错误；修复动图暂停后续播重头播放问题并为 `ImagePreview` 补充同尺寸原地换图。
 - **验证**：`pnpm check image-converter`、`pnpm check i18n-quantities`、`pnpm check i18n-loading`、`pnpm check i18n-runtime` 与人工全项验收通过。
 
-### - [ ] P3-2：拆解 `SinhalaFontConverter.vue`（2887 行）
+### - [x] P3-2：拆解 `SinhalaFontConverter.vue`（2885 行 → 688 行）
 - **目标结构**：
-  - `src/composables/tools/sinhala/useContentEditableHistory.js`（200 步撤销/重做栈、IME 合成与选区同步）
-  - `src/composables/tools/sinhala/useDocumentConversion.js`（PDF/DOCX/PPTX 上传、检测、转换与导出）
-  - `src/components/tools/sinhala/{ConversionPane.vue,DocumentDropzone.vue,ConversionOptions.vue}`（用 `ConversionPane` 消除 Unicode 与 Legacy 两栏的大段镜像模板复制）
-- **顺手治理**：清理 `src/utils/sinhala/converter.js` 内部流水线 15+ 处重复 `String(input ?? "")` 强制转换，改为仅在公开入口规范化一次。
-- **验证**：`pnpm check sinhala`、`pnpm check sinhala-documents`、`pnpm check i18n`；人工验证双向文本转换、撤销重做、剪贴板与 PDF/DOCX/PPTX 文档转换。
+  - `src/composables/tools/sinhala/{useContentEditableHistory.js,useDocumentConversion.js,useSinhalaFonts.js,useTextPaneLayout.js,useClipboardActions.js}`（Legacy 200 步撤销/重做栈与 IME/选区同步、DOCX/PPTX/PDF 上传检测转换与导出、双栏字体联动与本地缩放测量、等高/滚动同步与控件视口锚定、剪贴板读写与瞬态反馈）
+  - `src/components/tools/sinhala/{ConversionPane.vue,DocumentDropzone.vue,ConversionOptions.vue}`（用 `ConversionPane` 消除 Unicode 与 Legacy 两栏镜像模板复制）
+  - `src/utils/sinhala/conversion-options.js`（默认选项工厂与转换参数构建），`isFmAbabldFont` 下沉至 `src/utils/sinhala/font-catalog.js`，文本导出复用 `src/utils/dom/download.js`
+- **顺手治理**：清理 `src/utils/sinhala/converter.js` 内部流水线 18 处重复 `String(input ?? "")` 强转（收口至 7 个公开入口一次规范化）并简化 `containsSinhala`；合并重复的 `encodingSuggestion` 对象构造；修复 `refreshFmPreview` 潜在空解引用与只读态拦截 `Ctrl+Z/Y`。
+- **验证**：`pnpm check sinhala`、`pnpm check sinhala-documents`、`pnpm check i18n-runtime`、`pnpm check i18n-quantities`、`pnpm check i18n-loading`、`pnpm check site-perf`、双模式四语言 SSR 验证与人工全项验收通过。
 
 ### - [ ] P3-3：解耦通用游戏壳 `Room.vue`（1479 行）与拆解阿瓦隆 `RoundTable.vue`（2146 行）
 - **改造动作**：
