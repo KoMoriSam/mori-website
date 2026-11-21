@@ -127,8 +127,8 @@ flowchart LR
    - `/auth/login` → `mori-website` 生成 PKCE `flow` Cookie 并跳转 `auth.komori.cc/login/github` → 回调换取一次性 `grant` → `/auth/complete` 经 `MORI_AUTH.redeem` 写入同源 HttpOnly 会话 Cookie。
    - `/api/novel/*` 经 `mori-website` 校验 `canReadNovel` 后从 R2 `NOVEL_VAULT` 按内容哈希对象分发章节与受保护搜索索引（`pagefind-novel`）。
 3. **博客与小说阅读链路**
-   - 博客：`Blog.vue` 协调 `ArticleList` / `ArticleReader`，支持多语言版本切换、WikiLink 解析、`usePosTracker` 段落级阅读进度恢复、划词菜单（`ContextMenu`）与 Canvas 分享卡片（`create-reader-share-card.js`）。
-   - 小说：`Novel.vue` 经 `ReadingGate` 鉴权守卫后进入 `NovelDetail` / `NovelReader`；桌面端走 `Renderer`，移动端支持 CSS 分栏分页模式（`PagedReader`）与滚动模式（`ScrollReader`）。
+   - 博客：`Blog.vue` 协调 `ArticleList` / `ArticleReader`，支持多语言版本切换、WikiLink 解析、`usePosTracker` 段落级阅读进度恢复、划词菜单（`ContextMenu`）与 Canvas 分享卡片（`create-reader-share-card.js` 编排 `share-{text-layout,font-embed,canvas-assets,block-layout,block-renderers}.js` 与 `share-snapshot.js`）。
+   - 小说：`Novel.vue` 经 `ReadingGate` 鉴权守卫后进入 `NovelDetail` / `NovelReader`；桌面端走 `Renderer`，移动端支持 CSS 分栏分页模式（`PagedReader`，配合 `usePagedGeometry`、`align-mobile-baselines.js`、`measure-mobile-pages.js` 与 `mobile-reader-events.js` 事件契约）与滚动模式（`ScrollReader`）。
    - 评论：`Thread.vue` 请求 `/api/comments` → `mori-website` 校验 `site-data/discussion-targets.json` 白名单 → `mori-api#CommentsInternal` 代理 GitHub Discussions 读写与附件直传。
 4. **多人实时桌游链路（Avalon / Fogport）**
    - 客户端 `useGameRoom` 经 `/api/games/rooms` 建房/加入获取短期 `ticket`，建立 WebSocket 连接至对应 `GameRoom` Durable Object。

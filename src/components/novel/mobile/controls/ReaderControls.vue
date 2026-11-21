@@ -257,15 +257,17 @@ import FormatSetting from "@/components/reader/interaction/FormatSetting.vue";
 import { useChapters } from "@/composables/novel/useChapters";
 import { useCommentScope } from "@/composables/novel/useCommentScope";
 import { useModalClose } from "@/composables/useModal";
-import {
-  MOBILE_READING_MODES,
-  MOBILE_READER_NAVBAR_HIDE_EVENT,
-} from "@/constants/reader";
+import { MOBILE_READING_MODES } from "@/constants/reader";
 import { MOBILE_READER_DIALOG_SIZE_CLASS } from "@/constants/reader-layout";
 import { useLocale } from "@/i18n";
 import { useNovelStore } from "@/stores/novel";
 import { useReaderStore } from "@/stores/reader";
 import { getChapterContextTitle } from "@/utils/novel/format-label";
+import {
+  normalizeMobileReaderControlRequest,
+  onMobileReaderOpenControl,
+  setMobileReaderNavbarVisible,
+} from "@/utils/reader/mobile-reader-events";
 import ReaderDialogHeader from "../display/ReaderDialogHeader.vue";
 import ReaderMoreSettings from "./ReaderMoreSettings.vue";
 import TapZoneEditor from "./TapZoneEditor.vue";
@@ -410,7 +412,7 @@ const requestPlatformCloseDialog = () => dialogClose.requestPlatformClose();
 const openTapZoneEditor = async () => {
   dialogClose.discard();
   emit("controls-open-change", false);
-  window.dispatchEvent(new Event(MOBILE_READER_NAVBAR_HIDE_EVENT));
+  setMobileReaderNavbarVisible(false);
   tapZoneEditorOpen.value = true;
   dialogClose.activate();
 };
@@ -419,7 +421,7 @@ const requestCloseTapZoneEditor = () => dialogClose.requestClose();
 const closeAll = () => {
   if (activeDialog.value || tapZoneEditorOpen.value) dialogClose.discard();
   emit("controls-open-change", false);
-  window.dispatchEvent(new Event(MOBILE_READER_NAVBAR_HIDE_EVENT));
+  setMobileReaderNavbarVisible(false);
 };
 const prepareDialogNavigation = () => {
   const replaceDialogHistory = false;
@@ -427,7 +429,7 @@ const prepareDialogNavigation = () => {
   // 目标内容将自行完成路由更新，这里只同步关闭当前模态框。
   dialogClose.discard();
   emit("controls-open-change", false);
-  window.dispatchEvent(new Event(MOBILE_READER_NAVBAR_HIDE_EVENT));
+  setMobileReaderNavbarVisible(false);
   return { replaceDialogHistory };
 };
 const handleProgressInput = (event) => {
@@ -446,34 +448,26 @@ const refreshContent = () => {
   emit("refresh-content");
 };
 const openControl = (detail) => {
-  const request =
-    typeof detail === "string" ? { name: detail, keyword: "" } : detail || {};
-  if (!["toc", "search", "comments"].includes(request.name)) return;
-  if (request.name === "search") searchKeyword.value = request.keyword || "";
-  if (
-    request.name === "comments" &&
-    ["title", "specific"].includes(request.mapping)
-  ) {
+  const request = normalizeMobileReaderControlRequest(detail);
+  if (!request) return;
+  if (request.name === "search") searchKeyword.value = request.keyword;
+  if (request.name === "comments" && request.mapping) {
     currentMapping.value = request.mapping;
   }
   return openDialog(request.name);
 };
-const handleExternalDialogRequest = (event) => void openControl(event.detail);
 
 defineExpose({ openControl });
 
+let stopOpenControlListener;
 onMounted(() => {
-  window.addEventListener(
-    "mobile-reader:open-control",
-    handleExternalDialogRequest,
-  );
+  stopOpenControlListener = onMobileReaderOpenControl((request) => {
+    void openControl(request);
+  });
 });
 onBeforeUnmount(() => {
   window.clearTimeout(dialogCloseTimer);
   if (panelDialogRef.value?.open) panelDialogRef.value.close();
-  window.removeEventListener(
-    "mobile-reader:open-control",
-    handleExternalDialogRequest,
-  );
+  stopOpenControlListener?.();
 });
 </script>

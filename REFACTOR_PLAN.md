@@ -181,11 +181,12 @@
   - **校验脚本同步**：清理 `scripts/checks/i18n-runtime.mjs` 中 `PlayTable.vue` 废弃的 `inventoryTargetId` 测试 prop 并补充 `Board.vue` 双语 SSR 校验；修正 `scripts/checks/fogport.mjs` L128/L151 两处历史 `l30` 节点与边数漂移断言，补充 `useBoardViewport` 与 `map-layout.js` 缓存单测。
 - **验证**：`pnpm check fogport`、`pnpm check fogport -- --map`、`pnpm check games`、`pnpm check game-room-client`、`pnpm check i18n-runtime`、`pnpm check i18n-quantities`、`pnpm check i18n-loading`、`pnpm check site-perf`、四语言 SSR 零警告冒烟与人工全项验收通过。
 
-### - [ ] P3-5：拆解 `PagedReader.vue`（1750 行）与 `create-reader-share-card.js`（2368 行）
-- **改造动作**：
-  - **`PagedReader.vue`**：将 ~800 行纯 DOM 测量与基线网格对齐函数（`alignPageFlowBlocksToGrid`、`alignPageStartBaselines` 等）下沉至 `src/utils/reader/align-mobile-baselines.js`；用单一 `paginationContext` 对象替代向 `usePagedFootnoteLayout` 传递 31 个参数及向 `usePagedChapterTransition` 传递 16 个参数的做法；重构 `let takeMutationRecords = () => {}` 循环桩；显式定义 `mobile-reader` 事件契约（替换 `NovelReader` 与 `ReaderControls` 中散落的字符串 `CustomEvent`）。
-  - **`create-reader-share-card.js`**：拆分为 `share-text-layout.js`（中日韩禁则与断行）、`share-canvas-assets.js`（颜色/字体/图片/SVG 缓存，消除重复 1×1 Canvas 探针与重复 `--color-base-*` 解析）、`share-block-renderers.js`（13 种块级绘制）与主合成器；信任 `create-reader-share-content.js` 内部输出结构，大幅瘦身 `L358-511` 约 150 行 45 字段重洗代码。
-- **验证**：人工打开本地 `/test/mobile-reader`、`/test/reader-share` 与小说移动端阅读页，核对分页基线、脚注避让、翻章动画与各类 Markdown 块分享图渲染完全一致。
+### - [x] P3-5：拆解 `PagedReader.vue`（1656 行 → 680 行）与 `create-reader-share-card.js`（2348 行 → 411 行）
+- **目标结构**：
+  - **移动端分页阅读与事件契约**：将纯 DOM 基线/网格对齐算法下沉至 `src/utils/reader/align-mobile-baselines.js`（收口 3~4 处重复的基准正文查找、按页分组、阅读序排序与最低流块计算），纯栏页查询补齐至 `src/utils/reader/measure-mobile-pages.js`（正文可见性判空改 `.some()` 免排序）；抽离 `src/composables/novel/usePagedGeometry.js` 统一视口尺寸、视口/快照 CSS 变量与多栏坐标映射；`usePagedFootnoteLayout` 自有脚注与重置状态、直接导入纯工具并内聚常量（入参从 28 项收敛至 4 项）；`usePagedChapterTransition` 改用单一 `getSnapshotStyles()`（入参从 16 项收敛至 6 项）；`usePaginationObservers` 内置 `suppressDepth` 并暴露 `runIgnoringMutations(task)` 彻底移除 `let takeMutationRecords = () => {}` 循环桩（并补 `document.fonts.ready` 卸载守卫）；新建 `src/utils/reader/mobile-reader-events.js` 显式定义 `MOBILE_READER_EVENTS` 与类型化派发/订阅函数，同步切换 `NovelReader.vue`、`ReaderControls.vue`、`NavBar.vue` 并移除 `src/constants/reader.js` 旧裸事件常量。
+  - **阅读器分享卡片渲染管线**：拆分为无环 DAG 五子模块 + 主合成器：`src/utils/reader/share-text-layout.js`（Grapheme/禁则断行/省略号/对齐坐标，补 `run.mathAssets?.length` 空值保护）、`src/utils/reader/share-font-embed.js`（CSSOM `@font-face` 子集匹配与 Data URL LRU 缓存）、`src/utils/reader/share-canvas-assets.js`（单一懒创建 1×1 纯色探针替代每次 35 次临时画布创建、消除 `--color-base-*` / `--font-serif` 重复解析、独立释放的 CORS 安全导出探针 `verifyCanvasExportable` 与块级资源预处理）、`src/utils/reader/share-block-layout.js`（13 种块布局配置、截断与快照延迟栅格化）与 `src/utils/reader/share-block-renderers.js`（分函数 13 种块级与富文本行绘制）；主入口 `create-reader-share-card.js` 保留原全部导出 API，用 ~45 行 `prepareShareBlocks` 浅拷贝替代原 154 行 45 字段重洗（隔离渲染期资产字段且兼容稀疏测试样本）。
+  - **顺手修复与本地验收增强**：修复 `src/utils/reader/share-snapshot.js:66` 遗留的未定义 `intersects(range, source)` 缺陷（改为 `rangeIntersectsNode`）；扩充 `scripts/dev/novel-fixtures.mjs` 与 `scripts/dev/seed.mjs` 本地测试小说至 3 卷 9 章（覆盖密集脚注、28 行跨页长表、长对话、动态/提示块/代码块、LaTeX/Mermaid、本地 SVG 插图与短终章边界）。
+- **验证**：`pnpm check markdown`、`pnpm check blog`、`pnpm check i18n-runtime`、`pnpm check i18n-quantities`、`pnpm check i18n-loading`、`pnpm check site-perf`、`pnpm check build-assets`、Vite 生产分包构建、专项单测、四语言 SSR 零警告冒烟、本地 `pnpm dev:seed` 刷新及 `/test/mobile-reader`、`/test/reader-share` 与小说移动端阅读页人工全项验收通过。
 
 ---
 

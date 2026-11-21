@@ -185,3 +185,114 @@ export const createFootnoteLayoutSignature = (grouped) =>
   Object.entries(grouped)
     .map(([page, notes]) => `${page}:${notes.map((note) => note.id).join(",")}`)
     .join("|");
+
+export const measureColumnPageCount = ({
+  article,
+  endMarker,
+  pageGap,
+  stride,
+  leadingEmptyPages = 0,
+  getRawRectPage,
+}) => {
+  if (!stride) return 1;
+
+  const lastTextRect = findLastTextRect(article);
+  const markerRect = endMarker?.getBoundingClientRect();
+  const lastTextPage = lastTextRect
+    ? Math.max(1, getRawRectPage(lastTextRect) - leadingEmptyPages)
+    : 1;
+  const markerPage = markerRect
+    ? Math.max(1, getRawRectPage(markerRect) - leadingEmptyPages)
+    : 1;
+
+  // scrollWidth 在部分移动浏览器的多栏布局中只会返回第一栏宽度；最后一个
+  // 正文字符和末尾定位点能直接指出内容最终落在哪一栏。
+  const scrollWidthPages = Math.max(
+    1,
+    Math.ceil((article.scrollWidth + pageGap - 1) / stride) - leadingEmptyPages,
+  );
+
+  // 末尾定位点恰好换栏时会落到一个没有正文的额外列；有文本时以最后一个
+  // 实际字符为准，避免生成可翻入的空白末页。
+  if (lastTextRect) return Math.max(1, lastTextPage);
+
+  return Math.max(1, markerPage, scrollWidthPages);
+};
+
+export const findFirstContentRawPage = ({ article, getRawRectPage }) => {
+  const contentRects = [
+    ...collectReaderBodyTextRects(article),
+    ...Array.from(
+      article
+        .querySelector(":scope > .mobile-chapter-header")
+        ?.getClientRects() || [],
+    ),
+    ...collectReaderMediaElements(article).flatMap((element) =>
+      Array.from(element.getClientRects()),
+    ),
+  ].filter((rect) => rect.width > 0 && rect.height > 0);
+
+  if (!contentRects.length) return 1;
+  return Math.min(...contentRects.map((rect) => getRawRectPage(rect)));
+};
+
+export const hasVisibleContentOnPage = ({ article, page, getRectPage }) => {
+  if (
+    collectReaderBodyTextRects(article).some(
+      (rect) => getRectPage(rect) === page,
+    )
+  ) {
+    return true;
+  }
+
+  const header = article.querySelector(":scope > .mobile-chapter-header");
+  if (
+    header &&
+    Array.from(header.getClientRects()).some(
+      (rect) => rect.width > 0 && rect.height > 0 && getRectPage(rect) === page,
+    )
+  ) {
+    return true;
+  }
+
+  return collectReaderMediaElements(article).some((element) =>
+    Array.from(element.getClientRects()).some(
+      (rect) => rect.width > 0 && rect.height > 0 && getRectPage(rect) === page,
+    ),
+  );
+};
+
+export const findNearestVisibleContentPage = ({
+  article,
+  requestedPage,
+  totalPages,
+  getRectPage,
+}) => {
+  const requested = Math.min(
+    totalPages,
+    Math.max(1, Math.trunc(Number(requestedPage) || 1)),
+  );
+  if (hasVisibleContentOnPage({ article, page: requested, getRectPage })) {
+    return requested;
+  }
+
+  for (let distance = 1; distance < totalPages; distance += 1) {
+    const after = requested + distance;
+    if (
+      after <= totalPages &&
+      hasVisibleContentOnPage({ article, page: after, getRectPage })
+    ) {
+      return after;
+    }
+
+    const before = requested - distance;
+    if (
+      before >= 1 &&
+      hasVisibleContentOnPage({ article, page: before, getRectPage })
+    ) {
+      return before;
+    }
+  }
+
+  return requested;
+};

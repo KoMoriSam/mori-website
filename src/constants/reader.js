@@ -1,7 +1,4 @@
 import { getImageUrl } from "../utils/images/responsive-images.js";
-export const MOBILE_READER_NAVBAR_SHOW_EVENT = "mobile-reader:show-navbar";
-export const MOBILE_READER_NAVBAR_HIDE_EVENT = "mobile-reader:hide-navbar";
-export const MOBILE_READER_VOLUME_KEY_EVENT = "mobile-reader:volume-key";
 
 export const MOBILE_READING_MODES = Object.freeze({
   PAGED: "paged",

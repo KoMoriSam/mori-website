@@ -3,10 +3,16 @@ import { mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises"
 import { resolve } from "node:path";
 import { createIndex } from "pagefind";
 import { getArticlePath } from "../../src/utils/blog/article-versions.js";
+import { getChapterContextTitle } from "../../src/utils/novel/format-label.js";
 import { discussionRegistry } from "../../shared/discussions.js";
 import { releaseFile } from "../../shared/novel-release.js";
 import { run } from "../lib/commands.mjs";
 import { authConfig, apiConfig, directory, persist } from "./config.mjs";
+import {
+  LOCAL_NOVEL_CATALOG,
+  LOCAL_NOVEL_CHAPTERS,
+  LOCAL_NOVEL_IMAGES,
+} from "./novel-fixtures.mjs";
 import { loadLocalAnnouncements } from "../release/announcement.mjs";
 import { writeStaticChangelog } from "../release/changelog-content.mjs";
 
@@ -15,13 +21,6 @@ const json = async (path, value) => {
   await mkdir(resolve(path, ".."), { recursive: true });
   await writeFile(path, JSON.stringify(value));
 };
-const chapter = "00000000-0000-4000-8000-000000000010";
-const image = "images/local.svg";
-const title = "本地测试章节";
-const markdown = `# ${title}\n\n这段小说仅供本地开发与搜索测试。\n\n![测试插图](./${image})\n`;
-const catalog = { 0: { volumeInfo: { uuid: chapter, title: "本地测试卷" }, chapters: [
-  { uuid: chapter, title, path: "chapter.md", routeCode: "1", length: 17, uploadDate: "2026-01-01" },
-] } };
 
 async function seedPublicData(env) {
   const entries = await loadLocalAnnouncements();
@@ -55,10 +54,19 @@ export async function seed(env, { force = false } = {}) {
   await writeFile(resolve(fonts, "index.css"), "/* Local preview uses installed fallback fonts. */\n");
   await json(resolve(assets, discussionRegistry), {
     articles: Object.fromEntries(articles.map((article) => [article.id, { path: getArticlePath(article, article.sourceLocale) }])),
-    chapters: { [chapter]: { path: `/novel/${chapter}`, term: title } },
+    chapters: Object.fromEntries(LOCAL_NOVEL_CHAPTERS.map((chapter) => [
+      chapter.uuid,
+      {
+        path: `/novel/${encodeURIComponent(chapter.uuid)}`,
+        term: getChapterContextTitle(chapter),
+      },
+    ])),
   });
   const fixtureFile = resolve(directory, "novel.json");
-  const stamp = digest(await readFile(new URL(import.meta.url)));
+  const stamp = digest(
+    (await readFile(new URL(import.meta.url), "utf8")) +
+      (await readFile(new URL("./novel-fixtures.mjs", import.meta.url), "utf8")),
+  );
   const cached = await readFile(fixtureFile, "utf8").then(JSON.parse).catch(() => null);
   if (!force && cached?.stamp === stamp && await stat(resolve(assets, releaseFile)).catch(() => null)) return;
 
@@ -67,8 +75,15 @@ export async function seed(env, { force = false } = {}) {
   const { index, errors } = await createIndex();
   if (!index || errors.length) throw new Error("Cannot initialize local Pagefind");
   try {
-    const added = await index.addCustomRecord({ url: `/novel/${chapter}`, content: markdown, language: "zh", meta: { title } });
-    if (added.errors.length) throw new Error("Cannot index local chapter");
+    for (const chapter of LOCAL_NOVEL_CHAPTERS) {
+      const added = await index.addCustomRecord({
+        url: `/novel/${chapter.uuid}`,
+        content: chapter.markdown,
+        language: "zh",
+        meta: { title: chapter.title },
+      });
+      if (added.errors.length) throw new Error(`Cannot index local chapter: ${chapter.path}`);
+    }
     const output = await index.writeFiles({ outputPath: search });
     if (output.errors.length) throw new Error("Cannot write local Pagefind");
   } finally {
@@ -81,8 +96,12 @@ export async function seed(env, { force = false } = {}) {
     manifest[path] = hash;
     objects[hash] = Buffer.from(bytes).toString("base64");
   }
-  add("chapters/chapter.md", markdown);
-  add(`assets/${image}`, '<svg xmlns="http://www.w3.org/2000/svg" width="160" height="100"><rect width="160" height="100" fill="teal"/></svg>');
+  for (const chapter of LOCAL_NOVEL_CHAPTERS) {
+    add(`chapters/${chapter.path}`, chapter.markdown);
+  }
+  for (const [imagePath, svg] of Object.entries(LOCAL_NOVEL_IMAGES)) {
+    add(`assets/${imagePath}`, svg);
+  }
   add("assets/images/_optimized/manifest.json", '{"version":1,"images":{}}');
   for (const entry of await readdir(search, { recursive: true, withFileTypes: true })) {
     if (!entry.isFile()) continue;
@@ -90,7 +109,7 @@ export async function seed(env, { force = false } = {}) {
     add("search/" + file.slice(search.length + 1).replaceAll("\\", "/"), await readFile(file));
   }
   const version = digest(JSON.stringify(manifest));
-  await json(resolve(assets, releaseFile), { version, catalog });
-  await json(resolve(assets, "mock/novel/index.json"), catalog);
+  await json(resolve(assets, releaseFile), { version, catalog: LOCAL_NOVEL_CATALOG });
+  await json(resolve(assets, "mock/novel/index.json"), LOCAL_NOVEL_CATALOG);
   await json(fixtureFile, { stamp, version, manifest, objects });
 }

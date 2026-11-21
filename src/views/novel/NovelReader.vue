@@ -267,10 +267,11 @@ import {
   useReaderShell,
 } from "@/composables/reader/useReaderShell";
 import { usePosTracker } from "@/composables/usePosTracker";
+import { MOBILE_READING_MODES } from "@/constants/reader";
 import {
-  MOBILE_READER_VOLUME_KEY_EVENT,
-  MOBILE_READING_MODES,
-} from "@/constants/reader";
+  onMobileReaderVolumeKey,
+  setMobileReaderNavbarVisible,
+} from "@/utils/reader/mobile-reader-events";
 import {
   MOBILE_READER_CONTAINER_CLASS,
   MOBILE_READER_CONTENT_CLASS,
@@ -441,7 +442,7 @@ const callMobileReaderAction = (name, ...args) => {
 };
 const openMobileControl = async (name, keyword = "", mapping = "") => {
   mobileReaderControlsOpen.value = true;
-  window.dispatchEvent(new Event("mobile-reader:show-navbar"));
+  setMobileReaderNavbarVisible(true);
   await nextTick();
 
   // 九宫格动作由 pointerup 触发；等同一次合成 click 完成后再显示 modal，
@@ -464,13 +465,7 @@ const handleChapterComments = (event) => {
 const handleMobileReaderAction = (action) => {
   if (action === "menu") {
     mobileReaderControlsOpen.value = !mobileReaderControlsOpen.value;
-    window.dispatchEvent(
-      new Event(
-        mobileReaderControlsOpen.value
-          ? "mobile-reader:show-navbar"
-          : "mobile-reader:hide-navbar",
-      ),
-    );
+    setMobileReaderNavbarVisible(mobileReaderControlsOpen.value);
     return;
   }
   if (action === "previous-page") callMobileReaderAction("turnPage", -1);
@@ -482,14 +477,9 @@ const handleMobileReaderAction = (action) => {
     void openMobileControl(action);
   } else if (action === "help") callMobileReaderAction("triggerReaderHint");
 };
-const handleNativeVolumeKey = (event) => {
+const handleNativeVolumeKey = (direction) => {
   if (!isMobileReader.value || !mobileVolumePagination.value) return;
-  const direction = event.detail?.direction;
-  if (["down", "next", 1].includes(direction)) {
-    callMobileReaderAction("turnPage", 1);
-  } else if (["up", "previous", -1].includes(direction)) {
-    callMobileReaderAction("turnPage", -1);
-  }
+  callMobileReaderAction("turnPage", direction);
 };
 const handleVolumeKeydown = (event) => {
   if (!isMobileReader.value || !mobileVolumePagination.value) return;
@@ -612,21 +602,16 @@ watch(
 
 onActivated(setupNovelPosTracker);
 onDeactivated(disposeNovelPosTracker);
+let stopVolumeKeyListener;
 onMounted(() => {
   window.addEventListener("keydown", handleVolumeKeydown);
-  window.addEventListener(
-    MOBILE_READER_VOLUME_KEY_EVENT,
-    handleNativeVolumeKey,
-  );
+  stopVolumeKeyListener = onMobileReaderVolumeKey(handleNativeVolumeKey);
 });
 onBeforeUnmount(() => {
   window.clearTimeout(mobileControlOpenTimer);
   disposeNovelPosTracker();
   window.removeEventListener("keydown", handleVolumeKeydown);
-  window.removeEventListener(
-    MOBILE_READER_VOLUME_KEY_EVENT,
-    handleNativeVolumeKey,
-  );
+  stopVolumeKeyListener?.();
 });
 
 const chapterHeaderData = computed(() => ({

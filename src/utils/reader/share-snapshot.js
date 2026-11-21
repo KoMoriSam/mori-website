@@ -63,7 +63,7 @@ export function captureReaderShareSnapshot(element, range = null) {
       copySelection(source, target);
       return;
     }
-    if (range && !intersects(range, source) && !isContext(source)) {
+    if (range && !rangeIntersectsNode(range, source) && !isContext(source)) {
       target.remove();
       return;
     }

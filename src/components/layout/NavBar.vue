@@ -73,10 +73,7 @@ import {
   watch,
 } from "vue";
 import { useRoute } from "vue-router";
-import {
-  MOBILE_READER_NAVBAR_HIDE_EVENT,
-  MOBILE_READER_NAVBAR_SHOW_EVENT,
-} from "@/constants/reader";
+import { onMobileReaderNavbarVisibility } from "@/utils/reader/mobile-reader-events";
 
 const route = useRoute();
 
@@ -169,18 +166,21 @@ watch(
   { immediate: true },
 );
 
+let stopReaderNavbarListener;
+
 onMounted(() => {
   searchShortcutLabel.value = /Mac|iPhone|iPad/i.test(navigator.platform)
     ? "⌘"
     : "Ctrl";
   window.addEventListener("keydown", handleSearchShortcut);
-  window.addEventListener(MOBILE_READER_NAVBAR_SHOW_EVENT, showReaderNavbar);
-  window.addEventListener(MOBILE_READER_NAVBAR_HIDE_EVENT, hideReaderNavbar);
+  stopReaderNavbarListener = onMobileReaderNavbarVisibility({
+    onShow: showReaderNavbar,
+    onHide: hideReaderNavbar,
+  });
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener("keydown", handleSearchShortcut);
-  window.removeEventListener(MOBILE_READER_NAVBAR_SHOW_EVENT, showReaderNavbar);
-  window.removeEventListener(MOBILE_READER_NAVBAR_HIDE_EVENT, hideReaderNavbar);
+  stopReaderNavbarListener?.();
 });
 </script>

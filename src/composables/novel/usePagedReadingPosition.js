@@ -1,6 +1,9 @@
 import { onBeforeUnmount, ref } from "vue";
 import { decodeAnchor } from "@/utils/reader/dom";
 
+const DEFAULT_LEGACY_PARAGRAPH_ID_PATTERN =
+  /^([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})-\d+-(\d+)$/i;
+
 export const usePagedReadingPosition = ({
   route,
   chapter,
@@ -11,7 +14,7 @@ export const usePagedReadingPosition = ({
   getElementPage,
   getState,
   setState,
-  legacyParagraphIdPattern,
+  legacyParagraphIdPattern = DEFAULT_LEGACY_PARAGRAPH_ID_PATTERN,
   persistDelay = 240,
 }) => {
   const restoredChapterUuid = ref("");
