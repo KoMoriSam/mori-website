@@ -5,7 +5,7 @@ import { json } from "../auth/http.js";
 import { buildCorsHeaders, resolveCorsOrigin } from "../lib/cors.js";
 import { commentPageSize, editPageSize, handleComments, replyPageSize } from "../github/comments.js";
 import { handleDiscussionCounts } from "../github/discussions.js";
-import { discussionScopes, initialReplyCount } from "../../shared/discussions.js";
+import { discussionScopes } from "../../shared/discussions.js";
 import { handleCommentAttachment } from "../github/comment-attachments.js";
 import { localAttachment, storeLocalAttachment } from "./comment-attachments.js";
 

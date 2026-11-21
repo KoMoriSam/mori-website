@@ -125,7 +125,9 @@ export function useGameAudio(gameType) {
     enabled.value = !enabled.value;
     try {
       window.localStorage.setItem(STORAGE_KEY, String(enabled.value));
-    } catch {}
+    } catch {
+      // 存储不可用时仅保留当前会话内的音效开关状态。
+    }
     if (enabled.value) unlock();
   }
 

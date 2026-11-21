@@ -1,13 +1,14 @@
 # mori-website 仓库架构与开发概览
 
 > 本文档为 `mori-website`（远方之森个人网站，含博客、原创小说、实用工具集、多人实时桌游与边缘认证/评论/统计后端）的长期架构基准与 AI 开发上下文索引。
-> 编码红线与协作流程见 `AGENTS.MD`，分阶段技术债治理清单见 `REFACTOR_PLAN.md`。
+> 编码红线与协作流程见 `AGENTS.MD`。
 
 ---
 
 ## 1. 技术栈、核心依赖与运行方式
 
 ### 1.1 前端与构建栈
+
 - **核心框架**：Vue 3.5（`<script setup>`）+ Vite 6 + `vite-ssg` 28（预渲染 SSG + 客户端激活）
 - **路由与状态**：Vue Router 4.5、Pinia 3（Setup Store）、`@unhead/vue`（SEO / 结构化数据）、`vue-i18n` 11（`zh-CN` / `en` / `fr` / `si`，按路由组懒加载）
 - **样式与 UI**：Tailwind CSS 4（`@tailwindcss/vite`）+ DaisyUI 5 + `@tailwindcss/typography` + RemixIcon + `@fontsource/*`
@@ -18,15 +19,17 @@
 - **包管理与运行时**：`pnpm@12.3.4`、Node `^24.15.0 || >=26.0.0`
 
 ### 1.2 边缘后端与存储栈（Cloudflare Workers）
-| 部署配置 | Worker 名称 | 入口文件 | 核心职责与绑定 |
-| --- | --- | --- | --- |
-| `wrangler.jsonc` | `mori-website` | `workers/website.js` | 站点静态资源（`dist/`）+ 同源网关代理（`/api/*`、`/auth/*`）+ 小说鉴权读取（R2 `NOVEL_VAULT`）+ 评论目标解析 |
-| `wrangler.api.jsonc` | `mori-api` | `workers/api-entry.js` | 公告/更新日志（KV）、访问/阅读统计（D1 `ANALYTICS_DB` + Cron）、GitHub 公开资源与评论（RPC `CommentsInternal` + 限流）、多人桌游房间（Durable Object `GameRoom` + SQLite）、Pixabay 代理 |
-| `wrangler.auth.jsonc` | `mori-auth` | `workers/auth/index.js` | 独立认证域名 `auth.komori.cc`；GitHub OAuth2+PKCE、D1 `AUTH_DB` 会话/授权码/评论锁存储，向站点与 API 暴露 `SiteAuth` / `CommentAuth` RPC |
-| `wrangler.content.jsonc` | `mori-content` | `workers/content.js` | 遗留 `raw.komori.cc` 公开静态内容分发（`.output/content/`） |
-| `wrangler.games-dev.jsonc` | `games-local` | `workers/api.js` | 本地独立调试游戏 Durable Object（端口 `8787`） |
+
+| 部署配置                   | Worker 名称    | 入口文件                | 核心职责与绑定                                                                                                                                                                           |
+| -------------------------- | -------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `wrangler.jsonc`           | `mori-website` | `workers/website.js`    | 站点静态资源（`dist/`）+ 同源网关代理（`/api/*`、`/auth/*`）+ 小说鉴权读取（R2 `NOVEL_VAULT`）+ 评论目标解析                                                                             |
+| `wrangler.api.jsonc`       | `mori-api`     | `workers/api-entry.js`  | 公告/更新日志（KV）、访问/阅读统计（D1 `ANALYTICS_DB` + Cron）、GitHub 公开资源与评论（RPC `CommentsInternal` + 限流）、多人桌游房间（Durable Object `GameRoom` + SQLite）、Pixabay 代理 |
+| `wrangler.auth.jsonc`      | `mori-auth`    | `workers/auth/index.js` | 独立认证域名 `auth.komori.cc`；GitHub OAuth2+PKCE、D1 `AUTH_DB` 会话/授权码/评论锁存储，向站点与 API 暴露 `SiteAuth` / `CommentAuth` RPC                                                 |
+| `wrangler.content.jsonc`   | `mori-content` | `workers/content.js`    | 遗留 `raw.komori.cc` 公开静态内容分发（`.output/content/`）                                                                                                                              |
+| `wrangler.games-dev.jsonc` | `games-local`  | `workers/api.js`        | 本地独立调试游戏 Durable Object（端口 `8787`）                                                                                                                                           |
 
 ### 1.3 统一开发、构建、检查与发版入口
+
 所有人工操作统一经 `pnpm menu`（`scripts/menu.mjs`）触发，底层共用 `scripts/run.mjs` 非交互脚本（CI/CD 直接调用 `scripts/run.mjs` 或底层脚本）：
 
 ```bash
@@ -49,7 +52,7 @@ pnpm release ...              # 管理更新日志草稿、公告发布与正式
 ```text
 mori-website/
 ├── index.html / vite.config.js / vite.dev.config.js / wrangler*.jsonc
-├── AGENTS.MD / REPO_OVERVIEW.md / REFACTOR_PLAN.md
+├── AGENTS.MD / REPO_OVERVIEW.md
 ├── migrations/                 # D1 SQL 迁移脚本（analytics/、auth/）
 ├── changelog/releases/         # 版本更新日志 Markdown 源（推送有效草稿至 main 自动触发发版）
 ├── mock/article/               # 本地开发用博客 Mock 文章与多语言样本
@@ -90,6 +93,7 @@ mori-website/
 ```
 
 ### 各层职责边界约定
+
 1. **`shared/`**：放置前端、Workers、构建脚本**共同依赖**的协议常量、数据校验契约与纯规则引擎（如 `shared/games/fogport/engine.js`），严禁依赖浏览器 DOM 或 Node 专属 API。
 2. **`workers/`**：负责鉴权边界、外部第三方代理、KV/D1/R2/DO 读写与限流；边缘入口统一做输入校验与异常结构化日志，不吞异常。
 3. **`src/services/`**：负责与边缘 API、R2/静态资源和 Pagefind 通信，返回标准化领域数据；不直接操作 UI（Toast/DOM/Router），不反向依赖 `src/composables/`。
@@ -103,6 +107,7 @@ mori-website/
 ## 3. 核心数据流、状态管理与关键业务链路
 
 ### 3.1 总体请求与渲染拓扑
+
 ```mermaid
 flowchart LR
   Browser["浏览器 (Vue 3 + Pinia)"] -->|静态页 & 同源 /api /auth| WebWorker["mori-website Worker (workers/website.js)"]
@@ -119,6 +124,7 @@ flowchart LR
 ```
 
 ### 3.2 关键业务链路
+
 1. **SSG 预渲染与客户端激活（Hydration）**
    - `scripts/build/smart.mjs` 拉取外部私有内容源（`mori-notes` 博客、`mori-novels` 小说）→ 生成 `src/router/*.generated.js` 索引与响应图清单 → `prerender.mjs` 通过 `ViteSSG` 渲染静态 HTML，并将当前页正文写入 `initialState`（`src/utils/ssg/page-data.js`）。
    - 浏览器加载后，`src/main.js` 通过 `installPageData` 消费首屏数据，按路由 `meta.localeGroups` 懒加载 `vue-i18n` 文案包；`useHydratedStorage` 延迟持久化监听至 `onMounted`，避免 SSR 默认值覆盖用户 `localStorage`。
@@ -138,14 +144,19 @@ flowchart LR
 
 ---
 
-## 4. 已识别技术债分布地图与重构路线图
+## 4. 架构演进状态与后续观察项
 
-详细拆解、依赖风险、校验命令与进度追踪见 `REFACTOR_PLAN.md`。
+基线架构重构（Phase 0 ~ Phase 4 共 18 个任务单元）已全部完成，以下总结当前已确立的统一设施与后续演进观察点。
 
-| 领域 | 热点文件 | 核心债务摘要 | 对应阶段 |
-| --- | --- | --- | :---: |
-| **路由与已知 Bug** | `src/router/index.js`、`ArticleReader.vue`、`SinhalaFontConverter.vue`、`ImageConverter.vue`、`workers/api.js`、`PlayTable.vue` | 默认导出 `router` 未挂载致旧链接重定向失效；6 处具体 Bug；4 个无引用死文件与 `komorisam_analytics` 冗余 D1 绑定；无效 `try/catch` 与死分支。 | Phase 0 |
-| **共享契约与基础设施** | `shared/`、`src/services/api-*.js`、`src/stores/*`、`src/composables/storage/*`、`workers/api.js`、`workers/dev/*` | 3~4 份重复 Changelog/Announcement 校验；7 处手写超时 `fetch`；`computed()` 内修改 Storage；`stores/` 命名未统一为 `kebab-case`；`workers/api.js` 6 域合一；`dev/website.js` 路由漂移。 | Phase 1 |
-| **公共控件与重复交互** | `FontSelect.vue`、`CatalogCard.vue`、`useModal.js`、`SiteSearch.vue`、`ArticleList.vue`、`ArticleReader.vue`、`NovelReader.vue`、`mobile-reader.css` | 通用 `FontSelect` 混入 230+ 行僧伽罗业务；`SiteSearch`/`ArticleList` 重复 220 行自动补全；博客/小说阅读壳重复；8 处手写 `<dialog>`；`mobile-reader.css` 双份编译。 | Phase 2 |
-| **巨型单文件拆解** | `ImageConverter.vue`（3007 行）、`SinhalaFontConverter.vue`（2887 行）、`RoundTable.vue`（2146 行）、`Room.vue`（1479 行）、`PagedReader.vue`（1750 行）、`create-reader-share-card.js`（2368 行）、`Fogport/Board.vue`、`workers/avalon/rules.js` | 单文件多职责耦合、15~31 项 Prop/依赖透传、通用 `Room.vue` 泄漏 Avalon 阶段硬编码、`Board.vue` 模板 O(N) 重复查找。 | Phase 3 |
-| **构建与发布脚本** | `scripts/release/*`、`scripts/lib/worker-config.mjs`、`scripts/build/{smart,prune-assets}.mjs` | 发布脚本工具函数重复；`worker-config.mjs` 无法跳过 JSONC 注释；旧 `dist/pagefind-novel` 残留逻辑。 | Phase 4 |
+### 4.1 已确立的统一设施（开发时优先复用）
+
+- **共享契约（`shared/`）**：`shared/changelog.js`、`shared/announcements.js`、`shared/discussions.js`、`shared/comment-attachments.js`、`shared/novel-release.js`、`shared/games/*` 为前后端与脚本的唯一数据源。
+- **前端基础服务**：HTTP 请求统一复用 `src/services/http.js`（`fetchJson` / `HttpError` / `normalizeEndpoint`）；资源清单加载复用 `src/utils/images/create-manifest-registry.js`；客户端持久化偏好统一通过 `src/composables/storage/useHydratedStorage.js`；`src/stores/` 全部使用 `kebab-case`。
+- **通用控件与阅读/游戏底座**：`FontSelect.vue` 已脱离僧伽罗业务、`Room.vue` 通过 `catalog.js` 的 `fullscreenPhases` 驱动全屏阶段、`CatalogCard.vue` 已收敛至 9 个 Props、弹窗历史栈显式收口于 `src/utils/layout/modal-history.js`、移动端阅读器事件收口于 `src/utils/reader/mobile-reader-events.js`。
+- **边缘 Workers 与脚本**：`workers/api.js` 已按域拆分为 `workers/api/*` 与 `workers/lib/*`；`workers/avalon/` 已拆分为 `config/engine/view/rules`；`scripts/lib/{worker-config,release-utils,build-environment}.mjs` 为脚本公共设施，本地联调配置自动读取 `wrangler.api.jsonc`。
+
+### 4.2 后续迭代观察项（当前状态健康，触及时渐进收敛）
+
+- **高交互文件体量**：部分复杂页面/核心协调器仍在 600~880 行区间（如 `ArticleList.vue`、`Thread.vue`、`ArticleReader.vue`、`Room.vue`、`usePosTracker.js`、`NovelReader.vue`、`SinhalaFontConverter.vue`、`PagedReader.vue`、`SiteSearch.vue`、`Renderer.vue`），后续新增独立职责时按 `AGENTS.MD` 红线优先拆分。
+- **高 Props 通用组件**：`Tooltip.vue`（15）、`ContentPage.vue`（14）、`Renderer.vue`（13）、`Popover.vue`（11）、`ActionMenu.vue`（11）超过 10 个 Props，后续演进时可按需收口为配置对象或插槽。
+- **文档级 `CustomEvent`**：`paragraph-comment-metadata`、`paragraph-comment-open`、`global-search-result-opened` 仍通过 `document.dispatchEvent` 传递，后续改造评论或搜索时可参照 `mobile-reader-events.js` 显式收敛为事件契约模块。

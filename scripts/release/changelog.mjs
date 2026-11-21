@@ -132,7 +132,9 @@ async function getRemotePayload(request = fetch) {
           strictItems: true,
         });
       }
-    } catch {}
+    } catch {
+      // 公开接口回退仍不可用时，交由下方统一抛出明确的配置缺失错误。
+    }
   }
 
   throw new Error("缺少更新日志 KV 配置或 Workers Builds API Token，且无法通过 Wrangler 读取。");
