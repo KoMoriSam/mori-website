@@ -127,7 +127,7 @@
   - 从 `SiteSearch.vue` 拆出 `useSiteSearchEngine.js`（双 Pagefind 加载、鉴权开关与本地回退评分）及 `SearchResultList.vue`，让 `SiteSearch.vue` 专注交互壳层（消除 3 处重复打开逻辑与每项重建 getter 对象）。
 - **验证**：`pnpm check blog`、`pnpm check i18n-runtime`；人工验证全局搜索（含小说登录前后搜索、URL 同步、键盘导航）与博客列表多标签/年份/关键词过滤。
 
-### - [ ] P2-3：收拢博客/小说公共阅读壳层与修复 `mobile-reader.css` 双份编译
+### - [x] P2-3：收拢博客/小说公共阅读壳层与修复 `mobile-reader.css` 双份编译
 - **涉及文件**：`ArticleReader.vue`（1050 行）、`NovelReader.vue`（951 行）、`ReadingLayout.vue`（18 Props）、`Renderer.vue`（1064 行）、`FormatSetting.vue`（764 行）、`PagedReader.vue`、`ScrollReader.vue`、`src/assets/mobile-reader.css`、`src/assets/theme.css`。
 - **改造动作**：
   - 拆分 `PagedReader.vue` 与 `ScrollReader.vue` 的样式引入，分别只引入 `reader/mobile/pagination.css` 和 `reader/mobile/scroll.css`，消除 327 行分页 CSS 双份编译；合并 `src/assets/theme.css` 重复的暗/亮色高亮 Token。

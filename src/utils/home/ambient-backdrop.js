@@ -1,3 +1,11 @@
+import {
+  compositeBackdropLayer,
+  mixGoldWithInk,
+  mixRgb,
+  paintRadialGlow,
+  prepareBackdropLayer,
+} from "../canvas/backdrop.js";
+
 export function createAuroraGinkgo(
   { context, layer: aurora, layerContext: auroraContext, state, rgba },
   { desktopOffset = 0.15 } = {},
@@ -16,45 +24,27 @@ export function createAuroraGinkgo(
     phase: random() * Math.PI * 2,
     speed: 0.014 + random() * 0.016,
   }));
-  function createPalette({ green, gold, ink }, lightTheme) {
-    const goldWeight = lightTheme ? 0.55 : 0.7;
+  function createPalette({ green, gold, ink }, isLight) {
     return {
-      green: lightTheme
-        ? green.map((value, index) =>
-            Math.round(value * 0.82 + ink[index] * 0.18),
-          )
-        : green,
-      gold: gold.map((value, index) =>
-        Math.round(value * goldWeight + ink[index] * (1 - goldWeight)),
-      ),
-      mist: ink.map((value, index) =>
-        Math.round(
-          lightTheme
-            ? value * 0.2 + green[index] * 0.8
-            : value * 0.8 + green[index] * 0.2,
-        ),
-      ),
+      green: isLight ? mixRgb(green, ink, 0.82) : green,
+      gold: mixGoldWithInk(gold, ink, isLight),
+      mist: mixRgb(ink, green, isLight ? 0.2 : 0.8),
     };
   }
 
   function paintAurora() {
     const ctx = auroraContext;
     const offset = desktopLayout ? desktopOffset : 0;
-    ctx.setTransform(auroraScale, 0, 0, auroraScale, 0, 0);
-    ctx.clearRect(0, 0, width, height);
+    prepareBackdropLayer(ctx, { width, height, layerScale: auroraScale });
     ctx.globalAlpha = lightTheme ? 0.85 : 0.55;
-    const glow = ctx.createRadialGradient(
-      width * (0.77 - offset),
-      height * 0.18,
-      0,
-      width * (0.77 - offset),
-      height * 0.18,
-      width * 0.44,
-    );
-    glow.addColorStop(0, rgba("green", 0.09));
-    glow.addColorStop(1, rgba("green", 0));
-    ctx.fillStyle = glow;
-    ctx.fillRect(0, 0, width, height);
+    paintRadialGlow(ctx, rgba, {
+      x: width * (0.77 - offset),
+      y: height * 0.18,
+      radius: width * 0.44,
+      color: "green",
+      opacity: 0.09,
+      fillBounds: { width, height },
+    });
     ctx.save();
     ctx.filter = "blur(" + 15 * auroraScale + "px)";
     for (let layer = 0; layer < 5; layer++) {
@@ -79,17 +69,7 @@ export function createAuroraGinkgo(
       ctx.stroke();
     }
     ctx.restore();
-    context.drawImage(
-      aurora,
-      0,
-      0,
-      aurora.width,
-      aurora.height,
-      0,
-      0,
-      width,
-      height,
-    );
+    compositeBackdropLayer(context, aurora, { width, height });
   }
 
   function paintLeaves() {

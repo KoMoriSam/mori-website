@@ -1,3 +1,10 @@
+import {
+  compositeBackdropLayer,
+  mixGoldWithInk,
+  paintRadialGlow,
+  prepareBackdropLayer,
+} from "../canvas/backdrop.js";
+
 export function createForestLight({
   context,
   layer: canopy,
@@ -12,21 +19,17 @@ export function createForestLight({
     phase: index * 2.399,
     size: 0.8 + (index % 4) * 0.45,
   }));
-  function createPalette({ green, gold, ink }, lightTheme) {
-    const goldWeight = lightTheme ? 0.55 : 0.7;
+  function createPalette({ green, gold, ink }, isLight) {
     return {
       green,
-      gold: gold.map((value, index) =>
-        Math.round(value * goldWeight + ink[index] * (1 - goldWeight)),
-      ),
+      gold: mixGoldWithInk(gold, ink, isLight),
       shadow: ink,
     };
   }
 
   function paintCanopy() {
     const ctx = canopyContext;
-    ctx.setTransform(canopyScale, 0, 0, canopyScale, 0, 0);
-    ctx.clearRect(0, 0, width, height);
+    prepareBackdropLayer(ctx, { width, height, layerScale: canopyScale });
     ctx.save();
     ctx.filter = `blur(${13 * canopyScale}px)`;
     for (let layer = 0; layer < 4; layer++) {
@@ -68,25 +71,11 @@ export function createForestLight({
       ctx.fill();
     });
     ctx.restore();
-    context.drawImage(
-      canopy,
-      0,
-      0,
-      canopy.width,
-      canopy.height,
-      0,
-      0,
-      width,
-      height,
-    );
+    compositeBackdropLayer(context, canopy, { width, height });
   }
 
   function softGlow(x, y, radius, color, opacity) {
-    const glow = context.createRadialGradient(x, y, 0, x, y, radius);
-    glow.addColorStop(0, rgba(color, opacity));
-    glow.addColorStop(1, rgba(color, 0));
-    context.fillStyle = glow;
-    context.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+    paintRadialGlow(context, rgba, { x, y, radius, color, opacity });
   }
 
   function paintFireflies() {

@@ -3,24 +3,17 @@
     :is="rootTag"
     ref="layoutElement"
     v-bind="$attrs"
-    :class="['w-full min-w-0 max-w-full flex-1', scrollWithin && '@container/reader', pageClass]"
+    :class="[
+      'w-full min-w-0 max-w-full flex-1',
+      scrollWithin && '@container/reader',
+      resolvedPageClass,
+    ]"
     :style="pageStyle"
     :data-theme="pageTheme || undefined"
   >
     <slot name="before" />
 
-    <ContentGrid
-      :container-class="containerClass"
-      :grid-class="resolvedGridClass"
-      :content-class="contentClass"
-      :toc-class="tocClass"
-      :aside-class="asideClass"
-      :sticky-top="stickyTop"
-      :scroll-container="scrollContainer"
-      :show-toc="showToc"
-      :show-aside="showAside"
-      @content-ready="handleContentReady"
-    >
+    <ContentGrid>
       <template #mobile-toc="{ compact, expand, toggle, setMenuOpen }">
         <slot
           name="mobile-toc"
@@ -34,11 +27,6 @@
             v-if="showToc"
             mobile
             :compact="compact"
-            :title="tocTitle"
-            :headings="headings"
-            :active-id="activeHeadingId"
-            :progress="readingProgress"
-            @select="scrollToHeading"
             @toggle-compact="toggle"
             @menu-open-change="setMenuOpen"
           />
@@ -46,14 +34,7 @@
       </template>
       <template #toc>
         <slot name="toc" :progress="readingProgress">
-          <Toc
-            v-if="showToc"
-            :title="tocTitle"
-            :headings="headings"
-            :active-id="activeHeadingId"
-            :progress="readingProgress"
-            @select="scrollToHeading"
-          />
+          <Toc v-if="showToc" />
         </slot>
       </template>
       <template #default><slot /></template>
@@ -80,7 +61,7 @@
         :aria-label="translate('reader.settings.close')"
         @click.prevent="requestCloseFormatSetting"
       >
-        {{ translate('reader.settings.close') }}
+        {{ translate("reader.settings.close") }}
       </button>
     </form>
   </dialog>
@@ -89,12 +70,8 @@
 </template>
 
 <script setup>
-import { useLocale } from '@/i18n';
-const { t: translate } = useLocale();
-
 import "@/assets/font/reader-fonts.css";
 import { useEventListener, useResizeObserver } from "@vueuse/core";
-
 import {
   computed,
   nextTick,
@@ -104,12 +81,15 @@ import {
   useSlots,
   watch,
 } from "vue";
-import ContentGrid from "@/components/reader/layout/ContentGrid.vue";
-import { getNavbarScrollOffset } from "@/utils/layout/navbar";
-import { READER_PAGE_CLASS, READER_GRID_CLASS } from '@/constants/reader-layout';
-import Toc from "@/components/reader/navigation/Toc.vue";
+
 import Footer from "@/components/layout/Footer.vue";
+import ContentGrid from "@/components/reader/layout/ContentGrid.vue";
+import Toc from "@/components/reader/navigation/Toc.vue";
+import { provideReadingLayoutContext } from "@/composables/reader/useReadingLayoutContext";
 import { useModalClose } from "@/composables/useModal";
+import { READER_GRID_CLASS, READER_PAGE_CLASS } from "@/constants/reader-layout";
+import { useLocale } from "@/i18n";
+import { getNavbarScrollOffset } from "@/utils/layout/navbar";
 
 defineOptions({ inheritAttrs: false });
 
@@ -123,34 +103,12 @@ const props = defineProps({
     default: true,
   },
   toc: {
-    type: Boolean,
+    type: [Boolean, Object],
     default: false,
-  },
-  tocTitle: {
-    type: String,
-    default: "阅读进度",
-  },
-  tocSelector: {
-    type: String,
-    // 始终相对当前 Reader 的正文容器查询，避免多个阅读器或页面切换时
-    // 全局 #markdown 选择器命中旧节点。
-    default: "h1, h2, h3, h4",
   },
   aside: {
     type: Boolean,
     default: true,
-  },
-  tocMinLevel: {
-    type: Number,
-    default: 1,
-  },
-  tocMaxLevel: {
-    type: Number,
-    default: 4,
-  },
-  pageClass: {
-    type: [String, Array, Object],
-    default: READER_PAGE_CLASS,
   },
   pageStyle: {
     type: [String, Array, Object],
@@ -160,25 +118,9 @@ const props = defineProps({
     type: String,
     default: "",
   },
-  containerClass: {
-    type: [String, Array, Object],
-    default: "py-6",
-  },
-  gridClass: {
-    type: [String, Array, Object],
-    default: "",
-  },
-  contentClass: {
-    type: [String, Array, Object],
-    default: "",
-  },
-  tocClass: {
-    type: [String, Array, Object],
-    default: "",
-  },
-  asideClass: {
-    type: [String, Array, Object],
-    default: "",
+  classes: {
+    type: Object,
+    default: () => ({}),
   },
   scrollWithin: {
     type: Boolean,
@@ -190,9 +132,12 @@ const props = defineProps({
   },
 });
 
+const { t: translate } = useLocale();
 const slots = useSlots();
 const layoutElement = ref(null);
-const scrollContainer = computed(() => props.scrollWithin ? layoutElement.value : null);
+const scrollContainer = computed(() =>
+  props.scrollWithin ? layoutElement.value : null,
+);
 const contentElement = ref(null);
 const formatSettingDialogRef = ref(null);
 const headings = ref([]);
@@ -214,18 +159,34 @@ const formatSettingModal = useModalClose({
   onClose: closeFormatSettingImmediately,
 });
 
-const showToc = computed(() => props.toc);
-
-const showAside = computed(
-  () => props.aside && Boolean(slots.aside),
+const showToc = computed(() => Boolean(props.toc));
+const tocConfig = computed(() =>
+  typeof props.toc === "object" && props.toc ? props.toc : {},
 );
+const tocTitle = computed(() => tocConfig.value.title ?? "阅读进度");
+// 始终相对当前 Reader 的正文容器查询，避免多个阅读器或页面切换时全局选择器命中旧节点。
+const tocSelector = computed(() => tocConfig.value.selector ?? "h1, h2, h3, h4");
+const tocMinLevel = computed(() => tocConfig.value.minLevel ?? 1);
+const tocMaxLevel = computed(() => tocConfig.value.maxLevel ?? 4);
+
+const resolvedPageClass = computed(() =>
+  props.classes.page !== undefined ? props.classes.page : READER_PAGE_CLASS,
+);
+const resolvedContainerClass = computed(() =>
+  props.classes.container !== undefined ? props.classes.container : "py-6",
+);
+const resolvedContentClass = computed(() => props.classes.content ?? "");
+const resolvedTocClass = computed(() => props.classes.toc ?? "");
+const resolvedAsideClass = computed(() => props.classes.aside ?? "");
+
+const showAside = computed(() => props.aside && Boolean(slots.aside));
 
 const readingProgress = computed(() => readingProgressValue.value);
 const tocScrollOffset = () =>
   scrollContainer.value?.getBoundingClientRect().top ?? getNavbarScrollOffset();
 
 const resolvedGridClass = computed(() => {
-  if (props.gridClass) return props.gridClass;
+  if (props.classes.grid) return props.classes.grid;
 
   if (showToc.value && showAside.value) {
     return READER_GRID_CLASS;
@@ -251,10 +212,14 @@ const getHeadingText = (element, index) => {
     .querySelectorAll(".comment-trigger, .header-anchor")
     .forEach((trigger) => trigger.remove());
 
-  return heading.textContent?.trim() || translate('reader.settings.heading', { p0: index + 1 });
+  return (
+    heading.textContent?.trim() ||
+    translate("reader.settings.heading", { p0: index + 1 })
+  );
 };
 
-const getHeadingId = (element) => element.dataset.readerHeadingId || element.id;
+const getHeadingId = (element) =>
+  element.dataset.readerHeadingId || element.id;
 
 const createHeadingId = (element, index, text) => {
   if (getHeadingId(element)) return getHeadingId(element);
@@ -303,7 +268,8 @@ const observeHeadings = (elements) => {
       }
 
       const passed = elements.filter(
-        (element) => element.getBoundingClientRect().top < tocScrollOffset() + 24,
+        (element) =>
+          element.getBoundingClientRect().top < tocScrollOffset() + 24,
       );
       activeHeadingId.value = getHeadingId(passed.at(-1) || elements[0]);
     },
@@ -332,7 +298,9 @@ const updateReadingProgress = () => {
   const maxScrollable = Math.max(contentHeight - viewportHeight, 0);
 
   if (maxScrollable === 0) {
-    const isVisible = container ? viewportHeight > 0 : rect.bottom > 0 && rect.top < viewportHeight;
+    const isVisible = container
+      ? viewportHeight > 0
+      : rect.bottom > 0 && rect.top < viewportHeight;
     readingProgressValue.value = isVisible ? 100 : 0;
     return;
   }
@@ -352,17 +320,17 @@ const scheduleProgressUpdate = () => {
 };
 
 const collectHeadings = () => {
-  if (!props.toc || !contentElement.value) {
+  if (!showToc.value || !contentElement.value) {
     headings.value = [];
     scheduleProgressUpdate();
     return;
   }
 
   const elements = Array.from(
-    contentElement.value.querySelectorAll(props.tocSelector),
+    contentElement.value.querySelectorAll(tocSelector.value),
   ).filter((element) => {
     const level = Number(element.tagName.slice(1));
-    return level >= props.tocMinLevel && level <= props.tocMaxLevel;
+    return level >= tocMinLevel.value && level <= tocMaxLevel.value;
   });
 
   headings.value = elements.map((element, index) => {
@@ -399,9 +367,13 @@ const scrollToHeading = (id) => {
   }
 
   if (container) {
-    const mobileTocHeight = container.querySelector("[data-reader-mobile-toc]")?.offsetHeight ?? 0;
+    const mobileTocHeight =
+      container.querySelector("[data-reader-mobile-toc]")?.offsetHeight ?? 0;
     container.scrollBy({
-      top: element.getBoundingClientRect().top - tocScrollOffset() - (mobileTocHeight ? mobileTocHeight + 8 : 0),
+      top:
+        element.getBoundingClientRect().top -
+        tocScrollOffset() -
+        (mobileTocHeight ? mobileTocHeight + 8 : 0),
       behavior: "smooth",
     });
   } else {
@@ -435,6 +407,24 @@ const handleContentReady = async (element) => {
   }
 };
 
+provideReadingLayoutContext({
+  containerClass: resolvedContainerClass,
+  gridClass: resolvedGridClass,
+  contentClass: resolvedContentClass,
+  tocClass: resolvedTocClass,
+  asideClass: resolvedAsideClass,
+  stickyTop: computed(() => props.stickyTop),
+  scrollContainer,
+  showToc,
+  showAside,
+  tocTitle,
+  headings,
+  activeHeadingId,
+  readingProgress,
+  scrollToHeading,
+  onContentReady: handleContentReady,
+});
+
 const openFormatSetting = () => {
   const dialog = formatSettingDialogRef.value;
   if (!dialog || dialog.open) return;
@@ -447,22 +437,31 @@ const requestCloseFormatSetting = () => formatSettingModal.requestClose();
 const requestPlatformCloseFormatSetting = () =>
   formatSettingModal.requestPlatformClose();
 
-const scrollTarget = computed(() =>
-  scrollContainer.value || (typeof window !== "undefined" ? window : null),
+const scrollTarget = computed(
+  () => scrollContainer.value || (import.meta.env.SSR ? null : window),
 );
-useEventListener(scrollTarget, "scroll", scheduleProgressUpdate, { passive: true });
+useEventListener(scrollTarget, "scroll", scheduleProgressUpdate, {
+  passive: true,
+});
 useEventListener(scrollTarget, "scrollend", handleScrollEnd);
 useResizeObserver(
-  computed(() => props.scrollWithin ? contentElement.value : null),
+  computed(() => (props.scrollWithin ? contentElement.value : null)),
   scheduleProgressUpdate,
 );
+
 onMounted(() => {
   scheduleProgressUpdate();
   window.addEventListener("resize", scheduleProgressUpdate);
 });
 
 watch(
-  () => [props.toc, props.tocSelector, props.tocMinLevel, props.tocMaxLevel, scrollContainer.value],
+  () => [
+    showToc.value,
+    tocSelector.value,
+    tocMinLevel.value,
+    tocMaxLevel.value,
+    scrollContainer.value,
+  ],
   () => nextTick(collectHeadings),
 );
 

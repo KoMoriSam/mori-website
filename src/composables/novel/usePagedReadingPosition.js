@@ -1,4 +1,5 @@
 import { onBeforeUnmount, ref } from "vue";
+import { decodeAnchor } from "@/utils/reader/dom";
 
 export const usePagedReadingPosition = ({
   route,
@@ -30,13 +31,7 @@ export const usePagedReadingPosition = ({
 
   const getInitialAnchor = () => {
     const chapterUuid = String(chapter.value?.uuid || "");
-    const rawHash = String(route.hash || "").replace(/^#/, "");
-    let decodedHash = rawHash;
-    try {
-      decodedHash = decodeURIComponent(rawHash);
-    } catch {
-      // Keep malformed legacy hashes usable as-is.
-    }
+    const decodedHash = decodeAnchor(route.hash);
 
     if (decodedHash) return normalizeAnchor(decodedHash, chapterUuid);
 

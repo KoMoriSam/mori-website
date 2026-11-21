@@ -3,7 +3,7 @@
     ref="readerRef"
     toc
     :aside="showReaderAside"
-    aside-class="lg:[&>aside]:flex lg:[&>aside]:h-[calc(100dvh-2*var(--reader-sticky-top))] lg:[&>aside]:max-h-none lg:[&>aside]:flex-col lg:[&>aside]:overflow-hidden"
+    :classes="readerLayoutClasses"
   >
     <!-- 文章内容 -->
     <Renderer
@@ -477,12 +477,12 @@
       </p>
     </div>
 
-    <ContextMenu
-      v-if="articleTextContextMounted"
-      v-model="articleTextContextOpen"
-      :context="articleTextContext"
+    <ReaderContextMenu
+      v-if="contextMenuMounted"
+      v-model="contextMenuOpen"
+      :context="textContext"
       :share-meta="articleShareMeta"
-      @search="openArticleContextSearch"
+      @search="openContextSearch"
     />
 
     <template #floating>
@@ -510,59 +510,58 @@
 </template>
 
 <script setup>
-import Tooltip from "@/components/display/Tooltip.vue";
+import { computed, nextTick, ref, watch } from "vue";
+import { storeToRefs } from "pinia";
+import { useMediaQuery } from "@vueuse/core";
+import { Translation as I18nT } from "vue-i18n";
+import { useRoute } from "vue-router";
 
-import { provideMarkdownAvatars } from "@/composables/markdown/useMarkdownAvatars";
-import ContentRights from "@/components/reader/display/ContentRights.vue";
-import RelatedArticles from "@/components/blog/RelatedArticles.vue";
 import ModificationAge from "@/components/blog/ModificationAge.vue";
-provideMarkdownAvatars(import.meta.env.VITE_BLOG_RAW);
-import { getImageAttrs } from "@/utils/images/responsive-images";
+import RelatedArticles from "@/components/blog/RelatedArticles.vue";
+import Thread from "@/components/comments/Thread.vue";
+import CoverBackdrop from "@/components/display/CoverBackdrop.vue";
+import Tooltip from "@/components/display/Tooltip.vue";
+import FloatingActionButton from "@/components/interaction/controls/FloatingActionButton.vue";
+import Renderer from "@/components/markdown/Renderer.vue";
+import ContentRights from "@/components/reader/display/ContentRights.vue";
+import CommentsPlaceholder from "@/components/reader/feedback/CommentsPlaceholder.vue";
+import LoadingPlaceholder from "@/components/reader/feedback/LoadingPlaceholder.vue";
+import FormatSetting from "@/components/reader/interaction/FormatSetting.vue";
+import ReadingLayout from "@/components/reader/layout/ReadingLayout.vue";
+import { provideMarkdownAvatars } from "@/composables/markdown/useMarkdownAvatars";
+import {
+  ReaderContextMenu,
+  buildReaderShareMeta,
+  useReaderShell,
+} from "@/composables/reader/useReaderShell";
 import { useLocale } from "@/i18n";
+import { useReaderStore } from "@/stores/reader";
+import { normalizeArticleDate } from "@/utils/blog/article-fields";
+import { sortArticleNavigation } from "@/utils/blog/article-navigation";
+import { getArticleTimelinessDays } from "@/utils/blog/article-timeliness";
+import {
+  getArticleLocales,
+  getArticlePath,
+  getSourceLocale,
+} from "@/utils/blog/article-versions";
+import { estimateReadingTime } from "@/utils/blog/reading-time";
+import { getImageAttrs } from "@/utils/images/responsive-images";
+
+provideMarkdownAvatars(import.meta.env.VITE_BLOG_RAW);
+
 const {
   t: translate,
-  text: localizeText,
   locale: uiLocale,
   localeRestored,
   number: formatNumber,
   date: formatLocalizedDate,
 } = useLocale();
 
-import { computed, defineAsyncComponent, nextTick, ref, watch } from "vue";
-import { storeToRefs } from "pinia";
-import { useMediaQuery } from "@vueuse/core";
-import { Translation as I18nT } from "vue-i18n";
-import Thread from "@/components/comments/Thread.vue";
-import { useRoute, useRouter } from "vue-router";
-
-import { useReaderStore } from "@/stores/reader";
-import { useCommentCountsStore } from "@/stores/comment-counts";
-import { useScrollTo } from "@/composables/useScrollTo";
-import { useReaderTextContext } from "@/composables/reader/useReaderTextContext";
-import { useContentReadTracking } from "@/composables/reader/useContentReadTracking";
-import { normalizeArticleDate } from "@/utils/blog/article-fields";
-import { sortArticleNavigation } from "@/utils/blog/article-navigation";
-import { getArticleTimelinessDays } from "@/utils/blog/article-timeliness";
-import { estimateReadingTime } from "@/utils/blog/reading-time";
-import {
-  getArticleLocales,
-  getArticlePath,
-  getSourceLocale,
-} from "@/utils/blog/article-versions";
-
-import CoverBackdrop from "@/components/display/CoverBackdrop.vue";
-import FloatingActionButton from "@/components/interaction/controls/FloatingActionButton.vue";
-import ReadingLayout from "@/components/reader/layout/ReadingLayout.vue";
-import LoadingPlaceholder from "@/components/reader/feedback/LoadingPlaceholder.vue";
-import CommentsPlaceholder from "@/components/reader/feedback/CommentsPlaceholder.vue";
-import FormatSetting from "@/components/reader/interaction/FormatSetting.vue";
-import Renderer from "@/components/markdown/Renderer.vue";
-
-const ContextMenu = defineAsyncComponent(
-  () => import("@/components/reader/interaction/ContextMenu.vue"),
-);
-
 const readerRef = ref(null);
+const readerLayoutClasses = {
+  aside:
+    "lg:[&>aside]:flex lg:[&>aside]:h-[calc(100dvh-2*var(--reader-sticky-top))] lg:[&>aside]:max-h-none lg:[&>aside]:flex-col lg:[&>aside]:overflow-hidden",
+};
 
 const props = defineProps({
   article: {
@@ -613,17 +612,11 @@ const localizedLanguageNames = computed(() => ({
 
 const articleId = computed(() => String(props.article?.id || "").trim());
 const timelinessNoticeAfterDays = computed(() => {
-  const source = props.sourceArticles.find((article) => String(article.id) === articleId.value);
+  const source = props.sourceArticles.find(
+    (article) => String(article.id) === articleId.value,
+  );
   return getArticleTimelinessDays(source || props.article || {});
 });
-const commentCountsStore = useCommentCountsStore();
-const { commentCountsAvailable } = storeToRefs(commentCountsStore);
-const articleComments = computed(() =>
-  commentCountsStore.getContentCommentTotal("article", articleId.value),
-);
-const articleCommentStatus = computed(() =>
-  commentCountsStore.getContentCommentStatus("article", articleId.value),
-);
 const articleReady = computed(
   () =>
     Boolean(articleId.value) &&
@@ -631,70 +624,51 @@ const articleReady = computed(
     !props.loading &&
     !props.error,
 );
-const {
-  analyticsAvailable,
-  contentReads: articleReads,
-  contentReadStatus: articleReadStatus,
-} = useContentReadTracking({
-  contentType: "article",
-  contentId: articleId,
-  ready: articleReady,
-});
-const readCountFormatter = { format: (value) => formatNumber(value) };
-const formatReadCount = (value) => readCountFormatter.format(Number(value));
-
-watch(
-  articleId,
-  (contentId) => {
-    if (!contentId) return;
-    void commentCountsStore.loadContentCommentTotals("article", [
-      { contentId, discussionTerm: contentId },
-    ]);
-  },
-  { immediate: true },
-);
 
 const route = useRoute();
-const router = useRouter();
-
 const readerStore = useReaderStore();
 const { styleConfigs } = storeToRefs(readerStore);
 
-
-const { scrollRef, scrollToTop, scrollToBottom } = useScrollTo();
-const articleTextContextMounted = ref(false);
-const articleTextContextOpen = ref(false);
-const articleTextContext = ref({});
-const openArticleContextMenu = (context) => {
-  if (!context) {
-    articleTextContextOpen.value = false;
-    articleTextContext.value = {};
-    return;
-  }
-
-  articleTextContextMounted.value = true;
-  articleTextContext.value = context;
-  articleTextContextOpen.value = true;
+const handleRefresh = () => {
+  emit("refresh");
 };
+
+const handleBack = () => {
+  emit("back");
+};
+
 const {
+  scrollRef,
+  contextMenuMounted,
+  contextMenuOpen,
+  textContext,
+  openContextSearch,
   handleContextMenu: handleArticleContextMenu,
   handlePointerCancel: handleArticlePointerCancel,
   handlePointerDown: handleArticlePointerDown,
   handlePointerMove: handleArticlePointerMove,
   handlePointerUp: handleArticlePointerUp,
-} = useReaderTextContext({
-  getRoot: () => scrollRef.value,
-  emit: (_eventName, context) => openArticleContextMenu(context),
+  analyticsAvailable,
+  contentReads: articleReads,
+  contentReadStatus: articleReadStatus,
+  commentCountsAvailable,
+  contentComments: articleComments,
+  contentCommentStatus: articleCommentStatus,
+  formatCount: formatReadCount,
+  engagementItems,
+  fabActions,
+} = useReaderShell({
+  readerRef,
+  contentType: "article",
+  contentId: articleId,
+  ready: articleReady,
+  loading: () => props.loading,
+  refreshLabelKey: "blog.article.refresh",
+  onRefresh: handleRefresh,
+  backKey: "back",
+  backLabelKey: "blog.article.back",
+  onBack: handleBack,
 });
-const openArticleContextSearch = (keyword) => {
-  void router.replace({
-    query: {
-      ...route.query,
-      search: "1",
-      q: String(keyword || "").trim() || undefined,
-    },
-  });
-};
 
 const mobile = useMediaQuery("(width < 1024px)");
 const showReaderAside = computed(
@@ -814,49 +788,23 @@ const articleShareMeta = computed(() => {
   ]
     .filter(Boolean)
     .join(" · ");
-  const engagementItems = [
-    analyticsAvailable.value && Number.isFinite(articleReads.value)
-      ? translate(
-          "common.counts.reads",
-          { count: formatReadCount(articleReads.value) },
-          articleReads.value,
-        )
-      : "",
-    commentCountsAvailable.value && Number.isFinite(articleComments.value)
-      ? translate(
-          "common.counts.comments",
-          { count: formatReadCount(articleComments.value) },
-          articleComments.value,
-        )
-      : "",
-  ].filter(Boolean);
-  const engagementInfo = engagementItems.join(" · ");
-  const detailLines = [publicationInfo, contentInfo, engagementInfo].filter(
-    Boolean,
-  );
 
-  return {
-    get sourceLabel() {
-      return translate("blog.article.blog");
-    },
+  return buildReaderShareMeta({
+    sourceLabel: translate("blog.article.blog"),
     title: props.article?.title || "",
-    detail: detailLines.join(" · "),
-    detailLines,
-    detailLineLimit: 3,
-    excludeFromContent: [
+    publicationInfo,
+    contentInfo,
+    engagementItems: engagementItems.value,
+    extraExcludes: [
       ...aliasList.value,
       aliasesText,
       ...tags,
       tags.join(" "),
       ...renderedMetadata,
       renderedMetadata.join(" "),
-      publicationInfo,
-      contentInfo,
-      ...engagementItems,
-      engagementInfo,
-    ].filter(Boolean),
+    ],
     path: route.path,
-  };
+  });
 });
 
 const articleTagsText = computed(() => {
@@ -934,14 +882,6 @@ const handleArticleNavigation = (article, event) => {
   if (articleId) emit("navigate", articleId);
 };
 
-const handleRefresh = () => {
-  emit("refresh");
-};
-
-const handleBack = () => {
-  emit("back");
-};
-
 // 从 article 构建 headerData，传给 Markdown 组件
 const headerData = computed(() => {
   if (!props.article) return null;
@@ -959,57 +899,5 @@ const headerData = computed(() => {
       },
     ],
   };
-});
-
-const fabActions = computed(() => {
-  const actions = [
-    {
-      key: "bottom",
-      get label() {
-        return translate("blog.article.toBottom");
-      },
-      icon: "ri-skip-down-line",
-      buttonClass: "btn-info btn-soft",
-      onClick: scrollToBottom,
-    },
-    {
-      key: "top",
-      get label() {
-        return translate("blog.article.toTop");
-      },
-      icon: "ri-skip-up-line",
-      buttonClass: "btn-info btn-soft",
-      onClick: scrollToTop,
-    },
-    {
-      key: "settings",
-      get label() {
-        return translate("reader.format.title");
-      },
-      icon: "ri-settings-3-line",
-      buttonClass: "btn-primary btn-soft",
-      onClick: () => readerRef.value?.openFormatSetting(),
-    },
-    {
-      key: "refresh",
-      get label() {
-        return translate("blog.article.refresh");
-      },
-      icon: props.loading ? "ri-loader-4-line animate-spin" : "ri-refresh-line",
-      buttonClass: "btn-success btn-soft",
-      onClick: handleRefresh,
-    },
-    {
-      key: "back",
-      get label() {
-        return translate("blog.article.back");
-      },
-      icon: "ri-arrow-go-back-line",
-      buttonClass: "btn-secondary btn-soft",
-      onClick: handleBack,
-    },
-  ];
-
-  return actions;
 });
 </script>

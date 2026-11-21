@@ -1,4 +1,5 @@
 import { getLatexFormula } from "@/utils/reader/latex";
+import { rangeIntersectsNode } from "./dom.js";
 import { captureReaderShareSnapshot, READER_SHARE_SNAPSHOT_SELECTOR } from './share-snapshot.js';
 
 const IGNORED_CONTENT_SELECTOR = [
@@ -86,15 +87,6 @@ const toElement = (node) =>
 const isIgnoredElement = (element) =>
   element.matches(IGNORED_CONTENT_SELECTOR) ||
   Boolean(element.closest(IGNORED_CONTENT_SELECTOR));
-
-const rangeIntersectsNode = (range, node) => {
-  if (!range) return true;
-  try {
-    return range.intersectsNode(node);
-  } catch {
-    return false;
-  }
-};
 
 const selectedTextForNode = (node, range, preserveWhitespace = false) => {
   if (!rangeIntersectsNode(range, node)) return "";

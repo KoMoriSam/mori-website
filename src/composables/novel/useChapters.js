@@ -11,6 +11,7 @@ import {
   useNovelStore,
 } from "@/stores/novel";
 import { getNavbarScrollOffset } from "@/utils/layout/navbar";
+import { waitForReaderLayout } from "@/utils/reader/dom";
 import { moriSession } from '@/composables/auth/useMoriAuth';
 
 export function useChapters() {
@@ -58,13 +59,11 @@ export function useChapters() {
   };
 
   const scrollToReadingStart = async (uuid) => {
-    if (import.meta.env.SSR || typeof window === "undefined" || !moriSession.canReadNovel) return;
+    if (import.meta.env.SSR || !moriSession.canReadNovel) return;
 
     await waitForChapterRender(uuid);
     await nextTick();
-    await new Promise((resolve) => {
-      window.requestAnimationFrame(() => window.requestAnimationFrame(resolve));
-    });
+    await waitForReaderLayout();
 
     if (
       currentChapterUuid.value !== uuid ||

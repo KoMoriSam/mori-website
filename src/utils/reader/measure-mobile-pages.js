@@ -1,11 +1,10 @@
+import { waitForReaderLayout } from "./dom.js";
+
 const PAGE_INDEX_EPSILON = 0.5;
 
 export const roundLayoutPixel = (value) => Math.max(0, Math.round(value));
 
-export const waitForReaderLayout = () =>
-  new Promise((resolve) => {
-    window.requestAnimationFrame(() => window.requestAnimationFrame(resolve));
-  });
+export { waitForReaderLayout };
 
 export const findLastTextRect = (article) => {
   const walker = document.createTreeWalker(article, NodeFilter.SHOW_TEXT);

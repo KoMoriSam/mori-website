@@ -30,7 +30,7 @@
         '--reader-page-offset': `${renderedPageOffset}px`,
         '--reader-chapter-offset': `${chapterEnterOffset}px`,
         height: `${pageHeight}px`,
-        backgroundColor: readerBackgroundColor || undefined,
+        backgroundColor: readerAppearance.backgroundColor || undefined,
       }"
       @pointerdown.capture="handlePointerDown"
       @pointermove.capture="handlePointerMove"
@@ -89,108 +89,17 @@
             chapterSnapshotLeaving && chapterTransitionDirection === 0,
         }"
         :style="{
+          ...chapterSnapshotSurfaceStyle,
           transform: chapterSnapshotTransform,
-          backgroundColor: readerBackgroundColor || undefined,
-          backgroundImage: readerBackgroundImageStyle,
-          backgroundPosition: readerBackgroundImage ? 'center' : undefined,
-          backgroundRepeat: readerBackgroundImage ? 'no-repeat' : undefined,
-          backgroundSize: readerBackgroundImage ? 'cover' : undefined,
         }"
         aria-hidden="true"
       ></div>
 
-      <Transition
-        enter-active-class="transition duration-200 ease-out"
-        enter-from-class="translate-y-2 opacity-0"
-        enter-to-class="translate-y-0 opacity-100"
-        leave-active-class="transition duration-150 ease-in"
-        leave-from-class="translate-y-0 opacity-100"
-        leave-to-class="translate-y-2 opacity-0"
-      >
-        <div
-          v-if="showNavigationHint"
-          class="pointer-events-none absolute inset-0 z-20 grid place-items-center"
-        >
-          <button
-            type="button"
-            data-reader-interactive
-            :aria-label="
-              translate(
-                'reader.paged.help',
-              )
-            "
-            class="alert alert-soft pointer-events-auto block w-[calc(100%-1.5rem)] max-w-sm cursor-pointer border border-base-300 bg-base-100/95 p-3 text-left text-sm shadow-lg backdrop-blur-md"
-            @pointerdown.stop
-            @click.stop="dismissReaderHint"
-          >
-            <span class="block w-full">
-              <span class="flex items-baseline justify-between gap-3">
-                <span class="text-sm font-semibold">{{
-                  translate("reader.paged.controls")
-                }}</span>
-                <span class="text-[0.6875rem] text-base-content/45">
-                  {{ translate("reader.paged.dismissHint") }}
-                </span>
-              </span>
-
-              <span class="mt-2.5 grid grid-cols-2 gap-2">
-                <span
-                  class="rounded-box bg-base-200/75 px-2.5 py-2 text-center"
-                >
-                  <i
-                    class="ri-grid-line block text-xl leading-none text-base-content/75"
-                    aria-hidden="true"
-                  ></i>
-                  <span class="mt-1.5 block text-xs font-semibold">
-                    {{ translate("reader.paged.tapActions") }}
-                  </span>
-                  <span
-                    class="mt-0.5 block text-[0.6875rem] text-base-content/55"
-                  >
-                    {{ translate("reader.paged.centerHint")
-                    }}<br />
-                    {{ translate("reader.paged.edgeHint") }}
-                  </span>
-                </span>
-
-                <span
-                  class="rounded-box bg-base-200/75 px-2.5 py-2 text-center"
-                >
-                  <i
-                    class="ri-drag-move-line block text-xl leading-none text-base-content/75"
-                    aria-hidden="true"
-                  ></i>
-                  <span class="mt-1.5 block text-xs font-semibold">
-                    {{ translate("reader.paged.swipe") }}
-                  </span>
-                  <span
-                    class="mt-0.5 block text-[0.6875rem] text-base-content/55"
-                  >
-                    {{ translate("reader.paged.textArea") }}<br />{{
-                      translate("reader.paged.swipeHint")
-                    }}
-                  </span>
-                </span>
-              </span>
-
-              <span
-                class="mt-2.5 flex items-baseline gap-2 border-t border-base-300 pt-2 text-xs"
-              >
-                <span class="shrink-0 font-semibold">{{
-                  translate("reader.paged.moreControls")
-                }}</span>
-                <span class="text-base-content/60">
-                  {{
-                    translate(
-                      "reader.paged.zonesHint",
-                    )
-                  }}
-                </span>
-              </span>
-            </span>
-          </button>
-        </div>
-      </Transition>
+      <MobileReaderHint
+        :visible="showNavigationHint"
+        mode="paged"
+        @dismiss="dismissReaderHint"
+      />
     </div>
 
     <ChapterToc
@@ -228,6 +137,7 @@ import { useRoute } from "vue-router";
 import ChapterHeader from "@/components/novel/ChapterHeader.vue";
 import PageFootnotes from "./PageFootnotes.vue";
 import ChapterToc from "@/components/novel/ChapterToc.vue";
+import MobileReaderHint from "@/components/novel/mobile/display/MobileReaderHint.vue";
 import Renderer from "@/components/markdown/Renderer.vue";
 import { useChapters } from "@/composables/novel/useChapters";
 import { useReadingStateStorage } from "@/composables/storage/useReadingStateStorage";
@@ -255,7 +165,10 @@ import { usePagedReadingPosition } from "@/composables/novel/usePagedReadingPosi
 import { usePaginationScheduler } from "@/composables/novel/usePaginationScheduler";
 import { usePaginationObservers } from "@/composables/novel/usePaginationObservers";
 import { usePagedFootnoteLayout } from "@/composables/novel/usePagedFootnoteLayout";
-import { getReaderBackgroundImageUrl } from "@/constants/reader";
+import {
+  getReaderSurfaceStyle,
+  resolveReaderAppearance,
+} from "@/utils/reader/reader-appearance";
 import {
   prepareMobileTables,
   restoreMobileTables,
@@ -358,21 +271,15 @@ let forcePaginationResetPending = true;
 let takeMutationRecords = () => {};
 
 const pageStride = computed(() => pageWidth.value + PAGE_GAP);
-const readerBackgroundColor = computed(() =>
-  props.styleConfigs.backgroundType === "image"
-    ? ""
-    : props.styleConfigs.backgroundColor || "",
+const readerAppearance = computed(() =>
+  resolveReaderAppearance(props.styleConfigs),
 );
-const readerBackgroundImage = computed(() =>
-  props.styleConfigs.backgroundType === "image"
-    ? getReaderBackgroundImageUrl(props.styleConfigs.backgroundImage)
-    : "",
-);
-const readerBackgroundImageStyle = computed(() =>
-  readerBackgroundImage.value
-    ? `url("${readerBackgroundImage.value.replaceAll('"', '\\"')}")`
-    : undefined,
-);
+const chapterSnapshotSurfaceStyle = computed(() => {
+  const { color: _color, ...surface } = getReaderSurfaceStyle(
+    props.styleConfigs,
+  );
+  return surface;
+});
 const pageOffset = computed(() => (currentPage.value - 1) * pageStride.value);
 // 移动端浏览器偶尔会在多栏布局稳定前保留一个没有内容的首栏。
 // 该偏移只折叠浏览器生成的空栏，不改变对外暴露的章节页码。
@@ -1746,4 +1653,4 @@ defineExpose({ triggerReaderHint, goToPage, turnChapter, turnPage });
 }));
 </script>
 
-<style scoped src="@/assets/mobile-reader.css"></style>
+<style scoped src="@/assets/reader/mobile/pagination.css"></style>

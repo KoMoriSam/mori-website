@@ -3,13 +3,9 @@
     ref="readerRef"
     :toc="!isMobileReader"
     :aside="!isMobileReader"
-    :page-class="readerPageClass"
+    :classes="readerLayoutClasses"
     :page-style="readerPageStyle"
     :page-theme="readerPageTheme"
-    :container-class="readerContainerClass"
-    :grid-class="readerGridClass"
-    :content-class="readerContentClass"
-    aside-class="lg:[&>aside]:flex lg:[&>aside]:flex-col"
   >
     <template #toc="{ progress }">
       <ChapterToc :page-progress="progress" />
@@ -138,9 +134,9 @@
         </div>
       </Transition>
 
-      <ContextMenu
-        v-if="ContextMenuMounted"
-        v-model="textContextOpen"
+      <ReaderContextMenu
+        v-if="contextMenuMounted"
+        v-model="contextMenuOpen"
         :context="textContext"
         :share-meta="textShareMeta"
         @search="openContextSearch"
@@ -255,60 +251,75 @@
 </template>
 
 <script setup>
-import { bookTerm } from "@/../shared/discussions.js";
-import { provideMarkdownAvatars } from "@/composables/markdown/useMarkdownAvatars";
-import { novelAssetBase } from "@/services/novel-release";
-provideMarkdownAvatars(novelAssetBase);
-import { useLocale } from "@/i18n";
-import { FULL_DATE_OPTIONS } from "@/i18n/format-date.js";
-const {
-  t: translate,
-  number: formatNumber,
-  date: formatLocalizedDate,
-} = useLocale();
-
-import { storeToRefs } from "pinia";
-import { useCommentCountsStore } from "@/stores/comment-counts";
-import { useNovelStore } from "@/stores/novel";
-import { useReaderStore } from "@/stores/reader";
-
-import Thread from "@/components/comments/Thread.vue";
-import ReadingLayout from "@/components/reader/layout/ReadingLayout.vue";
-import LoadingPlaceholder from "@/components/reader/feedback/LoadingPlaceholder.vue";
 import {
-  READER_PAGE_CLASS, READER_GRID_CLASS, MOBILE_READER_PAGE_CLASS,
-  MOBILE_READER_CONTAINER_CLASS, MOBILE_READER_GRID_CLASS, MOBILE_READER_CONTENT_CLASS,
-} from '@/constants/reader-layout';
-import ChapterToc from "@/components/novel/ChapterToc.vue";
-import ChapterController from "@/components/novel/ChapterController.vue";
-import ChapterHeader from "@/components/novel/ChapterHeader.vue";
-import PagedReader from "@/components/novel/mobile/layout/PagedReader.vue";
-import ScrollReader from "@/components/novel/mobile/layout/ScrollReader.vue";
-import ReaderControls from "@/components/novel/mobile/controls/ReaderControls.vue";
-import ReaderStatusBar from "@/components/novel/mobile/display/ReaderStatusBar.vue";
-import FormatSetting from "@/components/reader/interaction/FormatSetting.vue";
-import Renderer from "@/components/markdown/Renderer.vue";
-import FloatingActionButton from "@/components/interaction/controls/FloatingActionButton.vue";
-
-
+  computed,
+  nextTick,
+  onActivated,
+  onBeforeUnmount,
+  onDeactivated,
+  onMounted,
+  ref,
+  watch,
+} from "vue";
+import { storeToRefs } from "pinia";
 import { useMediaQuery } from "@vueuse/core";
 import { useRoute, useRouter } from "vue-router";
+
+import { bookTerm } from "@/../shared/discussions.js";
+import Thread from "@/components/comments/Thread.vue";
+import FloatingActionButton from "@/components/interaction/controls/FloatingActionButton.vue";
+import Renderer from "@/components/markdown/Renderer.vue";
+import ChapterController from "@/components/novel/ChapterController.vue";
+import ChapterHeader from "@/components/novel/ChapterHeader.vue";
+import ChapterToc from "@/components/novel/ChapterToc.vue";
+import ReaderControls from "@/components/novel/mobile/controls/ReaderControls.vue";
+import ReaderStatusBar from "@/components/novel/mobile/display/ReaderStatusBar.vue";
+import PagedReader from "@/components/novel/mobile/layout/PagedReader.vue";
+import ScrollReader from "@/components/novel/mobile/layout/ScrollReader.vue";
+import LoadingPlaceholder from "@/components/reader/feedback/LoadingPlaceholder.vue";
+import FormatSetting from "@/components/reader/interaction/FormatSetting.vue";
+import ReadingLayout from "@/components/reader/layout/ReadingLayout.vue";
+import { provideMarkdownAvatars } from "@/composables/markdown/useMarkdownAvatars";
 import { useCommentScope } from "@/composables/novel/useCommentScope";
-import { usePosTracker } from "@/composables/usePosTracker";
-import { useScrollTo } from "@/composables/useScrollTo";
-import { useReaderTextContext } from "@/composables/reader/useReaderTextContext";
-import { useContentReadTracking } from "@/composables/reader/useContentReadTracking";
+import {
+  ReaderContextMenu,
+  buildReaderShareMeta,
+  useReaderShell,
+} from "@/composables/reader/useReaderShell";
 import { useModalClose } from "@/composables/useModal";
+import { usePosTracker } from "@/composables/usePosTracker";
+import {
+  MOBILE_READER_VOLUME_KEY_EVENT,
+  MOBILE_READING_MODES,
+} from "@/constants/reader";
+import {
+  MOBILE_READER_CONTAINER_CLASS,
+  MOBILE_READER_CONTENT_CLASS,
+  MOBILE_READER_GRID_CLASS,
+  MOBILE_READER_PAGE_CLASS,
+  READER_GRID_CLASS,
+  READER_PAGE_CLASS,
+} from "@/constants/reader-layout";
+import { useLocale } from "@/i18n";
+import { FULL_DATE_OPTIONS } from "@/i18n/format-date.js";
+import { novelAssetBase } from "@/services/novel-release";
+import { useNovelStore } from "@/stores/novel";
+import { useReaderStore } from "@/stores/reader";
 import {
   getChapterContextTitle,
   getChapterDisplayTitle,
 } from "@/utils/novel/format-label";
 import {
-  MOBILE_READING_MODES,
-  MOBILE_READER_VOLUME_KEY_EVENT,
-  getReaderBackgroundImage,
-  getReaderBackgroundImageUrl,
-} from "@/constants/reader";
+  getReaderSurfaceStyle,
+  resolveReaderAppearance,
+} from "@/utils/reader/reader-appearance";
+
+provideMarkdownAvatars(novelAssetBase);
+
+const {
+  t: translate,
+  date: formatLocalizedDate,
+} = useLocale();
 
 const novelStore = useNovelStore();
 const {
@@ -318,16 +329,41 @@ const {
   isLoadingContent,
 } = storeToRefs(novelStore);
 
+const readerStore = useReaderStore();
+const {
+  styleConfigs,
+  mobileReadingMode,
+  mobileTapZones,
+  mobileWheelPagination,
+  mobileVolumePagination,
+} = storeToRefs(readerStore);
+
 const router = useRouter();
 const route = useRoute();
+const isMobileReader = useMediaQuery("(max-width: 1023px)");
+const isDesktopReader = computed(() => !isMobileReader.value);
+
+const stopNovelPosTracker = ref(null);
+const readerRef = ref(null);
+const trackedReaderContext = ref("");
+const mobileReaderControlsOpen = ref(false);
+const mobileChapterLoading = ref(false);
+const activeMobileReaderRef = ref(null);
+const mobileReaderControlsRef = ref(null);
+const chapterCommentsDialogRef = ref(null);
+const chapterCommentsStarted = ref(false);
+const restoreMobileScrollToChapterStart = ref(false);
+let mobileControlOpenTimer = 0;
+const mobileControllerState = ref({
+  currentPage: 1,
+  totalPages: 1,
+  paginationReady: false,
+  readingProgress: 0,
+  pageProgress: 0,
+});
 
 const trackedChapterId = computed(() =>
   String(currentChapterUuid.value || "").trim(),
-);
-const commentCountsStore = useCommentCountsStore();
-const { commentCountsAvailable } = storeToRefs(commentCountsStore);
-const chapterComments = computed(() =>
-  commentCountsStore.getContentCommentTotal("novel", trackedChapterId.value),
 );
 const trackedChapterReady = computed(() => {
   const chapterId = trackedChapterId.value;
@@ -343,71 +379,75 @@ const trackedChapterReady = computed(() => {
     currentChapterContent.value.length > 0,
   );
 });
-const { analyticsAvailable, contentReads: chapterReads } =
-  useContentReadTracking({
-    contentType: "novel",
-    contentId: trackedChapterId,
-    ready: trackedChapterReady,
-  });
-const chapterReadCountFormatter = { format: (value) => formatNumber(value) };
+
+const { currentMapping, commentToggle } = useCommentScope();
+const commentVersion = ref(0);
+const commentTerm = computed(() =>
+  currentMapping.value === "title"
+    ? getChapterContextTitle(currentChapter.value)
+    : bookTerm,
+);
+const commentKey = computed(
+  () => `${currentMapping.value}-${commentTerm.value}-${commentVersion.value}`,
+);
+const remountComments = () => {
+  commentVersion.value += 1;
+};
 
 watch(
-  () => [trackedChapterId.value, getChapterContextTitle(currentChapter.value)],
-  ([contentId, discussionTerm]) => {
-    if (!contentId || !discussionTerm) return;
-    void commentCountsStore.loadContentCommentTotals("novel", [
-      { contentId, discussionTerm },
-    ]);
+  () => [currentChapterUuid.value, currentMapping.value],
+  () => {
+    remountComments();
   },
   { immediate: true },
 );
 
-const readerStore = useReaderStore();
+const handleRefreshContent = async () => {
+  if (isLoadingContent.value) return;
+  await novelStore.refreshChapters();
+  await novelStore.loadChapterContent(true);
+  remountComments();
+};
+
 const {
-  styleConfigs,
-  mobileReadingMode,
-  mobileTapZones,
-  mobileWheelPagination,
-  mobileVolumePagination,
-} = storeToRefs(readerStore);
-
-
-import {
-  computed,
-  defineAsyncComponent,
-  onActivated,
-  onBeforeUnmount,
-  onDeactivated,
-  onMounted,
-  nextTick,
-  ref,
-  watch,
-} from "vue";
-
-const ContextMenu = defineAsyncComponent(
-  () => import("@/components/reader/interaction/ContextMenu.vue"),
-);
-
-const stopNovelPosTracker = ref(null);
-const readerRef = ref(null);
-const trackedReaderContext = ref("");
-const mobileReaderControlsOpen = ref(false);
-const mobileChapterLoading = ref(false);
-const ContextMenuMounted = ref(false);
-const textContextOpen = ref(false);
-const textContext = ref({});
-const activeMobileReaderRef = ref(null);
-const mobileReaderControlsRef = ref(null);
-const chapterCommentsDialogRef = ref(null);
-const chapterCommentsStarted = ref(false);
-const restoreMobileScrollToChapterStart = ref(false);
-let mobileControlOpenTimer = 0;
-const mobileControllerState = ref({
-  currentPage: 1,
-  totalPages: 1,
-  paginationReady: false,
-  readingProgress: 0,
-  pageProgress: 0,
+  scrollRef,
+  scrollToTop,
+  contextMenuMounted,
+  contextMenuOpen,
+  textContext,
+  openContextMenu,
+  openContextSearch,
+  handleContextMenu: handleReaderContextMenu,
+  handlePointerCancel: handleReaderPointerCancel,
+  handlePointerDown: handleReaderPointerDown,
+  handlePointerMove: handleReaderPointerMove,
+  handlePointerUp: handleReaderPointerUp,
+  analyticsAvailable,
+  contentReads: chapterReads,
+  formatCount: formatReadCount,
+  engagementItems,
+  fabActions,
+} = useReaderShell({
+  readerRef,
+  contentType: "novel",
+  contentId: trackedChapterId,
+  discussionTerm: () => getChapterContextTitle(currentChapter.value),
+  ready: trackedChapterReady,
+  loading: isLoadingContent,
+  contextEnabled: isDesktopReader,
+  onContextSearch: (keyword) => {
+    if (!isMobileReader.value) return false;
+    void openMobileControl("search", keyword);
+    return true;
+  },
+  refreshLabelKey: "novel.reader.refreshContent",
+  onRefresh: handleRefreshContent,
+  backKey: "cover",
+  backLabelKey: "novel.reader.cover",
+  onBack: () => {
+    scrollToTop();
+    router.push({ name: "novel" });
+  },
 });
 
 const updateMobileControllerState = (state = {}) => {
@@ -484,30 +524,6 @@ const handleMobileReaderAction = (action) => {
     void openMobileControl(action);
   } else if (action === "help") callMobileReaderAction("triggerReaderHint");
 };
-const openContextMenu = (context) => {
-  if (!context) {
-    textContextOpen.value = false;
-    textContext.value = {};
-    return;
-  }
-  ContextMenuMounted.value = true;
-  textContext.value = context || {};
-  textContextOpen.value = true;
-};
-const openContextSearch = (keyword) => {
-  if (isMobileReader.value) {
-    void openMobileControl("search", keyword);
-    return;
-  }
-
-  void router.replace({
-    query: {
-      ...route.query,
-      search: "1",
-      q: String(keyword || "").trim() || undefined,
-    },
-  });
-};
 const handleNativeVolumeKey = (event) => {
   if (!isMobileReader.value || !mobileVolumePagination.value) return;
   const direction = event.detail?.direction;
@@ -527,32 +543,7 @@ const handleVolumeKeydown = (event) => {
     callMobileReaderAction("turnPage", -1);
   }
 };
-const isMobileReader = useMediaQuery("(max-width: 1023px)");
-const {
-  handleContextMenu: handleDesktopContextMenu,
-  handlePointerCancel: handleDesktopPointerCancel,
-  handlePointerDown: handleDesktopPointerDown,
-  handlePointerMove: handleDesktopPointerMove,
-  handlePointerUp: handleDesktopPointerUp,
-} = useReaderTextContext({
-  getRoot: () => (isMobileReader.value ? null : scrollRef.value),
-  emit: (_eventName, context) => openContextMenu(context),
-});
-const handleReaderContextMenu = (event) => {
-  if (!isMobileReader.value) handleDesktopContextMenu(event);
-};
-const handleReaderPointerDown = (event) => {
-  if (!isMobileReader.value) handleDesktopPointerDown(event);
-};
-const handleReaderPointerMove = (event) => {
-  if (!isMobileReader.value) handleDesktopPointerMove(event);
-};
-const handleReaderPointerUp = (event) => {
-  if (!isMobileReader.value) handleDesktopPointerUp(event);
-};
-const handleReaderPointerCancel = () => {
-  if (!isMobileReader.value) handleDesktopPointerCancel();
-};
+
 const isPagedMobileReader = computed(
   () => mobileReadingMode.value === MOBILE_READING_MODES.PAGED,
 );
@@ -569,113 +560,31 @@ watch(
   },
   { flush: "sync" },
 );
-const hasCustomReaderAppearance = computed(() =>
-  Boolean(
-    styleConfigs.value.textColor ||
-    styleConfigs.value.backgroundColor ||
-    (styleConfigs.value.backgroundType === "image" &&
-      styleConfigs.value.backgroundImage),
-  ),
+
+const readerAppearance = computed(() =>
+  resolveReaderAppearance(styleConfigs.value),
 );
-const readerBackgroundImageConfig = computed(() =>
-  styleConfigs.value.backgroundType === "image" &&
-  styleConfigs.value.backgroundImage
-    ? getReaderBackgroundImage(styleConfigs.value.backgroundImage)
-    : undefined,
-);
-const readerPageTheme = computed(() => {
-  if (!isMobileReader.value) return "";
-  const colorTheme =
-    readerBackgroundImageConfig.value?.colorTheme ||
-    styleConfigs.value.colorTheme;
-  return ["lemonade", "forest", "corporate", "dim"].includes(colorTheme)
-    ? colorTheme
-    : "";
-});
-const usesCustomReaderColors = computed(
-  () =>
-    isMobileReader.value &&
-    (styleConfigs.value.colorTheme === "custom" ||
-      hasCustomReaderAppearance.value),
+const readerPageTheme = computed(() =>
+  isMobileReader.value ? readerAppearance.value.semanticTheme : "",
 );
 const readerCustomTextColor = computed(() =>
-  usesCustomReaderColors.value
-    ? styleConfigs.value.textColor ||
-      readerBackgroundImageConfig.value?.textColor ||
-      ""
-    : "",
+  isMobileReader.value ? readerAppearance.value.textColor : "",
 );
 const readerCustomBackgroundColor = computed(() =>
-  usesCustomReaderColors.value && styleConfigs.value.backgroundType !== "image"
-    ? styleConfigs.value.backgroundColor
-    : "",
+  isMobileReader.value ? readerAppearance.value.backgroundColor : "",
 );
-const readerCustomBackgroundImage = computed(() =>
-  usesCustomReaderColors.value &&
-  styleConfigs.value.backgroundType === "image" &&
-  styleConfigs.value.backgroundImage
-    ? getReaderBackgroundImage(styleConfigs.value.backgroundImage)
+const readerPageStyle = computed(() =>
+  isMobileReader.value
+    ? getReaderSurfaceStyle(styleConfigs.value, { includeThemeVars: true })
     : undefined,
 );
-const readerPageStyle = computed(() => {
-  if (!isMobileReader.value) return undefined;
-
-  const textColor = readerCustomTextColor.value;
-  const backgroundColor = readerCustomBackgroundColor.value;
-  const backgroundImage = readerCustomBackgroundImage.value;
-  const backgroundImageUrl = getReaderBackgroundImageUrl(backgroundImage?.id);
-  const backgroundImageStyle = backgroundImageUrl
-    ? `url("${backgroundImageUrl.replaceAll('"', '\\"')}")`
-    : undefined;
-  const darkBackgroundImage = ["forest", "dim"].includes(
-    backgroundImage?.colorTheme,
-  );
-  return {
-    color: textColor || undefined,
-    backgroundColor: backgroundColor || undefined,
-    backgroundImage: backgroundImageStyle,
-    backgroundPosition: backgroundImage ? "center" : undefined,
-    backgroundRepeat: backgroundImage ? "no-repeat" : undefined,
-    backgroundSize: backgroundImage ? "cover" : undefined,
-    "--reader-text-color": textColor || "var(--color-base-content)",
-    "--color-base-content": textColor || undefined,
-    "--color-base-100": backgroundColor || undefined,
-    "--color-base-200": backgroundColor
-      ? `color-mix(in oklab, ${backgroundColor} 94%, ${textColor || "black"})`
-      : undefined,
-    "--color-base-300": backgroundColor
-      ? `color-mix(in oklab, ${backgroundColor} 88%, ${textColor || "black"})`
-      : undefined,
-    "--reader-loading-overlay-color": backgroundImage
-      ? darkBackgroundImage
-        ? "rgb(0 0 0 / 0.8)"
-        : "rgb(255 255 255 / 0.8)"
-      : undefined,
-    "--reader-loading-overlay-content": backgroundImage
-      ? darkBackgroundImage
-        ? "rgb(255 255 255 / 0.75)"
-        : "rgb(0 0 0 / 0.7)"
-      : undefined,
-  };
-});
-const readerPageClass = computed(() =>
-  isMobileReader.value
-    ? MOBILE_READER_PAGE_CLASS
-    : READER_PAGE_CLASS,
-);
-const readerContainerClass = computed(() =>
-  isMobileReader.value ? MOBILE_READER_CONTAINER_CLASS : "py-6",
-);
-const readerGridClass = computed(() =>
-  isMobileReader.value
-    ? MOBILE_READER_GRID_CLASS
-    : READER_GRID_CLASS,
-);
-const readerContentClass = computed(() =>
-  isMobileReader.value
-    ? MOBILE_READER_CONTENT_CLASS
-    : "",
-);
+const readerLayoutClasses = computed(() => ({
+  page: isMobileReader.value ? MOBILE_READER_PAGE_CLASS : READER_PAGE_CLASS,
+  container: isMobileReader.value ? MOBILE_READER_CONTAINER_CLASS : "py-6",
+  grid: isMobileReader.value ? MOBILE_READER_GRID_CLASS : READER_GRID_CLASS,
+  content: isMobileReader.value ? MOBILE_READER_CONTENT_CLASS : "",
+  aside: "lg:[&>aside]:flex lg:[&>aside]:flex-col",
+}));
 
 const disposeNovelPosTracker = () => {
   if (typeof stopNovelPosTracker.value === "function") {
@@ -687,7 +596,7 @@ const disposeNovelPosTracker = () => {
 };
 
 const setupNovelPosTracker = () => {
-  if (typeof window === "undefined") return;
+  if (import.meta.env.SSR) return;
 
   const chapterId = String(currentChapterUuid.value || "");
   const permalink = novelStore.getPermalinkByUuid(chapterId);
@@ -762,31 +671,6 @@ onBeforeUnmount(() => {
   );
 });
 
-const { currentMapping, commentToggle } = useCommentScope();
-
-const commentVersion = ref(0);
-
-const commentTerm = computed(() =>
-  currentMapping.value === "title"
-    ? getChapterContextTitle(currentChapter.value)
-    : bookTerm,
-);
-const commentKey = computed(
-  () => `${currentMapping.value}-${commentTerm.value}-${commentVersion.value}`,
-);
-
-const remountComments = () => {
-  commentVersion.value += 1;
-};
-
-watch(
-  () => [currentChapterUuid.value, currentMapping.value],
-  () => {
-    remountComments();
-  },
-  { immediate: true },
-);
-
 const chapterHeaderData = computed(() => ({
   title: currentChapter.value?.title || "",
   uuid: currentChapterUuid.value,
@@ -825,7 +709,11 @@ const chapterStats = computed(() => {
   stats.push({
     icon: "ri-file-text-line",
     get text() {
-      return translate("common.counts.aboutCharacters", { count: currentChapter.value?.length || 0 }, currentChapter.value?.length || 0);
+      return translate(
+        "common.counts.aboutCharacters",
+        { count: currentChapter.value?.length || 0 },
+        currentChapter.value?.length || 0,
+      );
     },
   });
 
@@ -833,7 +721,11 @@ const chapterStats = computed(() => {
     stats.push({
       icon: "ri-eye-line",
       get text() {
-        return translate("common.counts.reads", { count: chapterReadCountFormatter.format(chapterReads.value) }, chapterReads.value);
+        return translate(
+          "common.counts.reads",
+          { count: formatReadCount(chapterReads.value) },
+          chapterReads.value,
+        );
       },
     });
   }
@@ -851,102 +743,25 @@ const textShareMeta = computed(() => {
     .map(({ text }) => text)
     .filter(Boolean);
   const contentInfo = contentItems.join(" · ");
-  const engagementItems = [
-    analyticsAvailable.value && Number.isFinite(chapterReads.value)
-      ? translate("common.counts.reads", { count: chapterReadCountFormatter.format(chapterReads.value) }, chapterReads.value)
-      : "",
-    commentCountsAvailable.value && Number.isFinite(chapterComments.value)
-      ? translate("common.counts.comments", { count: chapterReadCountFormatter.format(chapterComments.value) }, chapterComments.value)
-      : "",
-  ].filter(Boolean);
-  const engagementInfo = engagementItems.join(" · ");
-  const detailLines = [publicationInfo, contentInfo, engagementInfo].filter(
-    Boolean,
-  );
   const sourceLabel = ["《向远方》", currentChapter.value?.volumeTitle]
     .filter(Boolean)
     .join(" · ");
-
-  return {
+  const meta = buildReaderShareMeta({
     sourceLabel,
     title: currentChapter.value?.title || "",
-    detail: detailLines.join(" · "),
-    detailLines,
-    detailLineLimit: 3,
-    excludeFromContent: [
-      currentChapter.value?.volumeTitle,
-      publicationInfo,
-      ...contentItems,
-      contentInfo,
-      ...engagementItems,
-      engagementInfo,
-      detailLines.join(" "),
-    ].filter(Boolean),
+    publicationInfo,
+    contentInfo,
+    engagementItems: engagementItems.value,
+    extraExcludes: [currentChapter.value?.volumeTitle, ...contentItems],
     path: route.path,
+  });
+
+  return {
+    ...meta,
+    excludeFromContent: [
+      ...meta.excludeFromContent,
+      meta.detailLines.join(" "),
+    ].filter(Boolean),
   };
 });
-
-const handleRefreshContent = async () => {
-  if (isLoadingContent.value) return;
-  await novelStore.refreshChapters();
-  await novelStore.loadChapterContent(true);
-  remountComments();
-};
-
-const fabActions = computed(() => [
-  {
-    key: "bottom",
-    get label() {
-      return translate("blog.article.toBottom");
-    },
-    icon: "ri-skip-down-line",
-    buttonClass: "btn-info btn-soft",
-    onClick: () => scrollToBottom(),
-  },
-  {
-    key: "top",
-    get label() {
-      return translate("blog.article.toTop");
-    },
-    icon: "ri-skip-up-line",
-    buttonClass: "btn-info btn-soft",
-    onClick: () => scrollToTop(),
-  },
-  {
-    key: "settings",
-    get label() {
-      return translate("reader.format.title");
-    },
-    icon: "ri-settings-3-line",
-    buttonClass: "btn-primary btn-soft",
-    onClick: () => readerRef.value?.openFormatSetting(),
-  },
-  {
-    key: "refresh",
-    get label() {
-      return translate("novel.reader.refreshContent");
-    },
-    icon: isLoadingContent.value
-      ? "ri-loader-4-line animate-spin"
-      : "ri-refresh-line",
-    buttonClass: "btn-success btn-soft",
-    onClick: handleRefreshContent,
-  },
-  {
-    key: "cover",
-    get label() {
-      return translate("novel.reader.cover");
-    },
-    icon: "ri-arrow-go-back-line",
-    buttonClass: "btn-secondary btn-soft",
-    onClick: () => {
-      scrollToTop();
-      router.push({
-        name: "novel",
-      });
-    },
-  },
-]);
-
-const { scrollRef, scrollToTop, scrollToBottom } = useScrollTo();
 </script>
